@@ -1,0 +1,280 @@
+<script type="module">
+// ── FIREBASE AUTH + FIRESTORE STORAGE ENGINE ──
+// All app data lives in Firestore (project: advance-intranet). This module:
+//   1. requires Google sign-in with an @advancepsychotherapy.org account,
+//   2. implements the same async window.storage API the app was written
+//      against (get/set/delete/list), backed by Firestore instead of
+//      localStorage — so edits persist and sync for the whole team,
+//   3. maps the signed-in user to their staff record & role so the UI and
+//      the server-side security rules agree.
+//
+// Field-level security: each staff record is split across three collections —
+//   staff/{id}            professional/roster fields (all signed-in staff)
+//   staffPrivate/{id}     home address & DOB (that person + admins)
+//   staffCredentials/{id} CAQH & PECOS logins (admins only)
+// The split/merge is transparent to the rest of the app, which still sees a
+// single STAFF array. Firestore rules (firestore.rules) enforce access
+// server-side; non-admin reads of restricted collections simply fail and the
+// corresponding fields are absent.
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAwTeYG1LLJ5SjenLrNmwOkw9B9vH40ieg", // public client identifier, not a secret
+  authDomain: "advance-intranet.firebaseapp.com",
+  projectId: "advance-intranet",
+  storageBucket: "advance-intranet.firebasestorage.app",
+  messagingSenderId: "129542630254",
+  appId: "1:129542630254:web:fe9a6ec4b025298c3f2f7f"
+};
+const DOMAIN = 'advancepsychotherapy.org';
+const BOOTSTRAP_ADMINS = ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
+const PRIVATE_FIELDS = ['Address', 'DOB', 'Credentialing DOB'];
+const CRED_FIELDS = ['CAQH Username', 'CAQH Password', 'PECOS username', 'PECOS password'];
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+// Last-written JSON per doc, so saves only write what actually changed.
+const _last = { staff: {}, priv: {}, cred: {}, photos: {}, roles: {} };
+
+function splitRecord(rec) {
+  const main = { ...rec };
+  delete main._id;
+  const priv = {}, cred = {};
+  PRIVATE_FIELDS.forEach(f => { if (f in main) { priv[f] = main[f]; delete main[f]; } });
+  CRED_FIELDS.forEach(f => { if (f in main) { cred[f] = main[f]; delete main[f]; } });
+  return { main, priv, cred };
+}
+
+async function tryGetDocs(name) {
+  try { return await getDocs(collection(db, name)); } catch (e) { return null; }
+}
+
+// Assemble the full STAFF array from the three collections. Restricted
+// collections that this user can't read are skipped; a non-admin still gets
+// their OWN private doc (address/DOB) via a direct per-doc read.
+async function loadStaffArray() {
+  const snap = await getDocs(collection(db, 'staff')); // throws if signed-out → caller returns null
+  const priv = {}, cred = {};
+  const pSnap = await tryGetDocs('staffPrivate');
+  if (pSnap) pSnap.forEach(d => priv[d.id] = d.data());
+  const cSnap = await tryGetDocs('staffCredentials');
+  if (cSnap) cSnap.forEach(d => cred[d.id] = d.data());
+  const arr = [];
+  snap.forEach(d => arr.push({ ...d.data(), _id: d.id }));
+  if (!pSnap) {
+    const email = (auth.currentUser && auth.currentUser.email || '').toLowerCase();
+    const mine = arr.find(r => String(r['Email Address'] || '').trim().toLowerCase() === email);
+    if (mine) {
+      try {
+        const pd = await getDoc(doc(db, 'staffPrivate', mine._id));
+        if (pd.exists()) priv[mine._id] = pd.data();
+      } catch (e) { /* rules said no — fine */ }
+    }
+  }
+  const out = arr.map(r => ({ ...r, ...(priv[r._id] || {}), ...(cred[r._id] || {}) }));
+  _last.staff = {}; _last.priv = {}; _last.cred = {};
+  out.forEach(r => {
+    const s = splitRecord(r);
+    _last.staff[r._id] = JSON.stringify(s.main);
+    if (priv[r._id]) _last.priv[r._id] = JSON.stringify(s.priv);
+    if (cred[r._id]) _last.cred[r._id] = JSON.stringify(s.cred);
+  });
+  return out;
+}
+
+async function commitOps(ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + 400).forEach(op =>
+      op.del ? batch.delete(doc(db, op.coll, op.id))
+             : batch.set(doc(db, op.coll, op.id), op.data));
+    await batch.commit();
+  }
+  ops.forEach(op => {
+    const m = _last[op.cacheKey];
+    if (op.del) delete m[op.id]; else m[op.id] = op.json;
+  });
+}
+
+async function saveStaffArray(json) {
+  const arr = JSON.parse(json);
+  const admin = !!window.ADMIN_SESSION;
+  let ops = [];
+  const seen = new Set();
+  arr.forEach(rec => {
+    if (!rec || !rec._id) return;
+    seen.add(rec._id);
+    const { main, priv, cred } = splitRecord(rec);
+    const mainJ = JSON.stringify(main);
+    if (_last.staff[rec._id] !== mainJ)
+      ops.push({ coll: 'staff', id: rec._id, data: main, cacheKey: 'staff', json: mainJ });
+    const privJ = JSON.stringify(priv);
+    if ((Object.keys(priv).length || _last.priv[rec._id]) && _last.priv[rec._id] !== privJ)
+      ops.push({ coll: 'staffPrivate', id: rec._id, data: priv, cacheKey: 'priv', json: privJ });
+    if (admin) {
+      const credJ = JSON.stringify(cred);
+      if ((Object.keys(cred).length || _last.cred[rec._id]) && _last.cred[rec._id] !== credJ)
+        ops.push({ coll: 'staffCredentials', id: rec._id, data: cred, cacheKey: 'cred', json: credJ });
+    }
+  });
+  Object.keys(_last.staff).forEach(id => {
+    if (seen.has(id)) return;
+    ops.push({ del: true, coll: 'staff', id, cacheKey: 'staff' });
+    if (_last.priv[id]) ops.push({ del: true, coll: 'staffPrivate', id, cacheKey: 'priv' });
+    if (admin && _last.cred[id]) ops.push({ del: true, coll: 'staffCredentials', id, cacheKey: 'cred' });
+  });
+  // Non-admins may only touch their own record (rules enforce this; filtering
+  // here keeps an unrelated denied write from failing their whole batch).
+  if (!admin) ops = ops.filter(op => op.id === window.AUTH_STAFF_ID);
+  if (!ops.length) return;
+  await commitOps(ops);
+  syncUserRoles();
+}
+
+async function loadPhotosMap() {
+  const snap = await getDocs(collection(db, 'photos'));
+  const m = {};
+  _last.photos = {};
+  snap.forEach(d => { m[d.id] = d.data().v; _last.photos[d.id] = d.data().v; });
+  return m;
+}
+
+async function savePhotosMap(json) {
+  if (!window.ADMIN_SESSION) return;
+  const m = JSON.parse(json) || {};
+  const ops = [];
+  Object.keys(m).forEach(id => {
+    if (_last.photos[id] !== m[id])
+      ops.push({ coll: 'photos', id, data: { v: m[id] }, cacheKey: 'photos', json: m[id] });
+  });
+  Object.keys(_last.photos).forEach(id => {
+    if (!(id in m)) ops.push({ del: true, coll: 'photos', id, cacheKey: 'photos' });
+  });
+  if (ops.length) await commitOps(ops);
+}
+
+// Mirror in-app role assignments to userRoles/{email} docs, which the
+// security rules read. Also gives new hires a default role automatically.
+async function syncUserRoles() {
+  if (!window.ADMIN_SESSION) return;
+  try {
+    const staff = (typeof STAFF !== 'undefined' && Array.isArray(STAFF)) ? STAFF : [];
+    const rm = (typeof ROLE_MAP !== 'undefined' && ROLE_MAP) || {};
+    const ops = [];
+    staff.forEach(s => {
+      const em = String(s['Email Address'] || '').trim().toLowerCase();
+      if (!em || !em.endsWith('@' + DOMAIN)) return;
+      const role = rm[s._id] || (typeof defaultRoleFor === 'function' ? defaultRoleFor(s) : 'therapist');
+      const data = { role, staffId: s._id, name: s['Clinician'] || '' };
+      const j = JSON.stringify(data);
+      if (_last.roles[em] !== j) ops.push({ coll: 'userRoles', id: em, data, cacheKey: 'roles', json: j });
+    });
+    if (ops.length) await commitOps(ops);
+  } catch (e) { console.warn('userRoles sync failed', e); }
+}
+
+// ── window.storage: same contract the app already uses ──
+window.storage = {
+  async get(key) {
+    try {
+      if (key === 'app_staff') { const arr = await loadStaffArray(); return { key, value: JSON.stringify(arr) }; }
+      if (key === 'app_photos') { const m = await loadPhotosMap(); return { key, value: JSON.stringify(m) }; }
+      const d = await getDoc(doc(db, 'kv', key));
+      return d.exists() ? { key, value: d.data().v } : null;
+    } catch (e) { return null; } // permission denied for this role → behave like "no data"
+  },
+  async set(key, value) {
+    const v = typeof value === 'string' ? value : JSON.stringify(value);
+    try {
+      if (key === 'app_staff') { await saveStaffArray(v); return { key, value: v }; }
+      if (key === 'app_photos') { await savePhotosMap(v); return { key, value: v }; }
+      await setDoc(doc(db, 'kv', key), { v });
+      if (key === 'app_roles') syncUserRoles();
+      return { key, value: v };
+    } catch (e) { console.warn('storage.set failed for', key, e); return null; }
+  },
+  async delete(key) {
+    try { await deleteDoc(doc(db, 'kv', key)); return { key, deleted: true }; } catch (e) { return null; }
+  },
+  async list(prefix = '') { return { keys: [], prefix }; } // not used by the app
+};
+
+// ── identity: map the signed-in Google account to a staff record & role ──
+// Called by boot() after data loads but before the first render.
+window.AUTH_STAFF_ID = null;
+window.__applyIdentity = function () {
+  const email = (auth.currentUser && auth.currentUser.email || '').toLowerCase();
+  const staff = (typeof STAFF !== 'undefined' && Array.isArray(STAFF)) ? STAFF : [];
+  const me = staff.find(s => String(s['Email Address'] || '').trim().toLowerCase() === email);
+  const role = me ? roleOf(me) : 'therapist';
+  const admin = BOOTSTRAP_ADMINS.includes(email) || role === 'admin' || role === 'superadmin';
+  window.ADMIN_SESSION = admin;
+  window.AUTH_STAFF_ID = me ? me._id : null;
+  window.__NO_ROSTER_MATCH = (!me && !admin);
+  VIEW_AS_ID = admin ? null : (me ? me._id : null);
+  const chip = document.getElementById('signed-in-email');
+  if (chip) chip.textContent = email;
+};
+
+window.__signOut = () => signOut(auth).then(() => location.reload());
+
+// ── overlay state machine ──
+function ovState(state, msg) {
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  const m = document.getElementById('auth-msg');
+  if (state === 'signin') {
+    if (m) { m.textContent = 'Sign in with your work Google account to continue.'; m.style.color = '#555'; }
+    show('auth-signin-btn', true); show('auth-spinner', false); show('auth-signout-btn', false);
+  } else if (state === 'loading') {
+    if (m) { m.textContent = 'Signed in — loading your workspace.'; m.style.color = '#555'; }
+    show('auth-signin-btn', false); show('auth-spinner', true); show('auth-signout-btn', false);
+  } else { // denied / error
+    if (m) { m.textContent = msg || 'Access denied.'; m.style.color = '#b91c1c'; }
+    show('auth-signin-btn', false); show('auth-spinner', false); show('auth-signout-btn', true);
+  }
+}
+
+let bootStarted = false;
+onAuthStateChanged(auth, async user => {
+  if (!user) { ovState('signin'); return; }
+  const email = (user.email || '').toLowerCase();
+  if (!email.endsWith('@' + DOMAIN)) {
+    await signOut(auth);
+    ovState('denied', 'Please use your @' + DOMAIN + ' Google account (' + email + ' is not authorized).');
+    return;
+  }
+  if (bootStarted) return;
+  bootStarted = true;
+  ovState('loading');
+  // Prime the userRoles diff cache so role syncs only write real changes.
+  try { (await getDocs(collection(db, 'userRoles'))).forEach(d => _last.roles[d.id] = JSON.stringify(d.data())); } catch (e) {}
+  try {
+    await boot(); // the app's own startup — loads all data through window.storage above
+    if (window.__NO_ROSTER_MATCH) {
+      ovState('denied', 'Signed in as ' + email + ', but no roster record matches this email. Ask an admin to add you to the roster.');
+      return;
+    }
+    const ov = document.getElementById('auth-overlay');
+    if (ov) ov.style.display = 'none';
+  } catch (e) {
+    console.error('boot failed', e);
+    ovState('denied', 'Something went wrong loading the app: ' + (e && e.message || e));
+  }
+});
+
+document.getElementById('auth-signin-btn').addEventListener('click', async () => {
+  const p = new GoogleAuthProvider();
+  p.setCustomParameters({ hd: DOMAIN, prompt: 'select_account' });
+  try {
+    await signInWithPopup(auth, p);
+  } catch (e) {
+    if (e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request')
+      ovState('denied', 'Sign-in failed: ' + (e.message || e));
+  }
+});
+document.getElementById('auth-signout-btn').addEventListener('click', () => window.__signOut());
+</script>

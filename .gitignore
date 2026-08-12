@@ -1,0 +1,8 @@
+# The seed folder contains the one-time data export (real staff PII +
+# credentialing logins). It must NEVER be committed or deployed.
+seed/
+
+.DS_Store
+.firebase/
+*.log
+firebase-debug.log

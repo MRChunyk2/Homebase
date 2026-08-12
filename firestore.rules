@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// ── Advance Psychotherapy Homebase — Firestore security rules ──
+// These rules are the REAL access control for the app. The UI's
+// "Roles & Permissions" page is the steering wheel; this file is the lock.
+//
+// Identity: Google sign-in, restricted to @advancepsychotherapy.org.
+// Roles come from userRoles/{email} docs ({ role, staffId }), which the app
+// keeps in sync with its in-app role assignments. Two bootstrap admins are
+// hardcoded so the system can never lock everyone out.
+//
+// Collections:
+//   staff/{sid}            roster record (professional info) — all staff read
+//   staffPrivate/{sid}     home address / DOB — the person + admins only
+//   staffCredentials/{sid} CAQH & PECOS logins — admins only
+//   photos/{sid}           avatar photos — all staff read, admins write
+//   userRoles/{email}      email → role/staffId map used by these rules
+//   kv/{key}               everything else, tiered by key (see below)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function em() {
+      return request.auth != null && request.auth.token.email != null
+        ? request.auth.token.email.lower() : '';
+    }
+    function isDomain() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && em().matches('.*@advancepsychotherapy[.]org$');
+    }
+    function isBootstrap() {
+      return em() in ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
+    }
+    function hasRoleDoc() {
+      return exists(/databases/$(database)/documents/userRoles/$(em()));
+    }
+    function myRole() {
+      return hasRoleDoc()
+        ? get(/databases/$(database)/documents/userRoles/$(em())).data.role
+        : 'therapist';
+    }
+    function myStaffId() {
+      return hasRoleDoc()
+        ? get(/databases/$(database)/documents/userRoles/$(em())).data.staffId
+        : '__none__';
+    }
+    function isAdmin() {
+      return isDomain() && (isBootstrap() || myRole() in ['admin', 'superadmin']);
+    }
+    function isSuperAdmin() {
+      return isDomain() && (isBootstrap() || myRole() == 'superadmin');
+    }
+
+    match /staff/{sid} {
+      allow read: if isDomain();
+      allow write: if isAdmin() || (isDomain() && sid == myStaffId());
+    }
+
+    match /staffPrivate/{sid} {
+      allow read, write: if isAdmin() || (isDomain() && sid == myStaffId());
+    }
+
+    match /staffCredentials/{sid} {
+      allow read, write: if isAdmin();
+    }
+
+    match /photos/{sid} {
+      allow read: if isDomain();
+      allow write: if isAdmin();
+    }
+
+    match /userRoles/{email} {
+      allow read: if isDomain();
+      allow write: if isAdmin();
+    }
+
+    // kv tiers:
+    //   superadmin-only: payroll detail
+    //   admin-only:      recruiting pipeline, compensation data & checklist
+    //   everyone else:   read for all signed-in staff; writes admin-only,
+    //                    except therapist-profile drafts (tp_*) which any
+    //                    signed-in staff member may save.
+    match /kv/{key} {
+      allow read: if (key == 'app_payroll_detail' && isSuperAdmin())
+        || (key in ['app_recruit', 'app_comp_data', 'app_comp_checklist'] && isAdmin())
+        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && isDomain());
+      allow write: if (key == 'app_payroll_detail' && isSuperAdmin())
+        || (key in ['app_recruit', 'app_comp_data', 'app_comp_checklist'] && isAdmin())
+        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist'])
+            && (isAdmin() || (isDomain() && key.matches('tp_.*'))));
+    }
+  }
+}
