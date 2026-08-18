@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// ── Advance Psychotherapy Homebase — Firebase Storage rules ──
+// Only one area exists: onboarding uploads from the public portal
+// (onboard.html). The unguessable token in the path is the credential for
+// writing; reading files back requires an @advancepsychotherapy.org sign-in.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /onboarding/{token}/{item}/{fileName} {
+      // New hires upload via their tokenized link — no sign-in, size-capped.
+      allow write: if token.size() >= 20
+        && request.resource.size < 20 * 1024 * 1024;
+      // Staff (signed in with a practice Google account) can view.
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('.*@advancepsychotherapy[.]org$');
+    }
+    // Everything else: locked.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

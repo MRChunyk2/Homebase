@@ -75,6 +75,57 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Public application "mail slot" (the /apply.html form). Anyone may drop
+    // one in; only admins can read, list, update, or delete. Creates are
+    // validated to look like a real application and size-capped so the open
+    // door can't be used to stuff arbitrary junk into the database.
+    match /applications/{appId} {
+      allow create: if request.resource.data['_name'] is string
+        && request.resource.data['_name'].size() > 1
+        && request.resource.data['_name'].size() < 200
+        && request.resource.data['Email Address'] is string
+        && request.resource.data['Email Address'].size() > 4
+        && request.resource.data['Email Address'].size() < 200
+        && request.resource.data.size() < 60;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Individual staff files (CEU certificates and similar), one doc per file
+    // so bulk uploads can't blow up the 1MB kv/app_staff blob. Admins manage;
+    // each person can read their own.
+    match /staffFiles/{fid} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Candidate interview-availability responses. Written from the public
+    // avail.html page via an unguessable token link (no sign-in); only admins
+    // can read them back.
+    match /availability/{token} {
+      allow create, update: if request.resource.data.size() < 12
+        && token.size() >= 20;
+      allow read, delete: if isAdmin();
+    }
+
+
+    // New-hire onboarding portal docs (onboard.html). The unguessable token IS
+    // the credential: whoever holds the link may read and update their own doc
+    // (created by an admin when the offer is accepted). Admins see everything.
+    // 'list' stays admin-only so tokens can never be enumerated.
+    match /onboarding/{token} {
+      allow get: if token.size() >= 20 || isAdmin();
+      allow create, update: if token.size() >= 20
+        && request.resource.data.size() < 40;
+      allow list, delete: if isAdmin();
+    }
+
+    // Interview-panel availability requests. Admins create one per panel
+    // member; the member reads and answers their own from the Home page.
+    match /panelAvail/{pid} {
+      allow create, delete: if isAdmin();
+      allow read, update: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+    }
+
     // kv tiers:
     //   superadmin-only: payroll detail
     //   admin-only:      recruiting pipeline, compensation data & checklist
