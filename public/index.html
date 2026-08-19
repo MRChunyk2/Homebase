@@ -9215,7 +9215,7 @@ window.filesStore = {
 };
 
 // ── onboarding portal: admin reads candidate progress + files ──
-const _sto = getStorage(app);
+const _sto = getStorage(fbApp);
 window.obStore = {
   init: async (token, meta) => {
     try { await setDoc(doc(db, 'onboarding', token), { meta }, { merge: true }); return true; }
