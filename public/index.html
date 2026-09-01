@@ -1368,11 +1368,11 @@ const CONFIG_DEFAULTS = {
     {key:'Capacity Tier',      label:'Capacity Tier'},
     {key:'Supervisor',          label:'Clinical Supervisor', clinical:true},
     {key:'Weekly Capacity',    label:'Weekly Capacity', clinical:true},
-    {key:'License',            label:'License', clinical:true},
-    {key:'License #',          label:'License #', clinical:true},
-    {key:'License Expiration', label:'License Expiration', clinical:true},
-    {key:'NPI',                label:'NPI', clinical:true},
-    {key:"CAQH #'s",           label:'CAQH #', clinical:true},
+    {key:'License',            label:'License', licensed:true},
+    {key:'License #',          label:'License #', licensed:true},
+    {key:'License Expiration', label:'License Expiration', licensed:true},
+    {key:'NPI',                label:'NPI', licensed:true},
+    {key:"CAQH #'s",           label:'CAQH #', licensed:true},
   ],
   // Candidate match scoring, calibrated to the standing job posting. Weights
   // are points; the score is the earned share of the total, as a percent.
@@ -1639,18 +1639,35 @@ function reportsToOpts(){
 // A clinician for required-field purposes: Psychotherapist role, or the record
 // carries a license or weekly capacity.
 function isClinicianRec(s){
+  const team=String(s['Team']||'').trim().toUpperCase();
+  const cat=String(s['Employee Category']||'').trim();
+  // Explicit non-clinical markers beat inferred signals: the NCA team is
+  // literally "Non Clinical Admin", and the Admin category is an ops role.
+  // Ops staff may still hold a credential (LICSW, PhD) without practising here.
+  if(team==='NCA' || /^admin/i.test(cat)) return false;
   return /psychotherapist/i.test(s['Service Types']||'')
     || String(s['License']||'').trim()!==''
-    || String(s['Weekly Capacity']||'').trim()!=='';
+    || /intern/i.test(cat)
+    || parseFloat(s['Weekly Capacity']||'0')>0;  // a capacity of 0 is not clinical work
+}
+// Interns work clinically but are supervised trainees — they cannot hold a
+// license, NPI or CAQH number yet, so those requirements don't apply to them.
+function isLicensedRec(s){
+  return isClinicianRec(s) && !/intern/i.test(String(s['Employee Category']||''));
+}
+// Whether a required-field rule applies to this person.
+function fieldApplies(f,s){
+  if(f.licensed) return isLicensedRec(s);
+  if(f.clinical) return isClinicianRec(s);
+  return true;
 }
 // Everything missing from a profile: required fields plus unchecked compliance
 // items. Terminated staff are never flagged.
 function missingInfo(s){
   if(!s || normStatus(s['Employee Status'])==='Terminated') return [];
   const out=[];
-  const clin=isClinicianRec(s);
   (CONFIG.requiredProfileFields||[]).forEach(function(f){
-    if(f.clinical && !clin) return;
+    if(!fieldApplies(f,s)) return;
     const v=(s[f.key]===undefined||s[f.key]===null)?'':String(s[f.key]).trim();
     if(!v) out.push({label:f.label, kind:'field', key:f.key});
   });
@@ -1670,7 +1687,7 @@ function rowM(p,label,key,display){
   if(raw) return row(label,(display!==undefined)?display:p[key]);
   if(!isAdminView()) return '';
   const req=(CONFIG.requiredProfileFields||[]).find(function(f){return f.key===key;});
-  if(!req || (req.clinical && !isClinicianRec(p))) return '';
+  if(!req || !fieldApplies(req,p)) return '';
   return '<div class="drow" style="background:#fef2f2;border-radius:7px"><span class="dlabel" style="color:#b91c1c;padding-left:6px">'+hesc(label)+'</span><span class="dval" style="color:#dc2626;font-weight:600">Missing</span></div>';
 }
 function hideMissPopover(){ const e=document.getElementById('miss-popover'); if(e) e.remove(); }
