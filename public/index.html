@@ -1352,7 +1352,7 @@ const CONFIG_DEFAULTS = {
   // Title checkboxes (multi-select, plus a free-text "other" on the form).
   titleOpts: ['Psychotherapist','Program Manager','Clinical Team Manager (CTM)','Clinical Supervisor'],
   // Department cost-center categories for the % allocation on each profile.
-  departmentOpts: ['3000 Clinical Svc Lines','3041 Clinical Svc Lines','5007 Clinical Admin','5001 Ops Admin','5210 Marketing','5301 Billing Admin','6000 Owners'],
+  departmentOpts: ['N/A','3000 Clinical Svc Lines','3041 Clinical Svc Lines','5007 Clinical Admin','5001 Ops Admin','5210 Marketing','5301 Billing Admin','6000 Owners'],
   // Fields that count as "missing information" on the roster flag for admins.
   // clinical:true entries only apply to clinicians (role has Psychotherapist,
   // or the record carries a license / weekly capacity).
@@ -1610,9 +1610,11 @@ function supervisorOpts(){
   // keep any supervisor name currently in use, even if not derivable
   staff.forEach(function(s){
     const nm = (s && s['Supervisor'] || '').trim();
-    if(nm) names.add(nm);
+    if(nm && nm!=='N/A') names.add(nm);
   });
-  return [''].concat(Array.from(names).sort(function(a,b){ return a.localeCompare(b); }));
+  // 'N/A' for people who genuinely have no clinical supervisor, so the record
+  // can be marked complete instead of sitting on the missing-info flag forever.
+  return ['','N/A'].concat(Array.from(names).sort(function(a,b){ return a.localeCompare(b); }));
 }
 
 // "Reports To" dropdown: clinical supervisors plus anyone whose Role or Title
@@ -1759,7 +1761,7 @@ function deptRowHtml(dept, pct){
   })).join('');
   return '<div data-dept-row style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
     +'<select style="flex:1;min-width:0" onchange="deptSumUpdate(this)">'+options+'</select>'
-    +'<input type="number" min="0" max="100" step="1" value="'+hesc(pct)+'" placeholder="%" oninput="deptSumUpdate(this)" style="width:78px;text-align:right">'
+    +'<input type="number" min="0" max="100" step="1" value="'+hesc(dept==='N/A'?'':pct)+'"'+(dept==='N/A'?' disabled':'')+' placeholder="%" oninput="deptSumUpdate(this)" style="width:78px;text-align:right">'
     +'<span style="font-size:12px;color:#888">%</span>'
     +'<button type="button" title="Remove" onclick="var g=this.closest(\'[data-dept-group]\');this.closest(\'[data-dept-row]\').remove();deptSumUpdate(g)" style="border:none;background:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">✕</button>'
     +'</div>';
@@ -1768,7 +1770,7 @@ function deptGroupHtml(key, curStr){
   const rows=deptParse(curStr);
   if(!rows.length) rows.push({dept:'',pct:''});
   let sum=0, any=false;
-  rows.forEach(function(r){ const v=parseFloat(r.pct); if(r.dept&&!isNaN(v)){sum+=v;any=true;} });
+  rows.forEach(function(r){ const v=parseFloat(r.pct); if(r.dept&&r.dept!=='N/A'&&!isNaN(v)){sum+=v;any=true;} });
   const sumTxt=any?('Total: '+sum+'%'):'';
   const sumCol=sum===100?'#157a45':'#b1532f';
   return '<div data-dept-group data-key="'+hesc(key)+'" style="margin-top:2px">'
@@ -1784,8 +1786,11 @@ function deptSumUpdate(el){
   let sum=0, any=false;
   g.querySelectorAll('[data-dept-row]').forEach(function(r){
     const d=r.querySelector('select').value;
-    const v=parseFloat(r.querySelector('input').value);
-    if(d&&!isNaN(v)){ sum+=v; any=true; }
+    const inp=r.querySelector('input');
+    const na=(d==='N/A');
+    inp.disabled=na; if(na) inp.value='';          // N/A rows carry no percentage
+    const v=parseFloat(inp.value);
+    if(d&&!na&&!isNaN(v)){ sum+=v; any=true; }
   });
   const badge=g.querySelector('[data-dept-sum]');
   if(badge){
@@ -3571,7 +3576,8 @@ function saveEdit(){
     group.querySelectorAll('[data-dept-row]').forEach(r=>{
       const d=r.querySelector('select').value;
       const pc=r.querySelector('input').value.trim();
-      if(d) parts.push(d+(pc!==''?' '+parseFloat(pc)+'%':''));
+      if(d==='N/A') parts.push(d);                    // not applicable — never carries a %
+      else if(d) parts.push(d+(pc!==''?' '+parseFloat(pc)+'%':''));
     });
     p[key]=parts.join('; ');
   });
