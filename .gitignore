@@ -6,3 +6,17 @@ seed/
 .firebase/
 *.log
 firebase-debug.log
+
+# Screenshots and scratch output from Claude sessions — useful while working,
+# but they don't belong in the repo (and app screenshots can capture real data).
+Claude outputs/
+claude-outputs/
+
+# Duplicate saves (index-1.html, firestore-1.rules, "… copy.html"). These get
+# created by accident, and a stray copy under public/ would deploy as a live
+# stale page. Edit the real file instead.
+*-[0-9].html
+*-[0-9].rules
+*-[0-9].json
+* copy.*
+*copy.html
