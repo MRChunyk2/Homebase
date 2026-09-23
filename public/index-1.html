@@ -505,16 +505,6 @@ tr.rw-new td{background:#fafafa}
 .tp-save-btn:hover{background:#3a4170}
 .tp-section-label{font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
 .tp-search{width:100%;padding:8px 12px;border:1px solid #e5e5e5;border-radius:8px;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box}
-/* ── printing a review (Save as PDF) ── */
-@media print{
-  body.rev-print .sidebar, body.rev-print .topbar, body.rev-print .toast{ display:none !important; }
-  body.rev-print .main{ margin:0 !important; }
-  body.rev-print .page{ display:none !important; }
-  body.rev-print #page-reviews{ display:block !important; position:static !important; overflow:visible !important; height:auto !important; background:#fff !important; }
-  body.rev-print #reviews-body{ max-width:100% !important; padding:0 !important; }
-  body.rev-print #reviews-body button{ display:none !important; }
-  body.rev-print textarea{ resize:none; border:1px solid #eee !important; }
-}
 </style>
 </head>
 <body>
@@ -550,9 +540,6 @@ tr.rw-new td{background:#fafafa}
       <button class="nav-item" id="nav-reviews-hr" onclick="showPage('reviews-hr',this)"><span class="nav-icon">📂</span>Reviews (HR)</button>
       <button class="nav-item" id="nav-meetings-hr" onclick="showPage('meetings-hr',this)"><span class="nav-icon">💵</span>Meeting Pay (HR)</button>
       <button class="nav-item" id="nav-payroll" onclick="showPage('payroll',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
-    </div>
-    <div class="nav-sec"><div class="nav-sec-label">Learning &amp; Reference</div>
-      <button class="nav-item" id="nav-library" onclick="showPage('library',this)"><span class="nav-icon">📚</span>Library</button>
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Administration</div>
       <button class="nav-item" id="nav-admin" onclick="showPage('admin',this)"><span class="nav-icon">🔐</span>Roles &amp; Permissions</button>
@@ -649,9 +636,6 @@ tr.rw-new td{background:#fafafa}
     <div id="ceu-upload-body" style="max-width:1050px;margin:0 auto;padding:22px 24px 80px;width:100%"></div>
   </div>
 
-  <div class="page" id="page-library" style="overflow-y:auto;background:#f6f5f1">
-    <div id="library-body" style="max-width:1000px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
-  </div>
   <div class="page" id="page-reviews" style="overflow-y:auto;background:#f6f5f1">
     <div id="reviews-body" style="max-width:1020px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
@@ -2088,206 +2072,6 @@ function isDeclined(wf){return!!wf&&(wf.includes('Declined')||wf.includes('No In
 
 
 // ══════════════════════════════════════════════
-//  LIBRARY — Learning & Reference
-// ══════════════════════════════════════════════
-// One Firestore doc per article in 'library':
-//   {cat:'manual'|'sop'|'policy'|'howto', title, body, order,
-//    version, updatedAt, updatedBy, prevBody, history:[{v,at,by,note}]}
-// Everyone reads; Admins and Super Admins edit. Every save bumps the version
-// and records a "what changed" note — the raw material for the future
-// review-and-initial flow on the employee manual and clinical SOPs.
-var LIB_CATS=[
- {k:"manual", l:"Employee Manual",   icon:"📖", c:"#26316e", hint:"Policies and expectations for everyone at APP."},
- {k:"sop",    l:"Clinical SOPs",     icon:"🩺", c:"#1d7479", hint:"Step-by-step clinical operating procedures."},
- {k:"policy", l:"Clinical Policies", icon:"⚖️", c:"#7c2d12", hint:"Formal clinical policy — the why behind the SOPs."},
- {k:"howto",  l:"How-Tos",           icon:"🧭", c:"#4d7c0f", hint:"Practical guides for systems and workflows."}
-];
-var LIB_ALL=null, LIB_CAT="manual", LIB_OPENID=null, LIB_EDIT=false, LIB_LOG=false;
-function libCanEdit(){ return isAdminView(); }
-function libWhoAmI(){
-  const v=currentViewer(); if(v) return v["Clinician"]||"Admin";
-  const s=STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;});
-  return s ? (s["Clinician"]||"Admin") : "Admin";
-}
-function libNewId(){ return "lib_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-// Tiny formatter: # / ## headings, - bullets, 1. numbered lists, **bold**.
-function libFmtInline(s){ return hesc(s).replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>"); }
-function libRender(txt){
-  const lines=String(txt||"").split("\n");
-  let out="", inUl=false, inOl=false;
-  const close=function(){ if(inUl){out+="</ul>";inUl=false;} if(inOl){out+="</ol>";inOl=false;} };
-  lines.forEach(function(raw){
-    const t=raw.trim();
-    if(!t){ close(); return; }
-    if(t.indexOf("## ")===0){ close(); out+='<div style="font-size:13.5px;font-weight:800;margin:18px 0 6px;color:#26316e;text-transform:uppercase;letter-spacing:.03em">'+libFmtInline(t.slice(3))+'</div>'; }
-    else if(t.indexOf("# ")===0){ close(); out+='<div style="font-size:17px;font-weight:800;margin:22px 0 8px">'+libFmtInline(t.slice(2))+'</div>'; }
-    else if(/^- /.test(t)){ if(!inUl){close(); out+='<ul style="margin:6px 0 10px 22px;padding:0">'; inUl=true;} out+='<li style="margin:3px 0;line-height:1.62;font-size:13.5px">'+libFmtInline(t.slice(2))+'</li>'; }
-    else if(/^\d+[.)] /.test(t)){ if(!inOl){close(); out+='<ol style="margin:6px 0 10px 22px;padding:0">'; inOl=true;} out+='<li style="margin:3px 0;line-height:1.62;font-size:13.5px">'+libFmtInline(t.replace(/^\d+[.)] /,""))+'</li>'; }
-    else { close(); out+='<p style="margin:8px 0;line-height:1.68;font-size:13.5px">'+libFmtInline(t)+'</p>'; }
-  });
-  close(); return out||'<p style="color:#999;font-size:13px">No content yet — edit this article to add it.</p>';
-}
-async function renderLibrary(){
-  const body=document.getElementById("library-body"); if(!body) return;
-  if(!window.libStore){ body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">The Library loads on the live site.</div>'; return; }
-  if(LIB_ALL===null){
-    body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading the Library…</div>';
-    LIB_ALL=await window.libStore.all()||[];
-  }
-  if(LIB_OPENID){ renderLibArticle(); return; }
-  const cat=LIB_CATS.find(function(c){return c.k===LIB_CAT;})||LIB_CATS[0];
-  const tabs='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'+LIB_CATS.map(function(c){
-    const n=LIB_ALL.filter(function(a){return a.cat===c.k;}).length;
-    const on=c.k===LIB_CAT;
-    return '<button onclick="libSwitch(\''+c.k+'\')" style="font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:20px;border:1px solid '+(on?c.c:"#ddd")+';background:'+(on?c.c:"#fff")+';color:'+(on?"#fff":"#555")+';cursor:pointer;font-family:inherit">'+c.icon+" "+c.l+(n?' <span style="opacity:.75;font-weight:600">('+n+')</span>':"")+'</button>';
-  }).join("")+'</div>';
-  const arts=LIB_ALL.filter(function(a){return a.cat===LIB_CAT;})
-    .sort(function(a,b){ return (parseFloat(a.order)||99)-(parseFloat(b.order)||99) || String(a.title||"").localeCompare(String(b.title||"")); });
-  let list;
-  if(!arts.length){
-    list='<div style="background:#fff;border:1px dashed #d8d5cd;border-radius:14px;padding:34px 24px;text-align:center">'
-      +'<div style="font-size:30px;margin-bottom:8px">'+cat.icon+'</div>'
-      +'<div style="font-size:14px;font-weight:700;margin-bottom:4px">Nothing filed under '+cat.l+' yet</div>'
-      +'<div style="font-size:12.5px;color:#888;max-width:420px;margin:0 auto 14px">'+cat.hint+'</div>'
-      +(libCanEdit()
-        ? '<button class="btn btn-primary" style="font-size:12.5px" onclick="libNew()">➕ Write the first article</button>'
-          +(LIB_CAT==="howto"?' <button class="btn btn-secondary" style="font-size:12.5px" onclick="libStarter()">📥 Start with the intern workflow outline</button>':"")
-        : '<div style="font-size:11.5px;color:#aaa">Content is added by leadership.</div>')
-      +'</div>';
-  } else {
-    list='<div style="display:grid;gap:10px">'+arts.map(function(a){
-      return '<div onclick="libOpen(\''+a.__id+'\')" style="background:#fff;border:1px solid #e8e6e0;border-radius:13px;padding:15px 18px;cursor:pointer;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#bbb\'" onmouseout="this.style.borderColor=\'#e8e6e0\'">'
-        +'<div style="font-size:20px">'+cat.icon+'</div>'
-        +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">'+hesc(a.title||"Untitled")+'</div>'
-        +'<div style="font-size:11.5px;color:#999;margin-top:2px">v'+(a.version||1)+' · updated '+hesc(String(a.updatedAt||"").slice(0,10))+(a.updatedBy?' by '+hesc(a.updatedBy):"")+'</div></div>'
-        +'<div style="font-size:12px;color:#bbb">Open →</div></div>';
-    }).join("")+'</div>'
-    +(libCanEdit()?'<div style="margin-top:14px"><button class="btn btn-secondary" style="font-size:12.5px" onclick="libNew()">➕ New article in '+cat.l+'</button></div>':"");
-  }
-  body.innerHTML=tabs
-    +'<div style="font-size:12px;color:#888;background:#eef2ff;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">This is the practice’s living reference. '+cat.hint+' It’s always the current version; every change is tracked with who, when, and what changed.</div>'
-    +list;
-}
-function libSwitch(k){ LIB_CAT=k; LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
-function libOpen(id){ LIB_OPENID=id; LIB_EDIT=false; LIB_LOG=false; renderLibrary(); }
-function libBack(){ LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
-function libNew(){ LIB_OPENID="__new"; LIB_EDIT=true; renderLibrary(); }
-function libToggleLog(){ LIB_LOG=!LIB_LOG; renderLibrary(); }
-function renderLibArticle(){
-  const body=document.getElementById("library-body"); if(!body) return;
-  const isNew=LIB_OPENID==="__new";
-  const a=isNew?{cat:LIB_CAT,title:"",body:"",order:"",version:0,history:[]}:(LIB_ALL.find(function(x){return x.__id===LIB_OPENID;}));
-  if(!a){ LIB_OPENID=null; renderLibrary(); return; }
-  const cat=LIB_CATS.find(function(c){return c.k===a.cat;})||LIB_CATS[0];
-  if(LIB_EDIT&&libCanEdit()){
-    body.innerHTML=
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
-      +'<button class="btn btn-secondary" style="font-size:12px" onclick="libEditCancel()">← Cancel</button>'
-      +'<div style="font-size:16px;font-weight:800">'+(isNew?"New article":"Editing")+' · '+cat.icon+" "+cat.l+'</div></div>'
-      +'<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:18px">'
-      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'
-      +'<div style="flex:1;min-width:260px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Title</div>'
-      +'<input id="lib-title" value="'+hesc(a.title||"")+'" style="width:100%;font-size:14px;font-weight:700;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit"></div>'
-      +'<div style="width:110px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Order</div>'
-      +'<input id="lib-order" value="'+hesc(a.order||"")+'" placeholder="1" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit"></div></div>'
-      +'<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Content</div>'
-      +'<div style="font-size:11px;color:#999;margin-bottom:6px">Formatting: <code># Heading</code> · <code>## Section</code> · <code>- bullet</code> · <code>1. numbered</code> · <code>**bold**</code></div>'
-      +'<textarea id="lib-body" style="width:100%;min-height:420px;font-size:13px;line-height:1.6;padding:12px 14px;border:1px solid #ddd;border-radius:10px;font-family:ui-monospace,Menlo,monospace;resize:vertical">'+hesc(a.body||"")+'</textarea>'
-      +(isNew?"":'<div style="margin-top:12px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">What changed? <span style="color:#b45309">(required — this is what staff will see and initial later)</span></div>'
-        +'<input id="lib-note" placeholder="e.g. Updated the PTO request window from 14 to 30 days" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit"></div>')
-      +'<div style="display:flex;gap:10px;margin-top:16px">'
-      +'<button class="btn btn-primary" onclick="libSave()">💾 Save'+(isNew?"":" as v"+((a.version||1)+1))+'</button>'
-      +(isNew?"":'<button class="btn btn-secondary" style="color:#b91c1c" onclick="libDelete()">🗑 Delete article</button>')
-      +'</div></div>';
-    return;
-  }
-  const hist=(a.history||[]).slice().reverse();
-  body.innerHTML=
-    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:15px 18px;margin-bottom:14px">'
-    +'<button class="btn btn-secondary" style="font-size:12px" onclick="libBack()">← '+cat.l+'</button>'
-    +'<div style="flex:1;min-width:220px"><div style="font-size:17px;font-weight:800">'+cat.icon+" "+hesc(a.title||"Untitled")+'</div>'
-    +'<div style="font-size:12px;color:#888">v'+(a.version||1)+' · updated '+hesc(String(a.updatedAt||"").slice(0,10))+(a.updatedBy?' by '+hesc(a.updatedBy):"")+'</div></div>'
-    +(libCanEdit()?'<button class="btn btn-primary" style="font-size:12px" onclick="LIB_EDIT=true;renderLibrary()">✏ Edit</button>':"")
-    +((a.history||[]).length?'<button class="btn btn-secondary" style="font-size:12px" onclick="libToggleLog()">🕓 Change log ('+(a.history||[]).length+')</button>':"")
-    +'</div>'
-    +(LIB_LOG&&hist.length
-      ?'<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;overflow:hidden;margin-bottom:14px"><div class="sec-label" style="margin:0;border-radius:0">🕓 Change log</div>'
-        +'<div style="padding:6px 0">'+hist.map(function(h){
-          return '<div style="padding:9px 18px;border-top:1px solid #f4f3ef;font-size:12.5px"><strong>v'+h.v+'</strong> · '+hesc(String(h.at||"").slice(0,10))+(h.by?' · '+hesc(h.by):"")+'<div style="color:#666;margin-top:2px">'+hesc(h.note||"(no note)")+'</div></div>';
-        }).join("")+'</div></div>'
-      :"")
-    +'<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:20px 26px">'+libRender(a.body)+'</div>';
-}
-function libEditCancel(){ if(LIB_OPENID==="__new") LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
-async function libSave(){
-  if(!libCanEdit()||!window.libStore) return;
-  const isNew=LIB_OPENID==="__new";
-  const title=(document.getElementById("lib-title")||{}).value||"";
-  const order=(document.getElementById("lib-order")||{}).value||"";
-  const txt=(document.getElementById("lib-body")||{}).value||"";
-  const note=isNew?"Created":((document.getElementById("lib-note")||{}).value||"").trim();
-  if(!title.trim()){ showToast("⚠ Give the article a title"); return; }
-  if(!isNew&&!note){ showToast("⚠ Say briefly what changed — staff will see this note"); return; }
-  const old=isNew?null:LIB_ALL.find(function(x){return x.__id===LIB_OPENID;});
-  const v=(old&&old.version||0)+1;
-  const now=new Date().toISOString();
-  const hist=((old&&old.history)||[]).concat([{v:v,at:now,by:libWhoAmI(),note:note}]).slice(-25);
-  const docData={cat:(old&&old.cat)||LIB_CAT,title:title.trim(),body:txt,order:order,
-    version:v,updatedAt:now,updatedBy:libWhoAmI(),prevBody:(old&&old.body)||"",history:hist};
-  const id=isNew?libNewId():LIB_OPENID;
-  const ok=await window.libStore.set(id,docData);
-  if(!ok){ showToast("⚠ Could not save — try again"); return; }
-  const rec=Object.assign({__id:id},docData);
-  const i=LIB_ALL.findIndex(function(x){return x.__id===id;});
-  if(i>=0) LIB_ALL[i]=rec; else LIB_ALL.push(rec);
-  LIB_OPENID=id; LIB_EDIT=false;
-  showToast("💾 Saved v"+v); renderLibrary();
-}
-async function libDelete(){
-  if(!libCanEdit()||!window.libStore||LIB_OPENID==="__new") return;
-  const a=LIB_ALL.find(function(x){return x.__id===LIB_OPENID;}); if(!a) return;
-  if(!confirm('Delete "'+(a.title||"this article")+'" from the Library? This cannot be undone.')) return;
-  const ok=await window.libStore.remove(LIB_OPENID);
-  if(!ok){ showToast("⚠ Could not delete"); return; }
-  LIB_ALL=LIB_ALL.filter(function(x){return x.__id!==LIB_OPENID;});
-  LIB_OPENID=null; LIB_EDIT=false; showToast("🗑 Deleted"); renderLibrary();
-}
-// One-click starter: files the intern-workflow outline as a real Library
-// article (in the data, not the code) that leadership then fills in.
-async function libStarter(){
-  if(!libCanEdit()||!window.libStore) return;
-  const now=new Date().toISOString();
-  const docData={cat:"howto",title:"Intern Workflow",order:"1",version:1,updatedAt:now,updatedBy:libWhoAmI(),prevBody:"",
-    history:[{v:1,at:now,by:libWhoAmI(),note:"Created from the starter outline"}],
-    body:[
-      "# Intern Workflow",
-      "A start-to-finish guide to how interns join, train, practice, and complete their placement at APP. Replace each (fill in) with the real steps.",
-      "## 1 · Before the intern starts",
-      "- Placement agreement and school paperwork — (fill in)",
-      "- Supervisor assignment and CTM notification — (fill in)",
-      "- Accounts and access: email, EMR, Homebase — (fill in)",
-      "## 2 · First week",
-      "- Orientation schedule and required trainings — (fill in)",
-      "- Shadowing expectations — (fill in)",
-      "## 3 · Supervision",
-      "- Frequency, format, and documentation of supervision — (fill in)",
-      "- What must always come to supervision (risk, ethics, documentation) — (fill in)",
-      "## 4 · Caseload & scheduling",
-      "- Ramp-up expectations by month — (fill in)",
-      "- Central Intake coordination for intern-appropriate referrals — (fill in)",
-      "## 5 · Documentation standards",
-      "- Note timeliness, co-signature workflow — (fill in)",
-      "## 6 · Completing the placement",
-      "- Evaluations for the school, case transitions, account closure — (fill in)"
-    ].join("\n")};
-  const id=libNewId();
-  const ok=await window.libStore.set(id,docData);
-  if(!ok){ showToast("⚠ Could not create the starter"); return; }
-  LIB_ALL.push(Object.assign({__id:id},docData));
-  LIB_OPENID=id; showToast("📥 Intern workflow outline created"); renderLibrary();
-}
-
-// ══════════════════════════════════════════════
 //  PERFORMANCE REVIEWS — annual full review + 6-month check-in
 // ══════════════════════════════════════════════
 // One Firestore doc per review instance in 'reviews', id rv_{sid}_{dueISO}:
@@ -2352,7 +2136,7 @@ var REVIEW_ROLE={
   {k:"indrep",l:"Independent-practice representation",x:"Accurately represents professional credentials and independent licensure status.",e:true},
   {k:"advresp",l:"Advanced responsibility",x:"Provides consultation or supervision only when assigned by APP and when qualified and authorized to do so.",e:true}]}
 };
-var REV_MINE=null, REV_TOREVIEW=null, REV_ALL=null, REV_OPENID=null, REV_DOC=null, _revT=null, REV_LOCKED=false, REV_LOCKFROM=null;
+var REV_MINE=null, REV_TOREVIEW=null, REV_ALL=null, REV_OPENID=null, REV_DOC=null, _revT=null;
 
 function revIso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function revToday(){ return revIso(new Date()); }
@@ -2477,27 +2261,8 @@ async function renderReviews(){
       :"");
   updateReviewsBadge();
 }
-function revOpen(id){ REV_LOCKED=false; REV_LOCKFROM=null; REV_OPENID=id; REV_DOC=null; renderReviews(); }
-function revBack(){
-  if(REV_LOCKED){ // came from an employee profile — go back there, onto Employee Files
-    const sid=REV_LOCKFROM; REV_LOCKED=false; REV_LOCKFROM=null; REV_OPENID=null; REV_DOC=null;
-    if(sid){ try{ openRoster(sid); rosterDetailTab='files'; renderRosterTabs(); return; }catch(e){} }
-  }
-  REV_OPENID=null; REV_DOC=null; REV_MINE=null; REV_TOREVIEW=null; renderReviews();
-}
-// Open a completed review as a locked, read-only employee-file copy.
-function revOpenLocked(id, fromSid){
-  REV_LOCKED=true; REV_LOCKFROM=fromSid||null; REV_OPENID=id; REV_DOC=null;
-  try{ closeDetail(); }catch(e){}
-  showPage('reviews', document.getElementById('nav-reviews'));
-}
-// Print just the open review (Save as PDF from the browser dialog).
-function revPrint(){
-  document.body.classList.add('rev-print');
-  const done=function(){ document.body.classList.remove('rev-print'); window.removeEventListener('afterprint',done); };
-  window.addEventListener('afterprint',done);
-  setTimeout(function(){ window.print(); setTimeout(done,1500); },60);
-}
+function revOpen(id){ REV_OPENID=id; REV_DOC=null; renderReviews(); }
+function revBack(){ REV_OPENID=null; REV_DOC=null; REV_MINE=null; REV_TOREVIEW=null; renderReviews(); }
 
 // ── the editor (annual full form / check-in short form) ──
 function revCanSelf(){ const sid=window.AUTH_STAFF_ID||(currentViewer()&&currentViewer()._id); return REV_DOC && REV_DOC.sid===sid; }
@@ -2556,9 +2321,8 @@ async function renderReviewEditor(){
     REV_DOC=await window.revStore.get(REV_OPENID);
     if(!REV_DOC){ body.innerHTML='<div style="padding:30px;text-align:center;color:#c00">Could not load this review.</div>'; return; } }
   const r=REV_DOC, ph=revPhase(r);
-  const canSelf=!REV_LOCKED&&revCanSelf()&&!r.self.submittedAt&&revWinOpen();
-  const canMgr=!REV_LOCKED&&revCanMgr()&&!r.mgr.submittedAt&&revWinOpen();
-  const adminEdit=isAdminView()&&!REV_LOCKED;
+  const canSelf=revCanSelf()&&!r.self.submittedAt&&revWinOpen();
+  const canMgr=revCanMgr()&&!r.mgr.submittedAt&&revWinOpen();
   const revealed=revRevealed();
   const ta=function(path,val,on,pl){ return '<textarea '+(on?"":"disabled ")+'oninput="revSet(\''+path+'\',this.value)" placeholder="'+hesc(pl||"")+'" style="width:100%;min-height:76px;font-size:13px;padding:9px 11px;border:1px solid #ddd;border-radius:9px;font-family:inherit;resize:vertical;background:'+(on?"#fff":"#f6f5f1")+'">'+hesc(val||"")+'</textarea>'; };
   const rsel=function(path,val,on){
@@ -2569,13 +2333,10 @@ async function renderReviewEditor(){
   const hid=function(v){ return revealed? hesc(v||"—") : '<span style="color:#bbb">hidden until both portions are submitted</span>'; };
   const header=
     '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:15px 18px;margin-bottom:14px">'
-    +'<button class="btn btn-secondary" style="font-size:12px" onclick="revBack()">'+(REV_LOCKED?"← Back to profile":"← All reviews")+'</button>'
+    +'<button class="btn btn-secondary" style="font-size:12px" onclick="revBack()">← All reviews</button>'
     +'<div style="flex:1;min-width:220px"><div style="font-size:17px;font-weight:800">'+hesc(r.name)+' — '+revTypeLabel(r.type)+'</div>'
     +'<div style="font-size:12px;color:#888">Period '+hesc(r.periodStart)+' → '+hesc(r.due)+' · due '+hesc(r.due)+' · window closes '+hesc(r.reopenUntil||r.closes)+' · Reviewer: '+hesc(r.reviewerName||"(unassigned)")+' · Level: Psychotherapist '+hesc(r.level)+'</div></div>'
-    +revPhaseChip(ph)
-    +(REV_LOCKED?'<span style="background:#f3f4f6;color:#4b5563;font-size:11px;font-weight:800;padding:3px 11px;border-radius:8px;white-space:nowrap">🔒 EMPLOYEE-FILE COPY — READ ONLY</span>':'')
-    +((REV_LOCKED||ph==="complete")?'<button class="btn btn-secondary" style="font-size:12px" onclick="revPrint()">🖨 Save as PDF</button>':'')
-    +'<span id="rev-save" style="font-size:11.5px;color:#999"></span>'
+    +revPhaseChip(ph)+'<span id="rev-save" style="font-size:11.5px;color:#999"></span>'
     +'</div>'
     +'<div style="font-size:12px;color:#666;background:#eef2ff;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">Therapist and manager complete their portions <strong>independently</strong>; each side stays hidden from the other until both are submitted. Then discuss in the review meeting, set goals together, and both sign.</div>';
   const card=function(title,inner,color){ return '<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;overflow:hidden;margin-bottom:14px"><div class="sec-label" style="margin:0;border-radius:0'+(color?';background:'+color:"")+'">'+title+'</div><div style="padding:14px 16px">'+inner+'</div></div>'; };
@@ -2585,7 +2346,7 @@ async function renderReviewEditor(){
       '<div style="font-size:11.5px;color:#888;margin-bottom:9px">Completed by the reviewer from practice data. Full-time benchmark: 1,140 kept sessions annually (~25/week after PTO and meetings); use the assigned or prorated expectation.</div>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#faf9f5">'+["Measure","Expected","Actual","Context"].map(function(h){return '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#999">'+h+'</th>';}).join("")+'</tr>'
       +REVIEW_MEASURES.map(function(m,i){ const v=(r.results||{})[String(i)]||{};
-        const inp=function(f,w){ return '<input '+(canMgr||adminEdit?"":"disabled ")+'value="'+hesc(v[f]||"")+'" oninput="revSet(\'results.'+i+'.'+f+'\',this.value)" style="width:'+w+';font-size:12.5px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-family:inherit">'; };
+        const inp=function(f,w){ return '<input '+(canMgr||isAdminView()?"":"disabled ")+'value="'+hesc(v[f]||"")+'" oninput="revSet(\'results.'+i+'.'+f+'\',this.value)" style="width:'+w+';font-size:12.5px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-family:inherit">'; };
         return '<tr style="border-top:1px solid #f0efec"><td style="padding:7px 9px">'+m+'</td><td style="padding:5px">'+inp("exp","90px")+'</td><td style="padding:5px">'+inp("act","90px")+'</td><td style="padding:5px">'+inp("ctx","98%")+'</td></tr>';
       }).join("")+'</table></div>');
     out+=card('🗣 Summaries',
@@ -2626,9 +2387,9 @@ async function renderReviewEditor(){
       '<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Therapist overall</div>'+((canSelf)?ov("self",true):(revCanSelf()||revealed?ov("self",false):'<div style="font-size:12px;color:#bbb">hidden until both portions are submitted</div>'))
       +'<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#666;margin:12px 0 4px">Manager overall</div>'+((canMgr)?ov("mgr",true):(revCanMgr()||revealed?ov("mgr",false):'<div style="font-size:12px;color:#bbb">hidden until both portions are submitted</div>'))
       +'<div style="margin-top:13px;display:grid;gap:10px">'
-      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Most significant strengths to recognize and continue</div>'+ta("shared.strengths",(r.shared||{}).strengths,canMgr||adminEdit,"")+'</div>'
-      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Priority areas for growth or improvement</div>'+ta("shared.growth",(r.shared||{}).growth,canMgr||adminEdit,"")+'</div>'
-      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Resources, support, coaching, or training needed from APP</div>'+ta("shared.resources",(r.shared||{}).resources,canMgr||adminEdit,"")+'</div>'
+      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Most significant strengths to recognize and continue</div>'+ta("shared.strengths",(r.shared||{}).strengths,canMgr||isAdminView(),"")+'</div>'
+      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Priority areas for growth or improvement</div>'+ta("shared.growth",(r.shared||{}).growth,canMgr||isAdminView(),"")+'</div>'
+      +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Resources, support, coaching, or training needed from APP</div>'+ta("shared.resources",(r.shared||{}).resources,canMgr||isAdminView(),"")+'</div>'
       +'</div>');
   } else {
     out+=card('🌱 6-month check-in',
@@ -2641,7 +2402,7 @@ async function renderReviewEditor(){
       +(canMgr?ta("mgr.summary",r.mgr.summary,true,"Feedback on the half-year, capacity vs expectations, adjustments…"):'<div style="font-size:13px;line-height:1.6;background:#faf9f5;border-radius:9px;padding:10px 12px">'+((revCanMgr()||revealed)?hesc(r.mgr.summary||"—"):hid(r.mgr.summary))+'</div>'));
   }
   // goals + acknowledgment (both types)
-  const gOn=!REV_LOCKED&&revealed&&revWinOpen()&&(revCanSelf()||revCanMgr());
+  const gOn=revealed&&revWinOpen()&&(revCanSelf()||revCanMgr());
   out+=card('🥅 Goals for the next review period',
     (revealed
       ?'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#faf9f5">'+["Goal and intended result","Actions","Measure of success","Target date","Support needed"].map(function(h){return '<th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#999">'+h+'</th>';}).join("")+'</tr>'
@@ -2654,17 +2415,17 @@ async function renderReviewEditor(){
   out+=card('✍ Acknowledgment',
     '<div style="font-size:11.5px;color:#666;margin-bottom:10px;line-height:1.5">Signatures confirm the review was discussed and the employee had an opportunity to comment. A signature does not necessarily indicate agreement with every rating or comment.</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
-    +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Therapist comments</div>'+ta("ack.tComments",r.ack.tComments,!REV_LOCKED&&revCanSelf()&&revealed&&!r.ack.tSignedAt,"")
-      +'<div style="margin-top:8px">'+(r.ack.tSignedAt?'<span style="font-size:12px;color:#157a45;font-weight:700">✓ Signed '+hesc(r.ack.tSignedAt)+'</span>':(!REV_LOCKED&&revCanSelf()&&revealed?'<button class="btn btn-primary" style="font-size:12px" onclick="revSign(\'t\')">✍ Sign as therapist</button>':'<span style="font-size:11.5px;color:#aaa">awaiting signature</span>'))+'</div></div>'
-    +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Manager comments</div>'+ta("ack.mComments",r.ack.mComments,!REV_LOCKED&&revCanMgr()&&revealed&&!r.ack.mSignedAt,"")
-      +'<div style="margin-top:8px">'+(r.ack.mSignedAt?'<span style="font-size:12px;color:#157a45;font-weight:700">✓ Signed '+hesc(r.ack.mSignedAt)+'</span>':(!REV_LOCKED&&revCanMgr()&&revealed?'<button class="btn btn-primary" style="font-size:12px" onclick="revSign(\'m\')">✍ Sign as manager</button>':'<span style="font-size:11.5px;color:#aaa">awaiting signature</span>'))+'</div></div>'
+    +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Therapist comments</div>'+ta("ack.tComments",r.ack.tComments,revCanSelf()&&revealed&&!r.ack.tSignedAt,"")
+      +'<div style="margin-top:8px">'+(r.ack.tSignedAt?'<span style="font-size:12px;color:#157a45;font-weight:700">✓ Signed '+hesc(r.ack.tSignedAt)+'</span>':(revCanSelf()&&revealed?'<button class="btn btn-primary" style="font-size:12px" onclick="revSign(\'t\')">✍ Sign as therapist</button>':'<span style="font-size:11.5px;color:#aaa">awaiting signature</span>'))+'</div></div>'
+    +'<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Manager comments</div>'+ta("ack.mComments",r.ack.mComments,revCanMgr()&&revealed&&!r.ack.mSignedAt,"")
+      +'<div style="margin-top:8px">'+(r.ack.mSignedAt?'<span style="font-size:12px;color:#157a45;font-weight:700">✓ Signed '+hesc(r.ack.mSignedAt)+'</span>':(revCanMgr()&&revealed?'<button class="btn btn-primary" style="font-size:12px" onclick="revSign(\'m\')">✍ Sign as manager</button>':'<span style="font-size:11.5px;color:#aaa">awaiting signature</span>'))+'</div></div>'
     +'</div>');
   // submit bar
   const bar=[];
   if(canSelf) bar.push('<button class="btn btn-primary" onclick="revSubmitPortion(\'self\')">📤 Submit my portion (therapist)</button>');
   if(canMgr&&!isAdminView()||canMgr&&revCanMgr()&&REV_DOC.reviewerSid===(window.AUTH_STAFF_ID||(currentViewer()&&currentViewer()._id))) bar.push('<button class="btn btn-primary" onclick="revSubmitPortion(\'mgr\')">📤 Submit my portion (manager)</button>');
   else if(canMgr&&isAdminView()) bar.push('<button class="btn btn-secondary" onclick="revSubmitPortion(\'mgr\')">📤 Submit manager portion</button>');
-  if(isAdminView()&&!REV_LOCKED&&(r.self.submittedAt||r.mgr.submittedAt)&&revPhase(r)!=="complete")
+  if(isAdminView()&&(r.self.submittedAt||r.mgr.submittedAt)&&revPhase(r)!=="complete")
     bar.push('<button class="btn btn-secondary" onclick="revUnlock()">🔓 Unlock portions (HR)</button>');
   out+='<div style="position:sticky;bottom:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+bar.join("")+'</div>';
   body.innerHTML=out;
@@ -2763,30 +2524,6 @@ function revNudge(id){
   const first=(r.name||"").split(" ")[0]||"there";
   window.open("https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(to)
     +"&su="+encodeURIComponent(fill(t.subject,first))+"&body="+encodeURIComponent(fill(t.body,first)),"_blank");
-}
-
-// ── employee file: completed reviews, filed on the profile ──
-async function loadProfileReviews(sid){
-  const host=document.getElementById('prof-reviews'); if(!host) return;
-  if(!window.revStore){ host.innerHTML='<div style="font-size:12.5px;color:#999">Reviews load on the live site.</div>'; return; }
-  const all=await window.revStore.mine(sid)||[];
-  const el=document.getElementById('prof-reviews'); if(!el) return; // tab changed while loading
-  const done=all.filter(function(r){return revPhase(r)==="complete";})
-    .sort(function(a,b){return String(b.due||"").localeCompare(String(a.due||""));});
-  if(!done.length){ el.innerHTML='<div style="font-size:12.5px;color:#999">No completed reviews on file yet — signed reviews are filed here automatically.</div>'; return; }
-  el.innerHTML='<div style="background:#fff;border:1px solid #e8e6e0;border-radius:12px;overflow:hidden">'
-    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-    +'<tr style="background:#faf9f5">'+["Review","Period","Signed",""].map(function(h){return '<th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#999">'+h+'</th>';}).join("")+'</tr>'
-    +done.map(function(r){
-      const sg=function(v){ v=String(v||""); return hesc((v.split(" — ")[0]||v).slice(0,10)); };
-      return '<tr style="border-top:1px solid #f0efec">'
-        +'<td style="padding:9px 12px;font-weight:700;white-space:nowrap">'+revTypeLabel(r.type)+'</td>'
-        +'<td style="padding:9px 12px;white-space:nowrap">'+hesc(r.periodStart)+' → '+hesc(r.due)+'</td>'
-        +'<td style="padding:9px 12px;white-space:nowrap;font-size:11.5px;color:#666">✍ '+sg(r.ack&&r.ack.tSignedAt)+' · '+sg(r.ack&&r.ack.mSignedAt)+'</td>'
-        +'<td style="padding:9px 12px;text-align:right"><button class="btn btn-secondary" style="font-size:11.5px;padding:5px 14px" onclick="revOpenLocked(\''+r.__id+'\',\''+sid+'\')">🔒 View</button></td>'
-        +'</tr>';
-    }).join("")+'</table></div></div>'
-    +'<div style="font-size:11px;color:#999;margin-top:6px">Read-only copies of the signed record — open one for a printable PDF.</div>';
 }
 
 // ── pings: nav badge + home card ──
@@ -4550,8 +4287,6 @@ function renderRosterTabs(){
   const s = sid ? STAFF.find(r=>r._id===sid) : null;
   // Build the Files panel fresh each render so uploads/deletes show right away.
   const filesPanel = s ? (sec('Employee Files') + filesSectionHtml(s)
-    + sec('Performance Reviews')
-    + '<div id="prof-reviews" style="padding:2px 0 6px"><div style="font-size:12px;color:#999">Loading…</div></div>'
     + (s['_application'] ? applicationEssaysSection(s['_application']) : '')) : '';
   const TABS = [
     {k:'demo',  l:'Demographic & Employment'},
@@ -4570,7 +4305,6 @@ function renderRosterTabs(){
   document.getElementById('m-body').innerHTML =
     `<div class="tab-bar">${bar}</div>`+
     `<div>${content}</div>`;
-  if(rosterDetailTab==='files' && sid){ try{ loadProfileReviews(sid); }catch(e){} }
   // If the demo tab is showing and this person has a supervisee panel, paint its
   // add-list (the picker is built but its list is filled by JS).
   if(rosterDetailTab==='demo' && sid && document.getElementById('sup-add-list')){
@@ -8610,7 +8344,6 @@ const PAGE_META={
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'CEU Bulk Upload',sub:'File training certificates to staff records'},
   'meetings':{title:'Paid Time & Meetings',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
-  'library':{title:'Library',sub:'Employee manual, clinical SOPs, policies, and how-tos — always the current version'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
   'meetings-hr':{title:'Meeting Pay (HR)',sub:'Everyone\'s submissions, every pay period — review and pay'},
@@ -8652,7 +8385,6 @@ function showPage(id,btn){
   if(id==='admin'){renderAdmin();return;}
   if(id==='ceu-upload'){renderCeuUpload();return;}
   if(id==='meetings'){renderMeetings();return;}
-  if(id==='library'){renderLibrary();return;}
   if(id==='reviews'){renderReviews();return;}
   if(id==='reviews-hr'){renderReviewsHr();return;}
   if(id==='meetings-hr'){renderMeetingsHr();return;}
@@ -10854,23 +10586,6 @@ window.obFiles = {
   get: async (id) => {
     try { const d = await getDoc(doc(db, 'onboardFiles', id)); return d.exists() ? d.data() : null; }
     catch (e) { return null; }
-  }
-};
-
-// ── Library (Learning & Reference) articles ──
-window.libStore = {
-  all: async () => {
-    try { const snap = await getDocs(collection(db, 'library'));
-      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
-    catch (e) { return null; }
-  },
-  set: async (id, data) => {
-    try { await setDoc(doc(db, 'library', id), data, { merge: true }); return true; }
-    catch (e) { return false; }
-  },
-  remove: async (id) => {
-    try { await deleteDoc(doc(db, 'library', id)); return true; }
-    catch (e) { return false; }
   }
 };
 

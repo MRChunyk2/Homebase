@@ -148,13 +148,6 @@ service cloud.firestore {
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'UNPAID');
     }
 
-    // Library (Learning & Reference): employee manual, clinical SOPs,
-    // policies, how-tos. Everyone signed in reads; admins maintain it.
-    match /library/{aid} {
-      allow read: if isDomain();
-      allow create, update, delete: if isAdmin();
-    }
-
     // Performance reviews (annual + 6-month check-in). The therapist and
     // their assigned reviewer read and write their own review; admins (HR)
     // manage all of them. Creation/deletion is HR's (window generation).
