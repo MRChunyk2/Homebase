@@ -1,0 +1,10 @@
+{
+  "name": "homebase-functions",
+  "description": "Billing kill switch for the Homebase project",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}
