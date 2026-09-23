@@ -35,7 +35,7 @@ html{height:100%}
 html,body{margin:0;padding:0}body{font-family:var(--font-body);background:var(--paper);color:var(--ink);overflow:hidden;font-size:13px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.006em;zoom:1.35;height:calc(100vh / 1.35)}
 
 /* ── SIDEBAR ── */
-.sidebar{width:236px;flex-shrink:0;background:linear-gradient(180deg,#252a52 0%,#1c2142 100%);display:flex;flex-direction:column;height:100vh;overflow-y:auto;position:relative}
+.sidebar{width:236px;flex-shrink:0;background:linear-gradient(180deg,#252a52 0%,#1c2142 100%);display:flex;flex-direction:column;height:100%;overflow-y:auto;position:relative}
 .sidebar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--coral),var(--orange),var(--gold),var(--teal),var(--aqua))}
 .sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
 .nav-sec{padding:12px 9px 4px}
@@ -1426,7 +1426,7 @@ const CONFIG_DEFAULTS = {
   // Title checkboxes (multi-select, plus a free-text "other" on the form).
   titleOpts: ['Psychotherapist','Program Manager','Clinical Team Manager (CTM)','Clinical Supervisor'],
   // Department cost-center categories for the % allocation on each profile.
-  departmentOpts: ['3000 Clinical Svc Lines','3041 Clinical Svc Lines','5007 Clinical Admin','5001 Ops Admin','5210 Marketing','5301 Billing Admin','6000 Owners'],
+  departmentOpts: ['N/A','3000 Clinical Svc Lines','3041 Clinical Svc Lines','5007 Clinical Admin','5001 Ops Admin','5210 Marketing','5301 Billing Admin','6000 Owners'],
   // Fields that count as "missing information" on the roster flag for admins.
   // clinical:true entries only apply to clinicians (role has Psychotherapist,
   // or the record carries a license / weekly capacity).
@@ -1442,11 +1442,11 @@ const CONFIG_DEFAULTS = {
     {key:'Capacity Tier',      label:'Capacity Tier'},
     {key:'Supervisor',          label:'Clinical Supervisor', clinical:true},
     {key:'Weekly Capacity',    label:'Weekly Capacity', clinical:true},
-    {key:'License',            label:'License', clinical:true},
-    {key:'License #',          label:'License #', clinical:true},
-    {key:'License Expiration', label:'License Expiration', clinical:true},
-    {key:'NPI',                label:'NPI', clinical:true},
-    {key:"CAQH #'s",           label:'CAQH #', clinical:true},
+    {key:'License',            label:'License', licensed:true},
+    {key:'License #',          label:'License #', licensed:true},
+    {key:'License Expiration', label:'License Expiration', licensed:true},
+    {key:'NPI',                label:'NPI', licensed:true},
+    {key:"CAQH #'s",           label:'CAQH #', licensed:true},
   ],
   // Candidate match scoring, calibrated to the standing job posting. Weights
   // are points; the score is the earned share of the total, as a percent.
@@ -1705,9 +1705,11 @@ function supervisorOpts(){
   // keep any supervisor name currently in use, even if not derivable
   staff.forEach(function(s){
     const nm = (s && s['Supervisor'] || '').trim();
-    if(nm) names.add(nm);
+    if(nm && nm!=='N/A') names.add(nm);
   });
-  return [''].concat(Array.from(names).sort(function(a,b){ return a.localeCompare(b); }));
+  // 'N/A' for people who genuinely have no clinical supervisor, so the record
+  // can be marked complete instead of sitting on the missing-info flag forever.
+  return ['','N/A'].concat(Array.from(names).sort(function(a,b){ return a.localeCompare(b); }));
 }
 
 // "Reports To" dropdown: clinical supervisors plus anyone whose Role or Title
@@ -1734,18 +1736,35 @@ function reportsToOpts(){
 // A clinician for required-field purposes: Psychotherapist role, or the record
 // carries a license or weekly capacity.
 function isClinicianRec(s){
+  const team=String(s['Team']||'').trim().toUpperCase();
+  const cat=String(s['Employee Category']||'').trim();
+  // Explicit non-clinical markers beat inferred signals: the NCA team is
+  // literally "Non Clinical Admin", and the Admin category is an ops role.
+  // Ops staff may still hold a credential (LICSW, PhD) without practising here.
+  if(team==='NCA' || /^admin/i.test(cat)) return false;
   return /psychotherapist/i.test(s['Service Types']||'')
     || String(s['License']||'').trim()!==''
-    || String(s['Weekly Capacity']||'').trim()!=='';
+    || /intern/i.test(cat)
+    || parseFloat(s['Weekly Capacity']||'0')>0;  // a capacity of 0 is not clinical work
+}
+// Interns work clinically but are supervised trainees — they cannot hold a
+// license, NPI or CAQH number yet, so those requirements don't apply to them.
+function isLicensedRec(s){
+  return isClinicianRec(s) && !/intern/i.test(String(s['Employee Category']||''));
+}
+// Whether a required-field rule applies to this person.
+function fieldApplies(f,s){
+  if(f.licensed) return isLicensedRec(s);
+  if(f.clinical) return isClinicianRec(s);
+  return true;
 }
 // Everything missing from a profile: required fields plus unchecked compliance
 // items. Terminated staff are never flagged.
 function missingInfo(s){
   if(!s || normStatus(s['Employee Status'])==='Terminated') return [];
   const out=[];
-  const clin=isClinicianRec(s);
   (CONFIG.requiredProfileFields||[]).forEach(function(f){
-    if(f.clinical && !clin) return;
+    if(!fieldApplies(f,s)) return;
     const v=(s[f.key]===undefined||s[f.key]===null)?'':String(s[f.key]).trim();
     if(!v) out.push({label:f.label, kind:'field', key:f.key});
   });
@@ -1765,7 +1784,7 @@ function rowM(p,label,key,display){
   if(raw) return row(label,(display!==undefined)?display:p[key]);
   if(!isAdminView()) return '';
   const req=(CONFIG.requiredProfileFields||[]).find(function(f){return f.key===key;});
-  if(!req || (req.clinical && !isClinicianRec(p))) return '';
+  if(!req || !fieldApplies(req,p)) return '';
   return '<div class="drow" style="background:#fef2f2;border-radius:7px"><span class="dlabel" style="color:#b91c1c;padding-left:6px">'+hesc(label)+'</span><span class="dval" style="color:#dc2626;font-weight:600">Missing</span></div>';
 }
 function hideMissPopover(){ const e=document.getElementById('miss-popover'); if(e) e.remove(); }
@@ -1853,7 +1872,7 @@ function deptRowHtml(dept, pct){
   })).join('');
   return '<div data-dept-row style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
     +'<select style="flex:1;min-width:0" onchange="deptSumUpdate(this)">'+options+'</select>'
-    +'<input type="number" min="0" max="100" step="1" value="'+hesc(pct)+'" placeholder="%" oninput="deptSumUpdate(this)" style="width:78px;text-align:right">'
+    +'<input type="number" min="0" max="100" step="1" value="'+hesc(dept==='N/A'?'':pct)+'"'+(dept==='N/A'?' disabled':'')+' placeholder="%" oninput="deptSumUpdate(this)" style="width:78px;text-align:right">'
     +'<span style="font-size:12px;color:#888">%</span>'
     +'<button type="button" title="Remove" onclick="var g=this.closest(\'[data-dept-group]\');this.closest(\'[data-dept-row]\').remove();deptSumUpdate(g)" style="border:none;background:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">✕</button>'
     +'</div>';
@@ -1862,7 +1881,7 @@ function deptGroupHtml(key, curStr){
   const rows=deptParse(curStr);
   if(!rows.length) rows.push({dept:'',pct:''});
   let sum=0, any=false;
-  rows.forEach(function(r){ const v=parseFloat(r.pct); if(r.dept&&!isNaN(v)){sum+=v;any=true;} });
+  rows.forEach(function(r){ const v=parseFloat(r.pct); if(r.dept&&r.dept!=='N/A'&&!isNaN(v)){sum+=v;any=true;} });
   const sumTxt=any?('Total: '+sum+'%'):'';
   const sumCol=sum===100?'#157a45':'#b1532f';
   return '<div data-dept-group data-key="'+hesc(key)+'" style="margin-top:2px">'
@@ -1878,8 +1897,11 @@ function deptSumUpdate(el){
   let sum=0, any=false;
   g.querySelectorAll('[data-dept-row]').forEach(function(r){
     const d=r.querySelector('select').value;
-    const v=parseFloat(r.querySelector('input').value);
-    if(d&&!isNaN(v)){ sum+=v; any=true; }
+    const inp=r.querySelector('input');
+    const na=(d==='N/A');
+    inp.disabled=na; if(na) inp.value='';          // N/A rows carry no percentage
+    const v=parseFloat(inp.value);
+    if(d&&!na&&!isNaN(v)){ sum+=v; any=true; }
   });
   const badge=g.querySelector('[data-dept-sum]');
   if(badge){
@@ -5005,7 +5027,8 @@ function saveEdit(){
     group.querySelectorAll('[data-dept-row]').forEach(r=>{
       const d=r.querySelector('select').value;
       const pc=r.querySelector('input').value.trim();
-      if(d) parts.push(d+(pc!==''?' '+parseFloat(pc)+'%':''));
+      if(d==='N/A') parts.push(d);                    // not applicable — never carries a %
+      else if(d) parts.push(d+(pc!==''?' '+parseFloat(pc)+'%':''));
     });
     p[key]=parts.join('; ');
   });
@@ -10829,7 +10852,7 @@ window.filesStore = {
 };
 
 // ── onboarding portal: admin reads candidate progress + files ──
-const _sto = getStorage(app);
+const _sto = getStorage(fbApp);
 window.obStore = {
   init: async (token, meta) => {
     try { await setDoc(doc(db, 'onboarding', token), { meta }, { merge: true }); return true; }
