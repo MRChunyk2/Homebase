@@ -35,7 +35,13 @@ html{height:100%}
 html,body{margin:0;padding:0}body{font-family:var(--font-body);background:var(--paper);color:var(--ink);overflow:hidden;font-size:13px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.006em;zoom:1.35;height:calc(100vh / 1.35)}
 
 /* ── SIDEBAR ── */
-.sidebar{width:236px;flex-shrink:0;background:linear-gradient(180deg,#252a52 0%,#1c2142 100%);display:flex;flex-direction:column;height:100%;overflow-y:auto;position:relative}
+/* The sidebar itself never scrolls — .sidebar-scroll does. That keeps the
+   decorative rainbow strip (.sidebar::after, absolutely positioned at
+   bottom:0) pinned to the sidebar's visible bottom edge. When the sidebar was
+   the scroll container, "bottom" resolved against the scrolling content, so
+   the strip floated mid-list and drifted as you scrolled. */
+.sidebar{width:236px;flex-shrink:0;background:linear-gradient(180deg,#252a52 0%,#1c2142 100%);display:flex;flex-direction:column;height:100%;overflow:hidden;position:relative}
+.sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:4px}
 .sidebar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--coral),var(--orange),var(--gold),var(--teal),var(--aqua))}
 .sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
 .nav-sec{padding:12px 9px 4px}
@@ -522,6 +528,7 @@ tr.rw-new td{background:#fafafa}
 <div class="app-shell">
 <!-- ── SIDEBAR ── -->
 <nav class="sidebar">
+  <div class="sidebar-scroll">
     <div class="sidebar-logo">
       <div style="display:flex;align-items:center;gap:10px">
         <img id="sidebar-logo-img" alt="APP" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0">
@@ -561,6 +568,7 @@ tr.rw-new td{background:#fafafa}
       <button class="nav-item" onclick="window.__signOut && window.__signOut()"><span class="nav-icon">🚪</span>Sign out</button>
       <div id="signed-in-email" style="font-size:9.5px;color:#7d86b8;padding:4px 12px 0;word-break:break-all"></div>
     </div>
+  </div>
   </nav>
 
 <!-- ── MAIN ── -->
