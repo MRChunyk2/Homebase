@@ -16,6 +16,15 @@
  * In other words the site degrades, it does not go down. Re-enable by
  * relinking the billing account in the Firebase console (~30 seconds).
  * Do not leave billing disabled long-term — stored files can be at risk.
+ *
+ * GOTCHA — it re-trips within the same month. The budget is MONTHLY, so once
+ * this has fired the month's spend is already over the limit. Re-linking
+ * billing means the next budget notification (several arrive per day) sees you
+ * still over budget and disables billing again. After re-linking, either raise
+ * the kill-switch budget above the month's actual spend until the 1st, or
+ * leave Storage off until the budget resets. The same warning is in the
+ * "Homebase — BILLING KILL SWITCH FIRED" Cloud Monitoring alert, which emails
+ * will@ and michael@ with full recovery steps when this fires.
  */
 const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const logger = require('firebase-functions/logger');
@@ -94,7 +103,9 @@ exports.billingKillSwitch = onMessagePublished(
     if (res.ok && body.billingEnabled === false) {
       logger.error('BILLING DISABLED for ' + PROJECT_ID + '. Storage is now offline; ' +
         'Hosting and Firestore (free quotas) keep running. Relink billing in the ' +
-        'Firebase console to restore.');
+        'Firebase console to restore — but note the budget is MONTHLY, so after ' +
+        'relinking you must raise the budget above this month\'s spend or this ' +
+        'will fire again within hours.');
     } else {
       logger.error('FAILED to disable billing — check that this function\'s service ' +
         'account has the Billing Account Administrator role.',
