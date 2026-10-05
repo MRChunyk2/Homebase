@@ -148,11 +148,29 @@ service cloud.firestore {
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'UNPAID');
     }
 
-    // Library (Learning & Reference): employee manual, clinical SOPs,
-    // policies, how-tos. Everyone signed in reads; admins maintain it.
+    // Manuals & SOPs (Policies & Procedures): employee manual, clinical
+    // SOPs, policies, how-tos. Everyone signed in reads; admins maintain it.
     match /library/{aid} {
       allow read: if isDomain();
       allow create, update, delete: if isAdmin();
+    }
+
+    // Reference Library (Learning & Reference): collected articles, websites,
+    // videos, and files. Everyone signed in reads; admins add and curate.
+    match /refLibrary/{rid} {
+      allow read: if isDomain();
+      allow create, update, delete: if isAdmin();
+    }
+    // Files uploaded to the Reference Library — base64, one doc per file
+    // (same free-plan pattern as onboardFiles). Firestore's 1 MB doc cap
+    // limits uploads to roughly 650 KB.
+    match /refLibraryFiles/{fid} {
+      allow read: if isDomain();
+      allow create: if isAdmin()
+        && request.resource.data.b64 is string
+        && request.resource.data.b64.size() < 900000
+        && request.resource.data.size() < 10;
+      allow delete: if isAdmin();
     }
 
     // Performance reviews (annual + 6-month check-in). The therapist and

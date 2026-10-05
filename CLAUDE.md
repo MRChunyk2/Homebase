@@ -22,7 +22,9 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   (address/DOB — self + admins), `staffCredentials` (CAQH/PECOS logins — admins
   only), plus `photos`, `userRoles`, `staffFiles`, `applications`,
   `availability`, `panelAvail`, `onboarding`, `onboardFiles`, `meetings`,
-  `reviews`, `library`, and `kv/*` blobs (tiered by key).
+  `reviews`, `library` (Manuals & SOPs), `refLibrary` + `refLibraryFiles`
+  (Reference Library items and their uploaded files), and `kv/*` blobs
+  (tiered by key).
 - **`storage.rules`** — unused (Firebase Storage needs the paid Blaze plan,
   which is not enabled). Kept in the repo for a future upgrade. Onboarding
   uploads are stored in Firestore instead (`onboardFiles`, base64, one doc per

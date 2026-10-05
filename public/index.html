@@ -560,8 +560,11 @@ tr.rw-new td{background:#fafafa}
       <button class="nav-item" id="nav-meetings-hr" onclick="showPage('meetings-hr',this)"><span class="nav-icon">💵</span>Meeting Pay (HR)</button>
       <button class="nav-item" id="nav-payroll" onclick="showPage('payroll',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
     </div>
+    <div class="nav-sec"><div class="nav-sec-label">Policies &amp; Procedures</div>
+      <button class="nav-item" id="nav-library" onclick="showPage('library',this)"><span class="nav-icon">📖</span>Manuals &amp; SOPs</button>
+    </div>
     <div class="nav-sec"><div class="nav-sec-label">Learning &amp; Reference</div>
-      <button class="nav-item" id="nav-library" onclick="showPage('library',this)"><span class="nav-icon">📚</span>Library</button>
+      <button class="nav-item" id="nav-reflib" onclick="showPage('reflib',this)"><span class="nav-icon">📚</span>Reference Library</button>
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Administration</div>
       <button class="nav-item" id="nav-admin" onclick="showPage('admin',this)"><span class="nav-icon">🔐</span>Roles &amp; Permissions</button>
@@ -661,6 +664,9 @@ tr.rw-new td{background:#fafafa}
 
   <div class="page" id="page-library" style="overflow-y:auto;background:#f6f5f1">
     <div id="library-body" style="max-width:1000px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
+  </div>
+  <div class="page" id="page-reflib" style="overflow-y:auto;background:#f6f5f1">
+    <div id="reflib-body" style="max-width:1100px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
   <div class="page" id="page-reviews" style="overflow-y:auto;background:#f6f5f1">
     <div id="reviews-body" style="max-width:1020px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
@@ -2122,7 +2128,7 @@ function isDeclined(wf){return!!wf&&(wf.includes('Declined')||wf.includes('No In
 
 
 // ══════════════════════════════════════════════
-//  LIBRARY — Learning & Reference
+//  MANUALS & SOPs (Policies & Procedures) — Firestore collection 'library'
 // ══════════════════════════════════════════════
 // One Firestore doc per article in 'library':
 //   {cat:'manual'|'sop'|'policy'|'howto', title, body, order,
@@ -2163,9 +2169,9 @@ function libRender(txt){
 }
 async function renderLibrary(){
   const body=document.getElementById("library-body"); if(!body) return;
-  if(!window.libStore){ body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">The Library loads on the live site.</div>'; return; }
+  if(!window.libStore){ body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Manuals &amp; SOPs load on the live site.</div>'; return; }
   if(LIB_ALL===null){
-    body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading the Library…</div>';
+    body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading Manuals &amp; SOPs…</div>';
     LIB_ALL=await window.libStore.all()||[];
   }
   if(LIB_OPENID){ renderLibArticle(); return; }
@@ -2280,7 +2286,7 @@ async function libSave(){
 async function libDelete(){
   if(!libCanEdit()||!window.libStore||LIB_OPENID==="__new") return;
   const a=LIB_ALL.find(function(x){return x.__id===LIB_OPENID;}); if(!a) return;
-  if(!confirm('Delete "'+(a.title||"this article")+'" from the Library? This cannot be undone.')) return;
+  if(!confirm('Delete "'+(a.title||"this article")+'" from Manuals & SOPs? This cannot be undone.')) return;
   const ok=await window.libStore.remove(LIB_OPENID);
   if(!ok){ showToast("⚠ Could not delete"); return; }
   LIB_ALL=LIB_ALL.filter(function(x){return x.__id!==LIB_OPENID;});
@@ -2320,6 +2326,252 @@ async function libStarter(){
   LIB_ALL.push(Object.assign({__id:id},docData));
   LIB_OPENID=id; showToast("📥 Intern workflow outline created"); renderLibrary();
 }
+
+// ══════════════════════════════════════════════
+//  REFERENCE LIBRARY — Learning & Reference
+// ══════════════════════════════════════════════
+// The practice's collection of outside material: articles, websites, videos,
+// books, and uploaded files. One Firestore doc per item in 'refLibrary':
+//   {type, title, url, desc, topic, tags:[], fileId, fileName, fileType,
+//    fileSize, addedAt, addedBy, updatedAt}
+// Uploaded files live in 'refLibraryFiles' (base64, ~650 KB cap).
+// Everyone reads; Admins and Super Admins add, edit, and remove.
+var REF_TYPES=[
+ {k:"article", l:"Article",  icon:"📰", c:"#26316e"},
+ {k:"website", l:"Website",  icon:"🌐", c:"#1d7479"},
+ {k:"video",   l:"Video",    icon:"🎬", c:"#7c2d12"},
+ {k:"book",    l:"Book",     icon:"📘", c:"#4d7c0f"},
+ {k:"file",    l:"File",     icon:"📎", c:"#6b21a8"},
+ {k:"other",   l:"Other",    icon:"🔖", c:"#555"}
+];
+var REF_MAX_FILE=650*1024;
+var REF_ALL=null, REF_TYPE="all", REF_Q="", REF_TOPIC="", REF_EDITID=null, REF_FILE=null;
+function refCanEdit(){ return isAdminView(); }
+function refType(k){ return REF_TYPES.find(function(t){return t.k===k;})||REF_TYPES[REF_TYPES.length-1]; }
+function refNewId(){ return "ref_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function refCleanUrl(u){
+  u=String(u||"").trim(); if(!u) return "";
+  if(!/^https?:\/\//i.test(u)) u="https://"+u;
+  try{ const x=new URL(u); return (x.protocol==="http:"||x.protocol==="https:")?x.href:""; }catch(e){ return ""; }
+}
+function refHost(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return ""; } }
+function refFmtSize(n){ n=+n||0; return n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB"; }
+function refTopics(){
+  const set={}; (REF_ALL||[]).forEach(function(a){ if(a.topic) set[a.topic]=1; });
+  return Object.keys(set).sort(function(a,b){return a.localeCompare(b);});
+}
+async function renderRefLib(){
+  const body=document.getElementById("reflib-body"); if(!body) return;
+  if(!window.refStore){ body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">The Reference Library loads on the live site.</div>'; return; }
+  if(REF_ALL===null){
+    body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading the Reference Library…</div>';
+    REF_ALL=await window.refStore.all()||[];
+  }
+  if(REF_EDITID&&refCanEdit()){ renderRefForm(); return; }
+  const q=REF_Q.toLowerCase();
+  const items=REF_ALL.filter(function(a){
+    if(REF_TYPE!=="all"&&a.type!==REF_TYPE) return false;
+    if(REF_TOPIC&&a.topic!==REF_TOPIC) return false;
+    if(!q) return true;
+    return [a.title,a.desc,a.topic,a.url,a.fileName,(a.tags||[]).join(" "),a.addedBy].join(" ").toLowerCase().indexOf(q)>=0;
+  }).sort(function(a,b){ return String(b.addedAt||"").localeCompare(String(a.addedAt||"")); });
+
+  const chip=function(k,l,icon,c,n){
+    const on=REF_TYPE===k;
+    return '<button onclick="refSetType(\''+k+'\')" style="font-size:12px;font-weight:700;padding:7px 14px;border-radius:20px;border:1px solid '+(on?c:"#ddd")+';background:'+(on?c:"#fff")+';color:'+(on?"#fff":"#555")+';cursor:pointer;font-family:inherit">'+icon+' '+l+(n?' <span style="opacity:.75;font-weight:600">('+n+')</span>':"")+'</button>';
+  };
+  const chips='<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    +chip("all","All","🗂","#252a52",REF_ALL.length)
+    +REF_TYPES.map(function(t){ const n=REF_ALL.filter(function(a){return a.type===t.k;}).length; return n||REF_TYPE===t.k?chip(t.k,t.l,t.icon,t.c,n):""; }).join("")
+    +'</div>';
+  const topics=refTopics();
+  const toolbar='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'
+    +'<input id="ref-search" value="'+hesc(REF_Q)+'" oninput="refSetQ(this.value)" placeholder="🔍  Search titles, descriptions, tags…" style="flex:1;min-width:220px;padding:9px 13px;border:1px solid #e0ddd6;border-radius:10px;font-size:13px;font-family:inherit;background:#fff">'
+    +(topics.length?'<select onchange="refSetTopic(this.value)" style="padding:9px 12px;border:1px solid #e0ddd6;border-radius:10px;font-size:13px;font-family:inherit;background:#fff"><option value="">All topics</option>'
+      +topics.map(function(t){return '<option'+(t===REF_TOPIC?' selected':'')+' value="'+hesc(t)+'">'+hesc(t)+'</option>';}).join("")+'</select>':"")
+    +(refCanEdit()?'<button class="btn btn-primary" style="font-size:12.5px;white-space:nowrap" onclick="refNew()">➕ Add to library</button>':"")
+    +'</div>';
+
+  let list;
+  if(!REF_ALL.length){
+    list='<div style="background:#fff;border:1px dashed #d8d5cd;border-radius:14px;padding:38px 24px;text-align:center">'
+      +'<div style="font-size:32px;margin-bottom:8px">📚</div>'
+      +'<div style="font-size:14.5px;font-weight:700;margin-bottom:4px">The Reference Library is ready to fill</div>'
+      +'<div style="font-size:12.5px;color:#888;max-width:470px;margin:0 auto 14px;line-height:1.55">This is the home for everything the practice has collected — research articles, useful websites, training videos, books, handouts, and files. Every item is searchable and can be tagged by topic.</div>'
+      +(refCanEdit()?'<button class="btn btn-primary" style="font-size:12.5px" onclick="refNew()">➕ Add the first item</button>'
+        :'<div style="font-size:11.5px;color:#aaa">Items are added by leadership.</div>')
+      +'</div>';
+  } else if(!items.length){
+    list='<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:28px;text-align:center;color:#888;font-size:13px">Nothing matches those filters. <a href="#" onclick="refClear();return false" style="color:#26316e;font-weight:700">Clear filters</a></div>';
+  } else {
+    list='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">'+items.map(refCard).join("")+'</div>';
+  }
+  body.innerHTML=
+    '<div style="font-size:12px;color:#555;background:#eef2ff;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">'
+    +'Everything the practice has collected, in one place.'+(refCanEdit()?' Admins can add articles, links, videos, and upload files.':'')
+    +' Looking for the Employee Manual or Clinical SOPs? They live in <a href="#" onclick="showPage(\'library\',document.getElementById(\'nav-library\'));return false" style="color:#26316e;font-weight:700">📖 Manuals &amp; SOPs</a>.</div>'
+    +toolbar+'<div style="margin-bottom:14px">'+chips+'</div>'+list;
+  const s=document.getElementById("ref-search");
+  if(s&&REF_Q){ s.focus(); s.setSelectionRange(REF_Q.length,REF_Q.length); }
+}
+function refCard(a){
+  const t=refType(a.type);
+  const host=a.url?refHost(a.url):"";
+  const open=a.fileId?'refOpenFile(\''+a.__id+'\')':(a.url?'refOpenUrl(\''+a.__id+'\')':'');
+  return '<div style="background:#fff;border:1px solid #e8e6e0;border-radius:13px;padding:15px 16px;display:flex;flex-direction:column;gap:8px">'
+    +'<div style="display:flex;gap:11px;align-items:flex-start">'
+    +'<div style="font-size:20px;line-height:1">'+t.icon+'</div>'
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-size:14px;font-weight:800;line-height:1.35;'+(open?'cursor:pointer':'')+'" '+(open?'onclick="'+open+'"':'')+'>'+hesc(a.title||"Untitled")+'</div>'
+    +'<div style="font-size:11px;color:#999;margin-top:3px"><span style="font-weight:700;color:'+t.c+'">'+t.l+'</span>'
+    +(host?' · '+hesc(host):"")+(a.fileName?' · '+hesc(a.fileName)+(a.fileSize?' ('+refFmtSize(a.fileSize)+')':''):"")+'</div>'
+    +'</div></div>'
+    +(a.desc?'<div style="font-size:12.5px;color:#555;line-height:1.55">'+hesc(a.desc)+'</div>':"")
+    +((a.topic||(a.tags||[]).length)?'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+      +(a.topic?'<span style="font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;background:#eef2ff;color:#26316e">'+hesc(a.topic)+'</span>':"")
+      +(a.tags||[]).map(function(g){return '<span style="font-size:10.5px;padding:2px 8px;border-radius:20px;background:#f4f3ef;color:#666">#'+hesc(g)+'</span>';}).join("")
+      +'</div>':"")
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:6px;border-top:1px solid #f4f3ef">'
+    +'<div style="flex:1;font-size:10.5px;color:#aaa">Added '+hesc(String(a.addedAt||"").slice(0,10))+(a.addedBy?' by '+hesc(a.addedBy):"")+'</div>'
+    +(open?'<button class="btn btn-secondary" style="font-size:11.5px;padding:5px 11px" onclick="'+open+'">'+(a.fileId?'⬇ Open file':'↗ Open')+'</button>':"")
+    +(refCanEdit()?'<button class="btn btn-secondary" style="font-size:11.5px;padding:5px 9px" title="Edit" onclick="refEdit(\''+a.__id+'\')">✏</button>':"")
+    +'</div></div>';
+}
+function refSetType(k){ REF_TYPE=k; renderRefLib(); }
+function refSetQ(v){ REF_Q=v; renderRefLib(); }
+function refSetTopic(v){ REF_TOPIC=v; renderRefLib(); }
+function refClear(){ REF_TYPE="all"; REF_Q=""; REF_TOPIC=""; renderRefLib(); }
+function refNew(){ REF_EDITID="__new"; REF_FILE=null; renderRefLib(); }
+function refEdit(id){ REF_EDITID=id; REF_FILE=null; renderRefLib(); }
+function refCancel(){ REF_EDITID=null; REF_FILE=null; renderRefLib(); }
+function renderRefForm(){
+  const body=document.getElementById("reflib-body"); if(!body) return;
+  const isNew=REF_EDITID==="__new";
+  const a=isNew?{type:"article",title:"",url:"",desc:"",topic:"",tags:[]}:REF_ALL.find(function(x){return x.__id===REF_EDITID;});
+  if(!a){ REF_EDITID=null; renderRefLib(); return; }
+  const lbl=function(t,extra){ return '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">'+t+(extra||"")+'</div>'; };
+  const inp='width:100%;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit;background:#fff';
+  const topics=refTopics();
+  body.innerHTML=
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+    +'<button class="btn btn-secondary" style="font-size:12px" onclick="refCancel()">← Cancel</button>'
+    +'<div style="font-size:16px;font-weight:800">'+(isNew?"Add to the Reference Library":"Edit item")+'</div></div>'
+    +'<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:20px;display:grid;gap:14px;max-width:760px">'
+    +'<div>'+lbl("Type")+'<div style="display:flex;gap:7px;flex-wrap:wrap" id="ref-type-row">'
+      +REF_TYPES.map(function(t){ const on=a.type===t.k;
+        return '<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid '+(on?t.c:"#ddd")+';cursor:pointer"><input type="radio" name="ref-type" value="'+t.k+'"'+(on?' checked':'')+' style="margin:0">'+t.icon+' '+t.l+'</label>'; }).join("")
+      +'</div></div>'
+    +'<div>'+lbl("Title")+'<input id="ref-title" value="'+hesc(a.title||"")+'" placeholder="e.g. The therapeutic alliance: a meta-analysis" style="'+inp+';font-weight:700;font-size:14px"></div>'
+    +'<div>'+lbl("Link",' <span style="font-weight:600;text-transform:none;color:#999">— web address for articles, websites, videos (optional if you upload a file)</span>')+'<input id="ref-url" value="'+hesc(a.url||"")+'" placeholder="https://…" style="'+inp+'"></div>'
+    +'<div>'+lbl("Upload a file",' <span style="font-weight:600;text-transform:none;color:#999">— PDF, Word, image, etc. · up to '+refFmtSize(REF_MAX_FILE)+'</span>')
+      +(a.fileId?'<div style="font-size:12.5px;margin-bottom:6px">Current file: <strong>'+hesc(a.fileName||"file")+'</strong>'+(a.fileSize?' ('+refFmtSize(a.fileSize)+')':'')+' <label style="margin-left:10px;font-size:12px;color:#b91c1c;cursor:pointer"><input type="checkbox" id="ref-rmfile" style="vertical-align:middle"> remove it</label></div>':"")
+      +'<input type="file" id="ref-file" onchange="refPickFile(this)" style="font-size:12.5px"><div id="ref-file-note" style="font-size:11.5px;color:#888;margin-top:4px"></div></div>'
+    +'<div>'+lbl("Description")+'<textarea id="ref-desc" placeholder="Why it’s useful, who should read it, key takeaways…" style="'+inp+';min-height:90px;line-height:1.5;resize:vertical">'+hesc(a.desc||"")+'</textarea></div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:200px">'+lbl("Topic")+'<input id="ref-topic" list="ref-topic-list" value="'+hesc(a.topic||"")+'" placeholder="e.g. Trauma, Couples, Ethics" style="'+inp+'"><datalist id="ref-topic-list">'+topics.map(function(t){return '<option value="'+hesc(t)+'">';}).join("")+'</datalist></div>'
+      +'<div style="flex:1;min-width:200px">'+lbl("Tags",' <span style="font-weight:600;text-transform:none;color:#999">— comma separated</span>')+'<input id="ref-tags" value="'+hesc((a.tags||[]).join(", "))+'" placeholder="e.g. EMDR, adolescents" style="'+inp+'"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;margin-top:4px">'
+      +'<button class="btn btn-primary" id="ref-save-btn" onclick="refSave()">💾 '+(isNew?"Add to library":"Save changes")+'</button>'
+      +(isNew?"":'<button class="btn btn-secondary" style="color:#b91c1c" onclick="refDelete()">🗑 Remove from library</button>')
+    +'</div></div>';
+}
+function refPickFile(inp){
+  const note=document.getElementById("ref-file-note");
+  const f=inp.files&&inp.files[0]; REF_FILE=null;
+  if(!f){ if(note) note.textContent=""; return; }
+  if(f.size>REF_MAX_FILE){
+    inp.value="";
+    if(note){ note.style.color="#b91c1c"; note.textContent="That file is "+refFmtSize(f.size)+" — the limit is "+refFmtSize(REF_MAX_FILE)+". Add a link to it instead (e.g. a shared Google Drive link)."; }
+    return;
+  }
+  REF_FILE=f;
+  if(note){ note.style.color="#157a45"; note.textContent="✓ "+f.name+" ("+refFmtSize(f.size)+") will be uploaded when you save."; }
+  const t=document.getElementById("ref-title"); if(t&&!t.value.trim()) t.value=f.name.replace(/\.[^.]+$/,"");
+  const r=document.querySelector('input[name="ref-type"][value="file"]'); const cur=document.querySelector('input[name="ref-type"]:checked');
+  if(r&&cur&&cur.value==="article"&&!(document.getElementById("ref-url")||{}).value) r.checked=true;
+}
+function refReadB64(f){
+  return new Promise(function(res,rej){
+    const fr=new FileReader();
+    fr.onload=function(){ const s=String(fr.result||""); res(s.slice(s.indexOf(",")+1)); };
+    fr.onerror=function(){ rej(fr.error); };
+    fr.readAsDataURL(f);
+  });
+}
+async function refSave(){
+  if(!refCanEdit()||!window.refStore) return;
+  const isNew=REF_EDITID==="__new";
+  const old=isNew?null:REF_ALL.find(function(x){return x.__id===REF_EDITID;});
+  const g=function(id){ return ((document.getElementById(id)||{}).value||"").trim(); };
+  const title=g("ref-title"), rawUrl=g("ref-url");
+  const url=refCleanUrl(rawUrl);
+  const typeEl=document.querySelector('input[name="ref-type"]:checked');
+  const type=typeEl?typeEl.value:"other";
+  const rmFile=!!(document.getElementById("ref-rmfile")||{}).checked;
+  if(!title){ showToast("⚠ Give the item a title"); return; }
+  if(rawUrl&&!url){ showToast("⚠ That link doesn’t look like a web address"); return; }
+  const willHaveFile=!!REF_FILE||(old&&old.fileId&&!rmFile);
+  if(!url&&!willHaveFile&&type!=="book"&&type!=="other"){ showToast("⚠ Add a link or upload a file"); return; }
+  const btn=document.getElementById("ref-save-btn"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const id=isNew?refNewId():REF_EDITID;
+  const now=new Date().toISOString();
+  const data={type:type,title:title,url:url,desc:g("ref-desc"),topic:g("ref-topic"),
+    tags:g("ref-tags").split(",").map(function(x){return x.trim().replace(/^#/,"");}).filter(Boolean).slice(0,12),
+    updatedAt:now};
+  if(isNew){ data.addedAt=now; data.addedBy=libWhoAmI(); }
+  const oldFileId=old&&old.fileId;
+  if(REF_FILE){
+    let b64;
+    try{ b64=await refReadB64(REF_FILE); }catch(e){ showToast("⚠ Could not read that file"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
+    const fid="reff_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+    const ok=await window.refStore.putFile(fid,{b64:b64,name:REF_FILE.name,type:REF_FILE.type||"application/octet-stream",size:REF_FILE.size,itemId:id});
+    if(!ok){ showToast("⚠ Upload failed — the file may be too large"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
+    data.fileId=fid; data.fileName=REF_FILE.name; data.fileType=REF_FILE.type||""; data.fileSize=REF_FILE.size;
+  } else if(rmFile){
+    data.fileId=""; data.fileName=""; data.fileType=""; data.fileSize=0;
+  }
+  const ok=await window.refStore.set(id,data);
+  if(!ok){ showToast("⚠ Could not save — try again"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
+  if(oldFileId&&(REF_FILE||rmFile)) window.refStore.removeFile(oldFileId);
+  const rec=Object.assign({},old||{__id:id},data);
+  const i=REF_ALL.findIndex(function(x){return x.__id===id;});
+  if(i>=0) REF_ALL[i]=rec; else REF_ALL.push(rec);
+  REF_EDITID=null; REF_FILE=null;
+  showToast(isNew?"📚 Added to the Reference Library":"💾 Saved"); renderRefLib();
+}
+async function refDelete(){
+  if(!refCanEdit()||!window.refStore||REF_EDITID==="__new") return;
+  const a=REF_ALL.find(function(x){return x.__id===REF_EDITID;}); if(!a) return;
+  if(!confirm('Remove "'+(a.title||"this item")+'" from the Reference Library? This cannot be undone.')) return;
+  const ok=await window.refStore.remove(a.__id);
+  if(!ok){ showToast("⚠ Could not remove"); return; }
+  if(a.fileId) window.refStore.removeFile(a.fileId);
+  REF_ALL=REF_ALL.filter(function(x){return x.__id!==a.__id;});
+  REF_EDITID=null; showToast("🗑 Removed"); renderRefLib();
+}
+function refOpenUrl(id){
+  const a=(REF_ALL||[]).find(function(x){return x.__id===id;});
+  const u=a&&refCleanUrl(a.url); if(u) window.open(u,"_blank","noopener");
+}
+async function refOpenFile(id){
+  const a=(REF_ALL||[]).find(function(x){return x.__id===id;});
+  if(!a||!a.fileId||!window.refStore){ showToast("File links need the live site"); return; }
+  const w=window.open("","_blank");
+  const f=await window.refStore.getFile(a.fileId);
+  if(!f||!f.b64){ if(w) w.close(); showToast("⚠ Could not open the file"); return; }
+  try{
+    const bin=atob(f.b64); const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    const blob=new Blob([arr],{type:f.type||"application/octet-stream"});
+    const u=URL.createObjectURL(blob);
+    const viewable=/^(application\/pdf|image\/|text\/|video\/|audio\/)/.test(f.type||"");
+    if(viewable&&w){ w.location.href=u; }
+    else { if(w) w.close(); const l=document.createElement("a"); l.href=u; l.download=f.name||a.fileName||"file"; document.body.appendChild(l); l.click(); l.remove(); }
+    setTimeout(function(){ URL.revokeObjectURL(u); },60000);
+  }catch(e){ if(w) w.close(); showToast("⚠ Could not open the file"); }
+}
+
 
 // ══════════════════════════════════════════════
 //  PERFORMANCE REVIEWS — annual full review + 6-month check-in
@@ -8645,7 +8897,8 @@ const PAGE_META={
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'CEU Bulk Upload',sub:'File training certificates to staff records'},
   'meetings':{title:'Paid Time & Meetings',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
-  'library':{title:'Library',sub:'Employee manual, clinical SOPs, policies, and how-tos — always the current version'},
+  'library':{title:'Manuals & SOPs',sub:'Employee manual, clinical SOPs, policies, and how-tos — always the current version'},
+  'reflib':{title:'Reference Library',sub:'Articles, websites, videos, and files the practice has collected'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
   'meetings-hr':{title:'Meeting Pay (HR)',sub:'Everyone\'s submissions, every pay period — review and pay'},
@@ -8688,6 +8941,7 @@ function showPage(id,btn){
   if(id==='ceu-upload'){renderCeuUpload();return;}
   if(id==='meetings'){renderMeetings();return;}
   if(id==='library'){renderLibrary();return;}
+  if(id==='reflib'){renderRefLib();return;}
   if(id==='reviews'){renderReviews();return;}
   if(id==='reviews-hr'){renderReviewsHr();return;}
   if(id==='meetings-hr'){renderMeetingsHr();return;}
@@ -10892,7 +11146,7 @@ window.obFiles = {
   }
 };
 
-// ── Library (Learning & Reference) articles ──
+// ── Manuals & SOPs articles (collection 'library') ──
 window.libStore = {
   all: async () => {
     try { const snap = await getDocs(collection(db, 'library'));
@@ -10905,6 +11159,37 @@ window.libStore = {
   },
   remove: async (id) => {
     try { await deleteDoc(doc(db, 'library', id)); return true; }
+    catch (e) { return false; }
+  }
+};
+
+// ── Reference Library (Learning & Reference) ──
+// Items in 'refLibrary'; uploaded files as base64 docs in 'refLibraryFiles'
+// (free-plan alternative to Storage, same pattern as onboardFiles).
+window.refStore = {
+  all: async () => {
+    try { const snap = await getDocs(collection(db, 'refLibrary'));
+      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
+    catch (e) { return null; }
+  },
+  set: async (id, data) => {
+    try { await setDoc(doc(db, 'refLibrary', id), data, { merge: true }); return true; }
+    catch (e) { return false; }
+  },
+  remove: async (id) => {
+    try { await deleteDoc(doc(db, 'refLibrary', id)); return true; }
+    catch (e) { return false; }
+  },
+  putFile: async (id, data) => {
+    try { await setDoc(doc(db, 'refLibraryFiles', id), data); return true; }
+    catch (e) { return false; }
+  },
+  getFile: async (id) => {
+    try { const d = await getDoc(doc(db, 'refLibraryFiles', id)); return d.exists() ? d.data() : null; }
+    catch (e) { return null; }
+  },
+  removeFile: async (id) => {
+    try { await deleteDoc(doc(db, 'refLibraryFiles', id)); return true; }
     catch (e) { return false; }
   }
 };
