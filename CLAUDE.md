@@ -22,9 +22,10 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   (address/DOB — self + admins), `staffCredentials` (CAQH/PECOS logins — admins
   only), plus `photos`, `userRoles`, `staffFiles`, `applications`,
   `availability`, `panelAvail`, `onboarding`, `onboardFiles`, `meetings`,
-  `reviews`, `library` (Manuals & SOPs), `refLibrary` + `refLibraryFiles`
-  (Reference Library items and their uploaded files), and `kv/*` blobs
-  (tiered by key).
+  `reviews`, `library` (articles shown on Clinical Policies & Standards of
+  Care, Clinical How-Tos, and Employee Handbook — split by `cat`),
+  `refLibrary` + `refLibraryFiles` (Learning & Reference and Paperwork &
+  Templates items and their uploaded files), and `kv/*` blobs (tiered by key).
 - **`storage.rules`** — unused (Firebase Storage needs the paid Blaze plan,
   which is not enabled). Kept in the repo for a future upgrade. Onboarding
   uploads are stored in Firestore instead (`onboardFiles`, base64, one doc per
@@ -33,6 +34,15 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
 - **`build/`** — historical record of the June 2026 migration that split the data
   out of the original single-file app. The transform reads a source file that is
   not in this repo; do not re-run it. Reference only.
+
+## Navigation (Oct 2026 reorg)
+
+Five sidebar sections: My Homebase · Clinical Corner · HR Hub · Recruitment ·
+Admin Logistics. Nav items carry `data-page`; `applyRoleVisibility()` hides
+items via `canSeePage()` and hides any section left empty. Placeholder pages
+("Coming soon") are listed in `PLACEHOLDERS`. New roles from the spreadsheet
+(Prac Ops, Director, CTM/CPM) are NOT built yet — still therapist /
+supervisor / admin / superadmin.
 
 ## Hard rules
 
