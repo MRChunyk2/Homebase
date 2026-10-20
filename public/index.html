@@ -449,6 +449,62 @@ tr.rw-new td{background:#fafafa}
 .home-quick-label{font-size:12px;font-weight:700;color:#1a1a1a}
 .home-quick-sub{font-size:11px;color:#aaa;margin-top:2px}
 .home-section{padding:0 20px 20px}
+/* My Homebase snapshot */
+.hm-top{padding:20px 22px 4px}.hm-date{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#999}
+.hm-hi{font-size:23px;font-weight:800;color:var(--ink);margin:2px 0 0;letter-spacing:-.01em}
+.hm-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;padding:12px 20px 6px;align-items:start}
+.hm-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media (max-width:1100px){.hm-grid{grid-template-columns:1fr}}
+.ts-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 12px;align-items:flex-start}
+.ts-name{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;color:var(--ink);margin-top:8px}
+.ts-wx{display:flex;align-items:center;gap:8px;background:#f2f6fb;border-radius:12px;padding:7px 12px;min-height:44px;flex:0 0 auto;white-space:nowrap}
+.ts-wx:empty{display:none}.ts-wxload{font-size:11.5px;color:#999}
+.ts-wxic{font-size:24px;line-height:1}.ts-wxt{font-size:19px;font-weight:900;color:var(--ink);line-height:1.1}.ts-wxt small{font-size:11.5px;font-weight:700;color:#555}.ts-wxs{font-size:11px;color:#666;margin-top:2px;line-height:1.35}
+.ts-sec{border-top:1px solid #f1efe9;margin-top:12px;padding-top:12px}
+.ts-lab{font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:8px}
+.ts-lead{display:flex;align-items:center;gap:10px;padding:5px 0}
+.ts-noav{width:34px;height:34px;border-radius:50%;background:#f1f0ea;color:#bbb;display:inline-flex;align-items:center;justify-content:center;font-weight:800}
+.ts-leadtx{flex:1;min-width:0}.ts-leadtx .r{font-size:11px;font-weight:700;color:#999}.ts-leadtx .n{font-size:13.5px;font-weight:800;color:var(--ink)}
+.ts-mail{flex:0 0 32px;height:32px;border-radius:50%;background:#eef0f8;color:var(--navy);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:15px}.ts-mail:hover{background:var(--navy);color:#fff}
+.ts-chathead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ts-open{font-size:12px;font-weight:800;color:#fff;background:#1a73e8;border-radius:9px;padding:6px 11px;text-decoration:none;white-space:nowrap}
+.ts-chatempty{display:block;font-size:12.5px;color:#666;background:#f6f8fc;border:1px dashed #cfd8ea;border-radius:10px;padding:10px 12px;text-decoration:none;line-height:1.5}
+a.ts-chatempty:hover{border-color:#1a73e8}.ts-chatempty b{color:#1a73e8}
+.ts-edit{border:0;background:none;font-family:inherit;font-size:11.5px;color:#999;cursor:pointer;padding:6px 0 0}.ts-edit:hover{color:var(--navy)}
+.ts-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;border-top:1px solid #f1efe9;margin-top:12px;padding-top:10px;font-size:12px;color:#777}
+.ts-foot a{color:#dc2626;font-weight:800;text-decoration:none}.ts-links{margin-left:auto;display:flex;gap:12px;white-space:nowrap}
+.hs-wrap{padding:18px 20px 6px;display:flex;flex-direction:column;gap:14px}
+.hs-card{background:#fff;border:1px solid var(--hairline);border-radius:16px;padding:14px 18px;min-width:0}
+.hs-h{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px}
+.hs-link{margin-left:auto;border:0;background:none;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--navy-mid);cursor:pointer;padding:2px 4px}.hs-link:hover{text-decoration:underline}
+.hs-alerts{border-width:2px;border-color:#e6e9f5}
+#home-alertlist{display:flex;flex-direction:column;gap:8px}#home-alertlist>div:empty{display:none}#home-alertlist>div:not(.hs-alert){display:flex;flex-direction:column;gap:8px}
+.hs-clear{font-size:13.5px;font-weight:700;color:#15803d;background:#f0fdf4;border-radius:10px;padding:10px 14px}
+.hs-alert{display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-radius:12px;padding:10px 14px;border:1.5px solid}
+.hs-alert.red{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}.hs-alert.amber{background:#fffbeb;border-color:#fcd97a;color:#6b4300}.hs-alert.navy{background:#eef0f8;border-color:#c9cee8;color:#1b1f3a}
+.hs-aic{flex:0 0 38px;height:38px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:18px;font-weight:900;line-height:1;border:2px solid currentColor}
+.hs-aic small{font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.hs-days{font-size:15px}
+.hs-atx{flex:1;min-width:200px}.hs-atx .t{font-size:14px;font-weight:800;line-height:1.3}.hs-atx .s{font-size:12.5px;opacity:.85;margin-top:1px}
+.hs-abtn{border:0;background:currentColor;font-family:inherit;font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.hs-alert.red .hs-abtn{background:#dc2626;color:#fff}.hs-alert.amber .hs-abtn{background:#b45309;color:#fff}.hs-alert.navy .hs-abtn{background:var(--navy);color:#fff}
+.hs-abtn.ghost{background:#fff!important;color:inherit!important;border:1px solid currentColor}
+.hs-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.hs-none{font-size:13px;color:#999;margin:4px 0 8px}
+.hs-capbody{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.hs-ring{position:relative;width:96px;height:96px;flex:0 0 96px}.hs-ringtx{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hs-ringtx b{font-size:22px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums}.hs-ringtx span{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#999}
+.hs-capfacts{flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px}
+.hs-pill{align-self:flex-start;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px}
+.hs-fact .l{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999}.hs-fact .v{font-size:17px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}.hs-fact small{font-size:12px;font-weight:600;color:#999}
+.hs-bar{height:6px;background:#eef0f4;border-radius:4px;overflow:hidden;margin-top:3px}.hs-bar i{display:block;height:100%;border-radius:4px}
+.hs-note{font-size:12.5px;color:#555}
+.hs-sitename{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;color:var(--ink)}
+.hs-addr{display:inline-block;font-size:12.5px;color:#666;margin:3px 0 10px;text-decoration:none}.hs-addr:hover{text-decoration:underline}
+.hs-sitegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.hs-sitegrid>div{background:#faf9f5;border-radius:10px;padding:8px 10px;min-width:0}.hs-sitegrid .l{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999}
+.hs-sitegrid a{font-size:13.5px;font-weight:800;color:#dc2626;text-decoration:none}.hs-sitegrid span{font-size:12.5px;color:#555}
+.hs-sitefoot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:#666;margin-top:10px}
+.hs-more{display:flex;align-items:center;gap:10px;padding:14px 20px 0;color:#aaa;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.hs-more::after{content:"";flex:1;height:1px;background:#e8e6e0}
 .home-section-title{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:10px;padding-top:4px}
 .home-ann-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:12px 16px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s}
 .home-ann-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}
@@ -550,7 +606,7 @@ tr.rw-new td{background:#fafafa}
       <button class="nav-item" id="nav-team-dashboard" data-page="team-dashboard" onclick="showPage('team-dashboard',this)"><span class="nav-icon">📊</span>Leadership Dashboard</button>
       <button class="nav-item" id="nav-intake-profile" data-page="intake-profile" onclick="showPage('intake-profile',this)"><span class="nav-icon">🗂</span>Clinical Profile for Intake</button>
       <button class="nav-item" id="nav-discharge" data-page="discharge" onclick="showPage('discharge',this)"><span class="nav-icon">🔁</span>Discharge &amp; Transfer</button>
-      <button class="nav-item" id="nav-clin-policies" data-page="clin-policies" onclick="showPage('clin-policies',this)"><span class="nav-icon">⚖️</span>Clinical Policies &amp; Standards of Care</button>
+      <button class="nav-item" id="nav-clin-policies" data-page="clin-policies" onclick="showPage('clin-policies',this)"><span class="nav-icon">📕</span>Clinical Manual</button>
       <button class="nav-item" id="nav-clin-howtos" data-page="clin-howtos" onclick="showPage('clin-howtos',this)"><span class="nav-icon">🧭</span>Clinical How-Tos</button>
       <button class="nav-item" id="nav-paperwork" data-page="paperwork" onclick="showPage('paperwork',this)"><span class="nav-icon">📄</span>Paperwork &amp; Templates</button>
       <button class="nav-item" id="nav-reflib" data-page="reflib" onclick="showPage('reflib',this)"><span class="nav-icon">📚</span>Learning &amp; Reference</button>
@@ -573,6 +629,7 @@ tr.rw-new td{background:#fafafa}
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Admin Logistics</div>
       <button class="nav-item" id="nav-payroll" data-page="payroll" onclick="showPage('payroll',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
+      <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Finder</button>
       <button class="nav-item" id="nav-report-center" data-page="report-center" onclick="showPage('report-center',this)"><span class="nav-icon">📑</span>Report Center</button>
       <button class="nav-item" id="nav-admin" data-page="admin" onclick="showPage('admin',this)"><span class="nav-icon">🔐</span>Roles &amp; Permissions</button>
     </div>
@@ -671,21 +728,22 @@ tr.rw-new td{background:#fafafa}
 
   <!-- Article pages (Firestore 'library', split by category) -->
   <div class="page" id="page-clin-policies" style="overflow-y:auto;background:#f6f5f1">
-    <div id="clin-policies-body" style="max-width:1000px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
+    <div id="clin-policies-body" style="max-width:1180px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
   <div class="page" id="page-clin-howtos" style="overflow-y:auto;background:#f6f5f1">
     <div id="clin-howtos-body" style="max-width:1000px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
   <div class="page" id="page-handbook" style="overflow-y:auto;background:#f6f5f1">
-    <div id="handbook-body" style="max-width:1000px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
+    <div id="handbook-body" style="max-width:1180px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
   <!-- Paperwork & Templates (Firestore 'refLibrary', items with a shelf) -->
   <div class="page" id="page-paperwork" style="overflow-y:auto;background:#f6f5f1">
     <div id="paperwork-body" style="max-width:1100px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
   </div>
   <!-- Placeholders — to be built out -->
-  <div class="page" id="page-intake-profile" style="overflow-y:auto;background:#f6f5f1"><div id="intake-profile-body" style="max-width:900px;margin:0 auto;padding:22px 24px 90px;width:100%"></div></div>
+  <div class="page" id="page-intake-profile" style="overflow-y:auto;background:#f6f5f1"><div id="intake-profile-body" style="max-width:1180px;margin:0 auto;padding:22px 24px 90px;width:100%"></div></div>
   <div class="page" id="page-discharge" style="overflow-y:auto;background:#f6f5f1"><div id="discharge-body" style="max-width:900px;margin:0 auto;padding:22px 24px 90px;width:100%"></div></div>
+  <div class="page" id="page-intake-finder" style="overflow-y:auto;background:#f6f5f1"><div id="intake-finder-body" style="max-width:1280px;margin:0 auto;padding:22px 24px 90px;width:100%"></div></div>
   <div class="page" id="page-report-center" style="overflow-y:auto;background:#f6f5f1"><div id="report-center-body" style="max-width:900px;margin:0 auto;padding:22px 24px 90px;width:100%"></div></div>
   <div class="page" id="page-reflib" style="overflow-y:auto;background:#f6f5f1">
     <div id="reflib-body" style="max-width:1100px;margin:0 auto;padding:22px 24px 90px;width:100%"></div>
@@ -1596,6 +1654,8 @@ const CONFIG_DEFAULTS = {
   // admin Config screen. Note that firestore.rules ALSO hardcodes two bootstrap
   // admin emails, so this list can never be the only thing preventing lockout.
   superAdminNames: [],
+  // Google Chat space link per site code (set from My Homebase by an admin).
+  siteChat: {},
 };
 
 function cfgClone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -2160,6 +2220,7 @@ function isDeclined(wf){return!!wf&&(wf.includes('Declined')||wf.includes('No In
 // and records a "what changed" note — the raw material for the future
 // review-and-initial flow on the employee manual and clinical SOPs.
 var LIB_CATS=[
+ {k:"cmanual",l:"Clinical Manual",   icon:"📕", c:"#7f1d1d", hint:"APP’s clinical manual, chapter by chapter: standards for care, documentation, billing, supervision, safety, and continuity of care."},
  {k:"manual", l:"Employee Handbook",   icon:"📖", c:"#26316e", hint:"Policies and expectations for everyone at APP."},
  {k:"sop",    l:"Clinical SOPs",     icon:"🩺", c:"#1d7479", hint:"Step-by-step clinical operating procedures."},
  {k:"policy", l:"Clinical Policies", icon:"⚖️", c:"#7c2d12", hint:"Formal clinical policy — the why behind the SOPs."},
@@ -2167,15 +2228,16 @@ var LIB_CATS=[
 ];
 // Each nav page shows a subset of the categories (same collection, same data).
 var LIB_PAGES={
-  "clin-policies":{cats:["policy","sop"], label:"Clinical Policies & Standards of Care"},
+  "clin-policies":{cats:["cmanual"], label:"Clinical Manual"},
   "clin-howtos":  {cats:["howto"],        label:"Clinical How-Tos"},
   "handbook":     {cats:["manual"],       label:"Employee Handbook"}
 };
 var LIB_CUR="clin-policies";
 function libPageCats(){ const pg=LIB_PAGES[LIB_CUR]||LIB_PAGES["clin-policies"]; return pg.cats.map(function(k){return LIB_CATS.find(function(c){return c.k===k;});}); }
 function libBody(){ return document.getElementById(LIB_CUR+"-body"); }
-var LIB_ALL=null, LIB_CAT="policy", LIB_OPENID=null, LIB_EDIT=false, LIB_LOG=false;
-function libCanEdit(){ return isAdminView(); }
+var LIB_ALL=null, LIB_CAT="cmanual", LIB_OPENID=null, LIB_EDIT=false, LIB_LOG=false;
+// Manuals (Clinical Manual, Employee Handbook): Super Admins only. Other article pages: Admins+.
+function libCanEdit(){ return libIsBook(LIB_CAT)?isSuperAdminView():isAdminView(); }
 function libWhoAmI(){
   const v=currentViewer(); if(v) return v["Clinician"]||"Admin";
   const s=STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;});
@@ -2184,15 +2246,30 @@ function libWhoAmI(){
 function libNewId(){ return "lib_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 // Tiny formatter: # / ## headings, - bullets, 1. numbered lists, **bold**.
 function libFmtInline(s){ return hesc(s).replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>"); }
-function libRender(txt){
+// Also: "| a | b |" tables (first row = header, "---" rows skipped) and
+// "> " callouts. Pass anchorPrefix to give each "## " heading an id.
+function libRender(txt,anchorPrefix){
   const lines=String(txt||"").split("\n");
-  let out="", inUl=false, inOl=false;
-  const close=function(){ if(inUl){out+="</ul>";inUl=false;} if(inOl){out+="</ol>";inOl=false;} };
+  let out="", inUl=false, inOl=false, tbl=null, h2=0;
+  const flushTbl=function(){ if(!tbl) return;
+    out+='<div style="overflow-x:auto;margin:10px 0 14px"><table style="border-collapse:collapse;width:100%;font-size:13px;line-height:1.5">'
+      +tbl.map(function(r,i){ return '<tr>'+r.map(function(c){ return i===0
+        ?'<th style="text-align:left;background:#f6f5f1;border:1px solid #e8e6e0;padding:7px 10px;font-weight:800;vertical-align:top">'+libFmtInline(c)+'</th>'
+        :'<td style="border:1px solid #e8e6e0;padding:7px 10px;vertical-align:top">'+libFmtInline(c)+'</td>'; }).join("")+'</tr>'; }).join("")
+      +'</table></div>'; tbl=null; };
+  const close=function(){ if(inUl){out+="</ul>";inUl=false;} if(inOl){out+="</ol>";inOl=false;} flushTbl(); };
   lines.forEach(function(raw){
     const t=raw.trim();
+    if(t.charAt(0)==="|"){ if(inUl||inOl){ const keep=tbl; tbl=null; close(); tbl=keep; }
+      const cells=t.replace(/^\||\|$/g,"").split("|").map(function(c){return c.trim();});
+      if(cells.every(function(c){return /^:?-{2,}:?$/.test(c);})) return;
+      (tbl=tbl||[]).push(cells); return; }
+    if(tbl) flushTbl();
     if(!t){ close(); return; }
-    if(t.indexOf("## ")===0){ close(); out+='<div style="font-size:13.5px;font-weight:800;margin:18px 0 6px;color:#26316e;text-transform:uppercase;letter-spacing:.03em">'+libFmtInline(t.slice(3))+'</div>'; }
+    if(t.indexOf("### ")===0){ close(); out+='<div class="lib-h3"'+(anchorPrefix?' id="'+anchorPrefix+(h2++)+'"':'')+' style="font-size:14px;font-weight:800;margin:18px 0 4px;color:#3a4170">'+libFmtInline(t.slice(4))+'</div>'; }
+    else if(t.indexOf("## ")===0){ close(); out+='<div class="lib-h2"'+(anchorPrefix?' id="'+anchorPrefix+(h2++)+'"':'')+' style="font-size:17px;font-weight:900;margin:28px 0 6px;color:#26316e;letter-spacing:.005em;padding-bottom:4px;border-bottom:2px solid #eef0f8">'+libFmtInline(t.slice(3))+'</div>'; }
     else if(t.indexOf("# ")===0){ close(); out+='<div style="font-size:17px;font-weight:800;margin:22px 0 8px">'+libFmtInline(t.slice(2))+'</div>'; }
+    else if(t.indexOf("> ")===0){ close(); out+='<div style="margin:10px 0;padding:10px 14px;background:#fffbeb;border-left:4px solid #e8b94a;border-radius:0 10px 10px 0;font-size:13.5px;line-height:1.6;color:#5c3b00">'+libFmtInline(t.slice(2))+'</div>'; }
     else if(/^- /.test(t)){ if(!inUl){close(); out+='<ul style="margin:6px 0 10px 22px;padding:0">'; inUl=true;} out+='<li style="margin:3px 0;line-height:1.62;font-size:13.5px">'+libFmtInline(t.slice(2))+'</li>'; }
     else if(/^\d+[.)] /.test(t)){ if(!inOl){close(); out+='<ol style="margin:6px 0 10px 22px;padding:0">'; inOl=true;} out+='<li style="margin:3px 0;line-height:1.62;font-size:13.5px">'+libFmtInline(t.replace(/^\d+[.)] /,""))+'</li>'; }
     else { close(); out+='<p style="margin:8px 0;line-height:1.68;font-size:13.5px">'+libFmtInline(t)+'</p>'; }
@@ -2207,6 +2284,14 @@ async function renderLibrary(){
   if(LIB_ALL===null){
     body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading…</div>';
     LIB_ALL=await window.libStore.all()||[];
+  }
+  if(libIsBook(LIB_CAT) && !LIB_EDIT){
+    if(LIB_OPENID){ LIB_BOOKID=LIB_OPENID; LIB_OPENID=null; }
+    const btabs=PCATS.length<2?"":'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+PCATS.map(function(c){
+      const n=LIB_ALL.filter(function(a){return a.cat===c.k;}).length, on=c.k===LIB_CAT;
+      return '<button onclick="libSwitch(\''+c.k+'\')" style="font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:20px;border:1px solid '+(on?c.c:"#ddd")+';background:'+(on?c.c:"#fff")+';color:'+(on?"#fff":"#555")+';cursor:pointer;font-family:inherit">'+c.icon+" "+c.l+(n?' <span style="opacity:.75;font-weight:600">('+n+')</span>':"")+'</button>';
+    }).join("")+'</div>';
+    await libSignLoad(LIB_CAT); await renderLibBook(body,btabs); return;
   }
   if(LIB_OPENID){ renderLibArticle(); return; }
   const cat=LIB_CATS.find(function(c){return c.k===LIB_CAT;})||LIB_CATS[0];
@@ -2242,7 +2327,7 @@ async function renderLibrary(){
     +'<div style="font-size:12px;color:#888;background:#eef2ff;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">This is the practice’s living reference. '+cat.hint+' It’s always the current version; every change is tracked with who, when, and what changed.</div>'
     +list;
 }
-function libSwitch(k){ LIB_CAT=k; LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
+function libSwitch(k){ LIB_CAT=k; LIB_OPENID=null; LIB_EDIT=false; LIB_BOOKVIEW="read"; renderLibrary(); }
 function libOpen(id){ LIB_OPENID=id; LIB_EDIT=false; LIB_LOG=false; renderLibrary(); }
 function libBack(){ LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
 function libNew(){ LIB_OPENID="__new"; LIB_EDIT=true; renderLibrary(); }
@@ -2265,7 +2350,7 @@ function renderLibArticle(){
       +'<div style="width:110px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Order</div>'
       +'<input id="lib-order" value="'+hesc(a.order||"")+'" placeholder="1" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit"></div></div>'
       +'<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">Content</div>'
-      +'<div style="font-size:11px;color:#999;margin-bottom:6px">Formatting: <code># Heading</code> · <code>## Section</code> · <code>- bullet</code> · <code>1. numbered</code> · <code>**bold**</code></div>'
+      +'<div style="font-size:11px;color:#999;margin-bottom:6px">Formatting: <code>## Section</code> · <code>### Sub-topic</code> · <code>- bullet</code> · <code>1. numbered</code> · <code>**bold**</code></div>'
       +'<textarea id="lib-body" style="width:100%;min-height:420px;font-size:13px;line-height:1.6;padding:12px 14px;border:1px solid #ddd;border-radius:10px;font-family:ui-monospace,Menlo,monospace;resize:vertical">'+hesc(a.body||"")+'</textarea>'
       +(isNew?"":'<div style="margin-top:12px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:4px">What changed? <span style="color:#b45309">(required — this is what staff will see and initial later)</span></div>'
         +'<input id="lib-note" placeholder="e.g. Updated the PTO request window from 14 to 30 days" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-family:inherit"></div>')
@@ -2434,7 +2519,7 @@ function refTopics(){
 async function renderRefLib(){
   REF_CTX="reflib";
   const body=refBody(); if(!body) return;
-  if(!(await refEnsure(body))) return;
+  if(REF_ALL===null||!window.refStore){ if(!(await refEnsure(body))) return; }
   if(REF_EDITID&&refCanEdit()){ renderRefForm(); return; }
   const ALL=refLib();
   const q=REF_Q.toLowerCase();
@@ -2478,7 +2563,7 @@ async function renderRefLib(){
   body.innerHTML=
     '<div style="font-size:12px;color:#555;background:#eef2ff;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">'
     +'Everything the practice has collected, in one place.'+(refCanEdit()?' Admins can add articles, links, videos, and upload files.':'')
-    +' Looking for clinical policies or SOPs? See <a href="#" onclick="showPage(\'clin-policies\',document.getElementById(\'nav-clin-policies\'));return false" style="color:#26316e;font-weight:700">⚖️ Clinical Policies &amp; Standards of Care</a>.</div>'
+    +' Looking for clinical policies or SOPs? See the <a href="#" onclick="showPage(\'clin-policies\',document.getElementById(\'nav-clin-policies\'));return false" style="color:#26316e;font-weight:700">📕 Clinical Manual</a>.</div>'
     +toolbar+'<div style="margin-bottom:14px">'+chips+'</div>'+list;
   const s=document.getElementById("ref-search");
   if(s&&REF_Q){ s.focus(); s.setSelectionRange(REF_Q.length,REF_Q.length); }
@@ -2643,10 +2728,1017 @@ async function refOpenFile(id){
 
 
 // ══════════════════════════════════════════════
+//  CLINICAL PROFILE FOR INTAKE
+// ══════════════════════════════════════════════
+// Each clinician keeps their own intake profile: openings, weekly availability
+// (virtual / in-person), offices, ages, modalities, specialties, and what they
+// don't treat. Central Intake will read these on a separate dashboard (later).
+// One Firestore doc per clinician in 'intakeProfiles/{staffId}':
+//   {status:'open'|'limited'|'full', openings, avail:{Mon:{"9":"v"|"p"|"b"}},
+//    offices:[siteCode], ages:[], modalities:[], dx:{name:'spec'|'no'},
+//    pop:{name:'spec'|'no'}, wants, notes, updatedAt, updatedBy, confirmedAt}
+// The clinician edits their own; Admins and Super Admins edit anyone's;
+// supervisors can view their supervisees' (read-only). See firestore.rules.
+var IP_DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+var IP_HOURS=[7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+var IP_AGES=["Children (0–5)","Children (6–11)","Adolescents (12–17)","Young Adults (18–25)","Adults (26–64)","Older Adults (65+)","Couples","Families","Groups"];
+// Modalities, grouped. Each clinician marks "I use this" and, separately,
+// "Certified / credentialed" (stored in modalities[] and modCert[]).
+var IP_MOD_GROUPS={
+  "Cognitive & Behavioral":["CBT (Cognitive Behavioral Therapy)","DBT (Dialectical Behavior Therapy)","ACT (Acceptance & Commitment Therapy)","CBT-I (Insomnia)","ERP (Exposure & Response Prevention)","Behavioral Activation","Schema Therapy","REBT (Rational Emotive Behavior Therapy)","CFT (Compassion-Focused Therapy)","MBCT (Mindfulness-Based Cognitive Therapy)","Parent Management Training"],
+  "Trauma":["EMDR","TF-CBT (Trauma-Focused CBT)","CPT (Cognitive Processing Therapy)","PE (Prolonged Exposure)","WET (Written Exposure Therapy)","Somatic Experiencing","Sensorimotor Psychotherapy","Brainspotting","IFS (Internal Family Systems)","ART (Accelerated Resolution Therapy)","NET (Narrative Exposure Therapy)","Seeking Safety"],
+  "Couples & Family":["Gottman Method","EFT (Emotionally Focused Therapy)","Imago Relationship Therapy","PACT (Psychobiological Approach)","Discernment Counseling","Structural Family Therapy","Bowen Family Systems","Strategic Family Therapy","FBT (Family-Based Treatment / Maudsley)"],
+  "Child & Adolescent":["Play Therapy","Child-Centered Play Therapy","PCIT (Parent-Child Interaction Therapy)","Sandtray Therapy","CPS (Collaborative & Proactive Solutions)","ARC (Attachment, Regulation & Competency)","Theraplay"],
+  "Psychodynamic & Humanistic":["Psychodynamic Therapy","Psychoanalytic Therapy","AEDP","IPT (Interpersonal Psychotherapy)","MBT (Mentalization-Based Treatment)","Attachment-Based Therapy","Person-Centered Therapy","Gestalt Therapy","Existential Therapy"],
+  "Other approaches":["Motivational Interviewing","SFBT (Solution-Focused Brief Therapy)","Narrative Therapy","Mindfulness-Based Stress Reduction (MBSR)","Clinical Hypnosis","Sex Therapy","Perinatal Mental Health (PMH-C)","Art Therapy","Music Therapy","Biofeedback / Neurofeedback","Substance Use Counseling"]
+};
+var IP_MODALITIES=[].concat.apply([],Object.keys(IP_MOD_GROUPS).map(function(k){return IP_MOD_GROUPS[k];}));
+var IP_MODOPEN={};
+var IP_DX={
+  "Mood":["Major Depressive Disorder","Persistent Depressive Disorder","Bipolar I","Bipolar II","Cyclothymia","PMDD"],
+  "Anxiety":["Generalized Anxiety","Panic Disorder","Social Anxiety","Specific Phobia","Agoraphobia","Separation Anxiety"],
+  "Trauma & Stress":["PTSD","Complex PTSD","Acute Stress","Adjustment Disorder"],
+  "OCD Spectrum":["OCD","Body Dysmorphic Disorder","Hoarding","Trichotillomania","Skin Picking"],
+  "Eating Disorders":["Anorexia Nervosa","Bulimia Nervosa","Binge Eating Disorder","ARFID"],
+  "Personality":["Borderline PD","Narcissistic PD","Avoidant PD","Antisocial PD","Other Personality Disorders"],
+  "Neurodevelopmental":["ADHD","Autism Spectrum","Learning Disabilities"],
+  "Psychotic Disorders":["Schizophrenia","Schizoaffective Disorder","Delusional Disorder"],
+  "Substance Use":["Alcohol Use","Cannabis Use","Opioid Use","Stimulant Use","Gambling / Behavioral Addictions"],
+  "Somatic & Dissociative":["Somatic Symptom Disorder","Illness Anxiety","Dissociative Disorders"],
+  "Sleep, Sexual & Gender":["Insomnia","Nightmares","Sexual Concerns / Dysfunction","Gender Identity Exploration"],
+  "Life & Relational":["Grief & Bereavement","Relationship Conflict","Life Transitions","Caregiver Stress","Work / Burnout","Chronic Illness / Pain","Self-Harm","Suicidal Ideation (outpatient-appropriate)"]
+};
+var IP_POPS=["LGBTQ+","Transgender / Nonbinary","BIPOC","Perinatal / Postpartum","Infertility & Pregnancy Loss","Religious / Spiritual Concerns","Veterans & Military","First Responders","Athletes","Healthcare Workers","College Students","Neurodivergent Adults",
+  "Court-ordered / Mandated Treatment","Custody or Forensic Evaluations","Active Litigation / Disability Claims","Domestic Violence Perpetrators","Sex Offense History","Recent Violence","Higher Level of Care Needs","Medically Unstable Eating Disorders"];
+var IP_STATUS={
+  open:{l:"Taking new clients",     c:"#15803d", bg:"#dcfce7"},
+  full:{l:"Not taking new clients", c:"#b91c1c", bg:"#fee2e2"}
+};
+var IP_SID=null, IP_DOC=null, IP_SAVED=null, IP_TAB="req", IP_BRUSH="v", IP_PAINT=null, IP_OPENCAT={}, IP_CACHE={}, IP_REALM="", IP_DXQ="";
+
+// Client types a clinician would PREFER for new referrals (a preference, not a rule).
+var IP_PREF_TYPES=["Children (under 12)","Adolescents (12–17)","Young Adults (18–25)","Adults","Older Adults (65+)","Couples","Families","Groups"];
+function ipBlank(){ return {status:"",openings:"",avail:{},offices:[],prefTypes:[],ages:[],modalities:[],modCert:[],modOther:"",dx:{},pop:{},wants:"",notes:"",extraSites:[]}; }
+function ipMe(){ const v=currentViewer(); if(v) return v; return STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;})||null; }
+function ipCanEdit(){ const me=ipMe(); return isAdminView() || !!(me && me._id===IP_SID); }
+function ipPeople(){
+  let list=[]; try{ list=capClinicians(); }catch(e){}
+  const me=ipMe(); if(me && !list.some(function(x){return x._id===me._id;})) list=[me].concat(list);
+  return list.slice().sort(function(a,b){return String(a["Clinician"]||"").localeCompare(String(b["Clinician"]||""));});
+}
+function ipDirty(){ return IP_DOC && JSON.stringify(IP_DOC)!==IP_SAVED; }
+function ipHourLabel(h){ return (h%12||12)+(h<12?"am":"pm"); }
+function ipDaysAgo(iso){ if(!iso) return null; const d=(Date.now()-new Date(iso).getTime())/864e5; return Math.max(0,Math.floor(d)); }
+// A profile this many days old (or older) is "stale": it gets a red stamp on the
+// profile, an alert on the clinician's My Homebase, and is flagged for Intake.
+var IP_STALE_DAYS=5;
+// Two separate checks:
+//  · the NEW CLIENT REQUEST (openings, availability, preferences) has its own
+//    5-day timer — reqUpdatedAt / reqConfirmedAt;
+//  · the standing CLINICAL PROFILE only alerts when required info is missing.
+var IP_REQ_KEYS=["status","openings","avail","offices","prefTypes","wants","extraSites"];
+function ipReqPart(p){ const o={}; IP_REQ_KEYS.forEach(function(k){ o[k]=p?p[k]:null; }); return JSON.stringify(o); }
+// Days since the New Client Request was updated or confirmed; null = never set up.
+function ipAge(p){ if(!p||!(p.status||p.reqUpdatedAt)) return null;
+  return ipDaysAgo(p.reqConfirmedAt||p.reqUpdatedAt||p.confirmedAt||p.updatedAt); }
+// Required clinical-profile info that's missing.
+function ipMissing(p){ const m=[]; if(!p||!(p.ages||[]).length) m.push("age groups"); if(!p||!(p.modalities||[]).length) m.push("modalities"); return m; }
+function ipOpenTab(sid,tab){ IP_TAB=tab; ipOpenFor(sid); }
+// Clinical hours needed over the next 90 days to stay on track, from the
+// capacity data already on the staff record (target pace kept internal).
+var IP_PACE_TARGET=0.9;
+function ipNeed90(sid){
+  const s=STAFF.find(function(x){return x._id===sid;}); if(!s) return null;
+  let ok=false; try{ ok=capClinicians().some(function(x){return x._id===sid;}); }catch(e){}
+  if(!ok) return null;
+  let c; try{ c=capCompute(s); }catch(e){ return null; }
+  const t=new Date(); t.setHours(0,0,0,0); const fut=new Date(t.getTime()+90*864e5);
+  let exp;
+  try{ if(capUsesRamp(s)) exp=capRampGoalTo(s,fut)||0;
+    else exp=c.annual*Math.max(0,Math.min(1,(fut-CAP_YEAR_START)/(CAP_YEAR_WEEKS*7*864e5))); }catch(e){ return null; }
+  const need=Math.max(0,Math.round(IP_PACE_TARGET*exp-(c.ytd||0)));
+  return {need:need, perWeek:Math.round(need/(90/7)*10)/10, hasData:c.hasData!==false};
+}
+function ipSites(){
+  const dir=(typeof CONFIG!=="undefined"&&CONFIG.siteDirectory)||{};
+  return Object.keys(dir).map(function(k){return {k:k,l:(dir[k]&&dir[k].l)||k};});
+}
+function ipCounts(){
+  let v=0,p=0; Object.keys(IP_DOC.avail||{}).forEach(function(d){ Object.keys(IP_DOC.avail[d]).forEach(function(h){ const m=IP_DOC.avail[d][h]; if(m==="v"||m==="b") v++; if(m==="p"||m==="b") p++; }); });
+  const spec=Object.keys(IP_DOC.dx).filter(function(k){return IP_DOC.dx[k]==="spec";}).concat(Object.keys(IP_DOC.pop).filter(function(k){return IP_DOC.pop[k]==="spec";}));
+  const no=Object.keys(IP_DOC.dx).filter(function(k){return IP_DOC.dx[k]==="no";}).concat(Object.keys(IP_DOC.pop).filter(function(k){return IP_DOC.pop[k]==="no";}));
+  return {v:v,p:p,spec:spec,no:no};
+}
+
+// Open a specific clinician's profile (from their employee record).
+function ipOpenFor(sid){ IP_SID=sid; IP_DOC=null; showPage("intake-profile",document.getElementById("nav-intake-profile")); }
+async function ipPick(sid){
+  if(ipDirty() && !confirm("You have unsaved changes on this profile. Switch anyway?")) { renderIntakeProfile(); return; }
+  IP_SID=sid; IP_DOC=null; renderIntakeProfile();
+}
+async function ipLoad(){
+  if(!window.ipStore){ IP_DOC=ipBlank(); IP_SAVED=JSON.stringify(IP_DOC); return; }
+  const d=await window.ipStore.get(IP_SID);
+  IP_DOC=Object.assign(ipBlank(), d||{});
+  ["avail","dx","pop"].forEach(function(k){ if(!IP_DOC[k]||typeof IP_DOC[k]!=="object") IP_DOC[k]={}; });
+  ["offices","prefTypes","ages","modalities","modCert","extraSites"].forEach(function(k){ if(!Array.isArray(IP_DOC[k])) IP_DOC[k]=[]; });
+  if(IP_DOC.status==="limited") IP_DOC.status="open";   // "Limited" was retired: treat as taking clients
+  // "Notes for Intake" was merged into the "hoping for" box (wants)
+  if(IP_DOC.notes){ IP_DOC.wants=(IP_DOC.wants?IP_DOC.wants+"\n":"")+IP_DOC.notes; IP_DOC.notes=""; }
+  IP_SAVED=JSON.stringify(IP_DOC);
+}
+
+async function renderIntakeProfile(){
+  const body=document.getElementById("intake-profile-body"); if(!body) return;
+  if(!IP_SID){ const me=ipMe(); IP_SID=me?me._id:((ipPeople()[0]||{})._id||null); }
+  if(!IP_SID){ body.innerHTML='<div class="ip-empty">No clinician record is linked to this sign-in.</div>'; return; }
+  if(!IP_DOC){ body.innerHTML='<div class="ip-empty">Loading profile…</div>'; await ipLoad(); }
+  const s=STAFF.find(function(x){return x._id===IP_SID;})||{};
+  const ro=!ipCanEdit();
+  const people=ipPeople();
+  const picker=(people.length>1)
+    ?'<label class="ip-picker"><span>Clinician</span><select onchange="ipPick(this.value)">'+people.map(function(p){return '<option value="'+hesc(p._id)+'"'+(p._id===IP_SID?' selected':'')+'>'+hesc(p["Clinician"]||p._id)+'</option>';}).join("")+'</select></label>':"";
+
+  // ── Left rail: who, sections, status, save ──
+  const c=ipCounts(), miss=ipMissing(IP_DOC), age=ipAge(IP_DOC);
+  const reqStatus = age===null?{t:"Not set up yet",k:"never"}:age>=IP_STALE_DAYS?{t:"Updated "+age+" days ago — needs a refresh",k:"stale"}:{t:(IP_STATUS[IP_DOC.status]||{}).l+" · "+(age===0?"updated today":"updated "+age+" day"+(age===1?"":"s")+" ago"),k:"ok"};
+  const sections=[
+    {k:"req", ic:"📣", t:"New Client Request", st:reqStatus.t, tone:reqStatus.k},
+    {k:"ages",ic:"🧩", t:"Ages & Modalities",  st:miss.length?"Missing "+miss.join(" & "):IP_DOC.ages.length+" ages · "+IP_DOC.modalities.length+" modalities", tone:miss.length?"warn":"ok"},
+    {k:"spec",ic:"🎯", t:"Diagnostic Realms & Exclusions", st:c.spec.length+" specialties · "+c.no.length+" won’t treat", tone:"plain"}];
+  const nav='<nav class="ip-nav" aria-label="Profile sections">'+sections.map(function(x){
+    return '<button class="ip-navi ip-navi-'+x.k+(IP_TAB===x.k?' on':'')+'" aria-current="'+(IP_TAB===x.k)+'" onclick="ipTab(\''+x.k+'\')">'
+      +'<span class="ip-navic" aria-hidden="true">'+x.ic+'</span><span class="ip-navtx"><span class="t">'+x.t+'</span>'
+      +'<span class="s tone-'+x.tone+'">'+(x.tone==="stale"||x.tone==="never"||x.tone==="warn"?'● ':'')+hesc(x.st)+'</span></span></button>';
+  }).join("")+'</nav>';
+  const rail='<aside class="ip-rail">'
+    +'<div class="ip-rid">'+avatarHtml(s["Clinician"]||"",IP_SID,42)
+      +'<div style="min-width:0"><div class="ip-name">'+hesc(s["Clinician"]||"Clinician")+'</div>'
+      +'<div class="ip-meta">'+hesc(displayTitle(s)||s["Title"]||"")+(s["Team"]?' · '+hesc(teamLabel(s["Team"])):"")+'</div></div></div>'
+    +(people.length>1?'<select class="ip-in ip-railpick" aria-label="Clinician" onchange="ipPick(this.value)">'+people.map(function(p){return '<option value="'+hesc(p._id)+'"'+(p._id===IP_SID?' selected':'')+'>'+hesc(p["Clinician"]||p._id)+'</option>';}).join("")+'</select>':'')
+    +(ro?'<div class="ip-ro">View only</div>':'')
+    +ipStampHtml(s,ro)
+    +nav
+    +(IP_TAB==="spec"?ipSpecSummaryHtml(ro):'')
+    +(ro?'':'<button class="btn btn-primary ip-railsave" id="ip-save" onclick="ipSave()"'+(ipDirty()?'':' disabled')+'>💾 Save'+(ipDirty()?' changes':'d')+'</button>')
+    +'</aside>';
+  let content;
+  if(IP_TAB==="ages"||IP_TAB==="spec"){
+    content='<div class="ip-mainhead"><div class="ip-eyebrow">Clinical profile</div><h2>'+(IP_TAB==="spec"?'Diagnostic Realms &amp; Exclusions':'Ages &amp; Modalities')+'</h2>'
+      +'<p>Your standing profile. Intake uses it to judge clinical fit for any referral.</p></div>'
+      +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+(IP_TAB==="spec"?ipSpecHtml(ro):ipAgesHtml(ro))+'</div>';
+  } else content=ipRequestHtml(ro);
+  body.innerHTML=ipCss()+'<div class="ip-layout">'+rail+'<div class="ip-main">'+content+'</div></div>';
+  ipBindGrid();
+}
+// Big "days since you updated" stamp at the top of the profile.
+// Compact New Client Request timer for the left rail.
+function ipStampHtml(s,ro){
+  const me=ipMe(); const mine=!!(me&&me._id===IP_SID);
+  const first=(s["Clinician"]||"").split(" ")[0]||"They";
+  const age=ipAge(IP_DOC);
+  if(age===null) return '<div class="ip-stamp never" role="status"><div class="ip-stampnum"><b>!</b></div><div class="ip-stamptx">'
+    +'<div class="big">'+(mine?'Set up your New Client Request':first+' hasn’t set up their request')+'</div>'
+    +'<div class="sm">Intake can’t match '+(mine?'you':'them')+' until it’s saved.</div></div></div>';
+  if(age<IP_STALE_DAYS) return "";
+  return '<div class="ip-stamp stale" role="status"><div class="ip-stampnum"><b>'+age+'</b><span>days</span></div><div class="ip-stamptx">'
+    +'<div class="big">'+(mine?'Your':first+'’s')+' New Client Request is '+age+' days old</div>'
+    +'<div class="sm">Please refresh it every '+IP_STALE_DAYS+' days.</div>'
+    +(ro?'':'<button class="ip-stampbtn" onclick="ipConfirm()">✓ Still accurate</button>')+'</div></div>';
+}
+// "Your caseload goal" box: hours needed over the next 90 days to stay on track.
+function ipGoalHtml(){
+  const g=ipNeed90(IP_SID); if(!g||!g.hasData) return "";
+  const me=ipMe(); const mine=!!(me&&me._id===IP_SID);
+  const s=STAFF.find(function(x){return x._id===IP_SID;})||{}; const first=(s["Clinician"]||"").split(" ")[0]||"They";
+  const c=ipCounts(); const open=c.v+c.p;
+  return '<div class="ip-goal"><span class="ip-goalic" aria-hidden="true">📈</span><div>'
+    +(g.need>0
+      ?'<div class="t">'+(mine?'You need':first+' needs')+' about <b>'+g.need+' clinical hours</b> over the next 90 days</div>'
+        +'<div class="s">That’s roughly <b>'+g.perWeek+' hours a week</b> to stay on track with '+(mine?'your':'their')+' capacity goal'+(open?' · new-client hours listed: '+open+'/wk':'')+'.</div>'
+      :'<div class="t">'+(mine?'You’re':first+' is')+' ahead of pace for the next 90 days</div><div class="s">No extra hours needed beyond '+(mine?'your':'their')+' current caseload.</div>')
+    +'</div></div>';
+}
+function ipStat(l,n,col){ return '<div class="ip-stat"><div class="n"'+(col?' style="color:'+col+'"':'')+'>'+n+'</div><div class="l">'+l+'</div></div>'; }
+function ipTab(t){ IP_TAB=t; renderIntakeProfile(); }
+function ipMark(){ const d=ipDirty();
+  const b=document.getElementById("ip-save"); if(b){ b.disabled=!d; b.textContent=d?"💾 Save changes":"💾 Saved"; }
+}
+
+// ── New Client Request (what Intake searches) ──
+function ipRequestHtml(ro){
+  const dis=ro?" disabled":"";
+  const st=IP_STATUS[IP_DOC.status];
+  const age=ipAge(IP_DOC);
+  const stale=age!==null && age>=IP_STALE_DAYS;
+  const c=ipCounts();
+  const full=IP_DOC.status==="full";
+  return '<section class="ip-req'+(full?' is-full':'')+(ro?' ro':'')+'" aria-labelledby="ip-req-h">'
+    +'<div class="ip-reqhead">'
+      +'<div><div class="ip-eyebrow ip-eyebrow-req">New client request · Intake searches this</div>'
+      +'<h2 class="ip-reqtitle" id="ip-req-h">Are you looking for new clients?</h2></div>'
+      +'</div>'
+    +ipGoalHtml()
+    +'<div class="ip-seg">'+Object.keys(IP_STATUS).map(function(k){const o=IP_STATUS[k], on=IP_DOC.status===k;
+      return '<button'+dis+' class="ip-segb'+(on?' on':'')+'" style="'+(on?'background:'+o.bg+';color:'+o.c+';border-color:'+o.c:'')+'" onclick="ipSet(\'status\',\''+k+'\')">'+o.l+'</button>';}).join("")+'</div>'
+    +(full?'<div class="ip-fullnote">Intake won’t send you new clients while you’re not taking them. Your answers below are kept for when you start again.</div>':'')
+    +'<div class="ip-reqbody">'
+    +'<div class="ip-reqrow">'
+      +'<div class="ip-reqcell" style="flex:0 0 220px"><label class="ip-h" for="ip-openings">How many new clients?</label>'
+        +'<input id="ip-openings" type="number" min="0" max="40" inputmode="numeric"'+dis+' value="'+hesc(IP_DOC.openings)+'" oninput="ipField(\'openings\',this.value)" class="ip-in" style="max-width:120px"></div>'
+      +'<div class="ip-reqcell"><div class="ip-h">Your office(s) for in-person clients</div>'
+        +'<div class="ip-chipset">'+ipSites().map(function(o){const on=IP_DOC.offices.indexOf(o.k)>=0;return '<button'+dis+' class="ip-chip'+(on?' on':'')+'" onclick="ipToggle(\'offices\',\''+hesc(o.k)+'\')">'+hesc(o.l)+'</button>';}).join("")+'</div></div>'
+    +'</div>'
+    +'<fieldset class="ip-pref"><legend class="ip-h">Client types you’d prefer right now</legend>'
+      +'<div class="ip-prefnote"><strong>These are preferences, not limits.</strong> Intake may still place a new client with you when they’re a good fit for your clinical profile — the ages, modalities, and specialties on the other two tabs.</div>'
+      +'<div class="ip-checks">'+IP_PREF_TYPES.map(function(t,i){const on=IP_DOC.prefTypes.indexOf(t)>=0;
+        return '<label class="ip-check'+(on?' on':'')+'"><input type="checkbox" id="ip-pref-'+i+'"'+(on?' checked':'')+dis+' onchange="ipToggle(\'prefTypes\',\''+hesc(t)+'\')"><span>'+hesc(t)+'</span></label>';}).join("")+'</div>'
+    +'</fieldset>'
+    +'<div class="ip-reqcell"><label class="ip-h" for="ip-wants">Anything you’re hoping for, or Intake should know?</label>'
+      +'<div class="ip-sub">The kinds of clients you’d like, plus anything that affects matching: upcoming leave, a waitlist, scheduling limits, a client you’re expecting.</div>'
+      +'<textarea id="ip-wants" class="ip-in" rows="3" placeholder="e.g. Teens with anxiety, or a couple for evening telehealth. Out Dec 20–Jan 2."'+dis+' oninput="ipField(\'wants\',this.value)">'+hesc(IP_DOC.wants)+'</textarea></div>'
+    +'<div class="ip-reqcell">'+ipAvailHtml(ro)+'</div>'
+    +'</div>'
+    +'<div class="ip-reqfoot"><span>'+ipFootTxt()+'</span>'
+      +'</div>'
+    +'</section>';
+}
+function ipSet(k,v){ if(!ipCanEdit()) return; IP_DOC[k]=(IP_DOC[k]===v?"":v); renderIntakeProfile(); }
+function ipField(k,v){ if(!ipCanEdit()) return; IP_DOC[k]=v; ipMark(); }
+function ipToggle(k,v){ if(!ipCanEdit()) return; const a=IP_DOC[k]; const i=a.indexOf(v); if(i>=0) a.splice(i,1); else a.push(v); renderIntakeProfile(); }
+
+// ── Weekly availability grids (new clients only) ──
+// "main" = the clinician's own offices / virtual. "x0", "x1"… = special
+// in-person availability at another site (IP_DOC.extraSites[i]).
+function ipGridGet(key){ if(key==="main") return IP_DOC.avail; const e=IP_DOC.extraSites[+key.slice(1)]; return e?e.avail:{}; }
+function ipGridSet(key,obj){ if(key==="main") IP_DOC.avail=obj; else { const e=IP_DOC.extraSites[+key.slice(1)]; if(e) e.avail=obj; } }
+function ipMarkTxt(m){ return m==="v"?"V":m==="p"?"P":m==="b"?"V/P":""; }
+function ipGridTable(key){
+  const av=ipGridGet(key);
+  let g='<div class="ip-grid-wrap"><table class="ip-cal" data-grid="'+key+'"><thead><tr><th></th>'+IP_DAYS.map(function(d){return '<th>'+d+'</th>';}).join("")+'</tr></thead><tbody>';
+  IP_HOURS.forEach(function(h){
+    g+='<tr><th>'+ipHourLabel(h)+'</th>';
+    IP_DAYS.forEach(function(d){ const m=(av[d]||{})[h]||""; g+='<td class="ip-cell m-'+(m||"x")+'" data-d="'+d+'" data-h="'+h+'">'+ipMarkTxt(m)+'</td>'; });
+    g+='</tr>';
+  });
+  return g+'</tbody></table></div>';
+}
+function ipHours(av){ let n=0; Object.keys(av||{}).forEach(function(d){ n+=Object.keys(av[d]).length; }); return n; }
+function ipAvailHtml(ro){
+  const brushes=[["v","Virtual"],["p","In person"],["b","Either"],["",'Clear']];
+  const main='<div><div class="ip-h">New-client availability</div>'
+    +'<div class="ip-sub">Only the hours you have open for <strong>new</strong> clients, not your whole schedule. This is what Intake searches. In person means your own office(s) above. '+(ro?'':'Pick a brush, then click or drag across the grid.')+'</div>'
+    +(ro?'':'<div class="ip-brushes">'+brushes.map(function(b){return '<button class="ip-brush b-'+(b[0]||"x")+(IP_BRUSH===b[0]?' on':'')+'" onclick="IP_BRUSH=\''+b[0]+'\';renderIntakeProfile()">'+b[1]+'</button>';}).join("")
+      +'<button class="ip-brush" style="margin-left:auto" onclick="ipClearAll()">Clear all</button></div>')
+    +ipGridTable("main")
+    +'<div class="ip-legend"><span><i class="m-v"></i>Virtual</span><span><i class="m-p"></i>In person</span><span><i class="m-b"></i>Either</span></div></div>';
+  // Special availability at another site
+  const sites=ipSites();
+  const extras=IP_DOC.extraSites.map(function(e,i){
+    const used=IP_DOC.extraSites.map(function(x){return x.site;});
+    return '<div class="ip-xsite">'
+      +'<div class="ip-xhead">'
+        +'<label class="ip-xlab" for="ip-xs-'+i+'">Site</label>'
+        +'<select id="ip-xs-'+i+'" class="ip-in ip-xsel"'+(ro?' disabled':'')+' onchange="ipXSet('+i+',\'site\',this.value)">'
+          +'<option value="">Choose a site…</option>'
+          +sites.map(function(o){ const own=IP_DOC.offices.indexOf(o.k)>=0; const taken=used.indexOf(o.k)>=0&&e.site!==o.k;
+            return '<option value="'+hesc(o.k)+'"'+(e.site===o.k?' selected':'')+(own||taken?' disabled':'')+'>'+hesc(o.l)+(own?' (your office)':'')+'</option>'; }).join("")
+        +'</select>'
+        +'<span class="ip-xcount">'+ipHours(e.avail)+' hrs</span>'
+        +(ro?'':'<button class="ip-linkbtn ip-xrm" onclick="ipXRemove('+i+')">Remove</button>')
+      +'</div>'
+      +'<input class="ip-in" id="ip-xn-'+i+'" placeholder="Details, e.g. “Tuesdays only, through December” or “covering for a colleague’s leave”"'+(ro?' disabled':'')+' value="'+hesc(e.note||"")+'" oninput="ipXSet('+i+',\'note\',this.value,true)">'
+      +'<div class="ip-sub" style="margin:8px 0 6px">In-person hours at this site for new clients. '+(ro?'':'Click or drag to mark; click a marked hour to clear it.')+'</div>'
+      +ipGridTable("x"+i)
+      +'</div>';
+  }).join("");
+  const other='<div class="ip-other">'
+    +'<div class="ip-h">Special availability at another site</div>'
+    +'<div class="ip-sub">Can you see new clients in person at a site other than your own office? Add it here so Intake can find you for clients at that location.</div>'
+    +extras
+    +(ro?(IP_DOC.extraSites.length?'':'<div class="ip-sub" style="margin:0">None.</div>')
+      :'<button class="btn btn-secondary ip-xadd" onclick="ipXAdd()">＋ Add availability at another site</button>')
+    +'</div>';
+  return main+other;
+}
+function ipXAdd(){ if(!ipCanEdit()) return; IP_DOC.extraSites.push({site:"",note:"",avail:{}}); renderIntakeProfile(); }
+function ipXRemove(i){ if(!ipCanEdit()) return; const e=IP_DOC.extraSites[i];
+  if(e && ipHours(e.avail) && !confirm("Remove this site and its hours?")) return;
+  IP_DOC.extraSites.splice(i,1); renderIntakeProfile(); }
+function ipXSet(i,k,v,quiet){ if(!ipCanEdit()) return; const e=IP_DOC.extraSites[i]; if(!e) return; e[k]=v; if(quiet) ipMark(); else renderIntakeProfile(); }
+
+// Drag paints a rectangle: start cell → current cell (e.g. Mon–Fri, 9am–5pm in one drag).
+var IP_DOWN=false, IP_START=null, IP_SNAP=null, IP_GKEY="main";
+function ipCellPos(c){ return {d:IP_DAYS.indexOf(c.getAttribute("data-d")), h:+c.getAttribute("data-h")}; }
+function ipPaintRect(to){
+  const av=JSON.parse(IP_SNAP);
+  const d0=Math.min(IP_START.d,to.d), d1=Math.max(IP_START.d,to.d), h0=Math.min(IP_START.h,to.h), h1=Math.max(IP_START.h,to.h);
+  for(let di=d0;di<=d1;di++){ const d=IP_DAYS[di];
+    for(let h=h0;h<=h1;h++){ if(!av[d]) av[d]={}; if(IP_PAINT) av[d][h]=IP_PAINT; else delete av[d][h]; }
+    if(av[d]&&!Object.keys(av[d]).length) delete av[d];
+  }
+  ipGridSet(IP_GKEY,av);
+  const t=document.querySelector('#intake-profile-body .ip-cal[data-grid="'+IP_GKEY+'"]'); if(!t) return;
+  t.querySelectorAll(".ip-cell").forEach(function(c){
+    const m=(av[c.dataset.d]||{})[c.dataset.h]||"";
+    c.className="ip-cell m-"+(m||"x"); c.textContent=ipMarkTxt(m);
+  });
+}
+function ipCellAt(x,y){ const el=document.elementFromPoint(x,y); const c=el&&el.closest&&el.closest(".ip-cell"); const t=c&&c.closest(".ip-cal"); return t&&t.getAttribute("data-grid")===IP_GKEY&&t.closest("#intake-profile-body")?c:null; }
+function ipBindGrid(){
+  if(!ipCanEdit()) return;
+  document.querySelectorAll("#intake-profile-body .ip-cal").forEach(function(t){
+    const key=t.getAttribute("data-grid");
+    t.addEventListener("pointerdown",function(e){
+      const c=e.target.closest(".ip-cell"); if(!c) return; e.preventDefault();
+      IP_GKEY=key;
+      const brush=key==="main"?IP_BRUSH:"p";           // other sites are in person only
+      const cur=(ipGridGet(key)[c.dataset.d]||{})[c.dataset.h]||"";
+      IP_PAINT=(cur===brush)?"":brush;                  // starting on a marked cell erases instead
+      IP_DOWN=true; IP_START=ipCellPos(c); IP_SNAP=JSON.stringify(ipGridGet(key));
+      ipPaintRect(IP_START);
+    });
+    t.addEventListener("pointermove",function(e){ if(!IP_DOWN||IP_GKEY!==key) return; const c=ipCellAt(e.clientX,e.clientY); if(c) ipPaintRect(ipCellPos(c)); });
+  });
+}
+window.addEventListener("pointerup",function(e){
+  if(!IP_DOWN) return; const c=ipCellAt(e.clientX,e.clientY); if(c) ipPaintRect(ipCellPos(c));
+  IP_DOWN=false; ipMark(); renderIntakeProfileSummaryOnly();
+  if(IP_GKEY!=="main"){ const i=+IP_GKEY.slice(1); const el=document.querySelectorAll("#intake-profile-body .ip-xcount")[i]; if(el) el.textContent=ipHours(IP_DOC.extraSites[i].avail)+" hrs"; }
+});
+function ipFootTxt(){
+  const c=ipCounts(); const x=IP_DOC.extraSites.reduce(function(n,e){return n+ipHours(e.avail);},0);
+  return 'New-client hours: <strong>'+c.v+'</strong> virtual · <strong>'+c.p+'</strong> in person'+(x?' · <strong>'+x+'</strong> at other sites':'');
+}
+function renderIntakeProfileSummaryOnly(){
+  const f=document.querySelector("#intake-profile-body .ip-reqfoot span"); if(!f) return;
+  f.innerHTML=ipFootTxt();
+}
+function ipClearAll(){ if(!ipCanEdit()) return; IP_DOC.avail={}; renderIntakeProfile(); }
+
+// ── Ages & modalities ──
+function ipAgesHtml(ro){
+  const dis=ro?" disabled":"";
+  let groups='';
+  Object.keys(IP_MOD_GROUPS).forEach(function(g,gi){
+    const list=IP_MOD_GROUPS[g];
+    const nu=list.filter(function(m){return IP_DOC.modalities.indexOf(m)>=0;}).length;
+    const nc=list.filter(function(m){return IP_DOC.modCert.indexOf(m)>=0;}).length;
+    const open=IP_MODOPEN[g]!==undefined?IP_MODOPEN[g]:(gi===0||nu>0);
+    groups+='<div class="ip-mgroup">'
+      +'<button class="ip-mgh" aria-expanded="'+open+'" onclick="ipModGroup(\''+hesc(g)+'\','+(open?'false':'true')+')"><span>'+hesc(g)+'</span>'
+      +(nu?'<em class="u">'+nu+' used</em>':'')+(nc?'<em class="c">'+nc+' certified</em>':'')+'<b>'+(open?'−':'+')+'</b></button>'
+      +(open?'<div class="ip-mlist" role="table" aria-label="'+hesc(g)+'">'
+        +'<div class="ip-mrow ip-mrow-h" role="row"><span role="columnheader">Modality</span><span role="columnheader">I use this</span><span role="columnheader">Hold certification or credentials</span></div>'
+        +list.map(function(m){
+          const u=IP_DOC.modalities.indexOf(m)>=0, ce=IP_DOC.modCert.indexOf(m)>=0, id="ipm-"+IP_MODALITIES.indexOf(m);
+          return '<div class="ip-mrow'+(u?' is-on':'')+'" role="row">'
+            +'<span class="ip-mname" role="cell">'+hesc(m)+(ce?' <span class="ip-cert">Certified</span>':'')+'</span>'
+            +'<label class="ip-mcb" role="cell"><input type="checkbox" id="'+id+'-u"'+(u?' checked':'')+dis+' onchange="ipMod(\''+hesc(m)+'\',\'use\',this.checked)"><span class="sr">I use '+hesc(m)+'</span></label>'
+            +'<label class="ip-mcb" role="cell"><input type="checkbox" id="'+id+'-c"'+(ce?' checked':'')+dis+' onchange="ipMod(\''+hesc(m)+'\',\'cert\',this.checked)"><span class="sr">Certified in '+hesc(m)+'</span></label>'
+            +'</div>';}).join("")
+        +'</div>':'')
+      +'</div>';
+  });
+  return '<div class="ip-sec"><div class="ip-h">Ages and client types you see</div>'
+    +'<div class="ip-chipset">'+IP_AGES.map(function(a){const on=IP_DOC.ages.indexOf(a)>=0;return '<button'+dis+' class="ip-chip'+(on?' on':'')+'" onclick="ipToggle(\'ages\',\''+hesc(a)+'\')">'+hesc(a)+'</button>';}).join("")+'</div></div>'
+    +'<div class="ip-sec"><div class="ip-h">Modalities you use or specialize in</div>'
+    +'<div class="ip-sub">Check <strong>I use this</strong> for each approach you practice. Also check <strong>Hold certification or credentials</strong> when you’re formally trained or certified in it — Intake can match on that.</div>'
+    +groups
+    +'<div style="margin-top:14px"><label class="ip-h" for="ip-modother" style="font-size:13px">Other modalities or certifications not listed</label>'
+    +'<input id="ip-modother" class="ip-in" placeholder="e.g. Certified Clinical Trauma Professional (CCTP), Daring Way facilitator"'+dis+' value="'+hesc(IP_DOC.modOther||"")+'" oninput="ipField(\'modOther\',this.value)"></div>'
+    +'</div>';
+}
+function ipModGroup(g,open){ IP_MODOPEN[g]=open; renderIntakeProfile(); }
+function ipMod(m,kind,on){
+  if(!ipCanEdit()) return;
+  const U=IP_DOC.modalities, C=IP_DOC.modCert;
+  const add=function(a){ if(a.indexOf(m)<0) a.push(m); }, del=function(a){ const i=a.indexOf(m); if(i>=0) a.splice(i,1); };
+  if(kind==="use"){ if(on) add(U); else { del(U); del(C); } }      // not using it → not certified in it either
+  else { if(on){ add(C); add(U); } else del(C); }                   // certified implies uses
+  renderIntakeProfile();
+}
+
+// ── Diagnostic realms & exclusions ──
+// Every item has three explicit choices: Will see (default) / Specialty / Won't treat.
+// Left: realm navigator with counts. Right: that realm's items. A search box
+// looks across every realm at once.
+var IP_POP_REALM="Populations & Circumstances";
+function ipRealms(){ return [IP_POP_REALM].concat(Object.keys(IP_DX)); }
+function ipRealmItems(r){ return r===IP_POP_REALM?IP_POPS:(IP_DX[r]||[]); }
+function ipRealmGroup(r){ return r===IP_POP_REALM?"pop":"dx"; }
+function ipRealmOf(name){ if(IP_POPS.indexOf(name)>=0) return IP_POP_REALM; const ks=Object.keys(IP_DX); for(let i=0;i<ks.length;i++){ if(IP_DX[ks[i]].indexOf(name)>=0) return ks[i]; } return ""; }
+function ipSpecSummaryHtml(ro){
+  const c=ipCounts();
+  // Running list of what's been marked — lives in a sticky left column so
+  // marking items never pushes the list you're working in.
+  const sumRow=function(name,kind){ const g=IP_POPS.indexOf(name)>=0?"pop":"dx";
+    return '<li class="'+kind+'"><button class="ip-sumname" onclick="ipJump(\''+hesc(name).replace(/'/g,"&#39;")+'\')" title="Show in its realm">'+hesc(name)+'</button>'
+      +(ro?'':'<button class="ip-sumx" onclick="ipSetDx(\''+g+'\',\''+hesc(name).replace(/'/g,"&#39;")+'\',\'\')" aria-label="Set '+hesc(name)+' back to Will see" title="Set back to Will see">×</button>')+'</li>'; };
+  const summary='<aside class="ip-dxside" aria-label="Your selections">'
+    +'<div class="ip-sidebox spec"><div class="ip-sideh">★ Specialties <span>'+c.spec.length+'</span></div>'
+      +(c.spec.length?'<ul class="ip-sumlist">'+c.spec.map(function(n){return sumRow(n,"spec");}).join("")+'</ul>':'<div class="ip-none">None marked yet</div>')+'</div>'
+    +'<div class="ip-sidebox no"><div class="ip-sideh">✕ Won’t treat <span>'+c.no.length+'</span></div>'
+      +(c.no.length?'<ul class="ip-sumlist">'+c.no.map(function(n){return sumRow(n,"no");}).join("")+'</ul>':'<div class="ip-none">None marked yet</div>')+'</div>'
+    +'</aside>';
+  return summary;
+}
+function ipSpecHtml(ro){
+  const realms=ipRealms();
+  if(!IP_REALM||realms.indexOf(IP_REALM)<0) IP_REALM=realms[0];
+  const how='<div class="ip-dxhow">Everything starts as <span class="ip-opt-demo">Will see</span>. Change only what’s different: mark <span class="ip-opt-demo spec">★ Specialty</span> where you have particular expertise, and <span class="ip-opt-demo no">✕ Won’t treat</span> for anything Intake should never send you.</div>';
+
+  const navBtn=function(r){
+    const items=ipRealmItems(r), g=ipRealmGroup(r);
+    const ns=items.filter(function(n){return IP_DOC[g][n]==="spec";}).length, nn=items.filter(function(n){return IP_DOC[g][n]==="no";}).length;
+    const on=!IP_DXQ&&r===IP_REALM;
+    return '<button class="ip-realm'+(on?' on':'')+(r===IP_POP_REALM?' pop':'')+'" aria-current="'+on+'" onclick="ipRealm(\''+hesc(r)+'\')">'
+      +'<span class="nm">'+hesc(r)+'</span>'
+      +'<span class="ct">'+(ns?'<i class="s">★'+ns+'</i>':'')+(nn?'<i class="n">✕'+nn+'</i>':'')+'</span></button>';
+  };
+  const nav='<nav class="ip-realmnav" aria-label="Populations and diagnostic realms">'
+    +'<div class="ip-navsec pop"><div class="ip-navh"><span aria-hidden="true">👥</span> Populations</div><div class="ip-navlist">'+navBtn(IP_POP_REALM)+'</div></div>'
+    +'<div class="ip-navsec dx"><div class="ip-navh"><span aria-hidden="true">🧠</span> Diagnostic Realms</div><div class="ip-navlist">'+Object.keys(IP_DX).map(navBtn).join("")+'</div></div>'
+    +'</nav>';
+
+  let rows, title;
+  if(IP_DXQ){
+    const q=IP_DXQ.toLowerCase(); rows=[];
+    realms.forEach(function(r){ ipRealmItems(r).forEach(function(n){ if(n.toLowerCase().indexOf(q)>=0) rows.push({n:n,r:r}); }); });
+    title='<div class="ip-realmtitle">Results for “'+hesc(IP_DXQ)+'” <span>'+rows.length+'</span></div>';
+  } else {
+    rows=ipRealmItems(IP_REALM).map(function(n){return {n:n,r:IP_REALM};});
+    title='<div class="ip-realmtitle '+(IP_REALM===IP_POP_REALM?'pop':'dx')+'"><span class="ip-realmeyebrow">'+(IP_REALM===IP_POP_REALM?'👥 Populations':'🧠 Diagnostic realm')+'</span>'+hesc(IP_REALM)+(IP_REALM===IP_POP_REALM?'<small>Populations you specialize in, or circumstances you don’t work with</small>':'')
+      +(ro?'':'<button class="ip-linkbtn" onclick="ipRealmReset()" title="Set every item in this realm back to Will see">Reset realm</button>')+'</div>';
+  }
+  const opts=[["","Will see"],["spec","★ Specialty"],["no","✕ Won’t treat"]];
+  const list=rows.length?'<div class="ip-dxlist">'+rows.map(function(row,i){
+      const g=ipRealmGroup(row.r), v=IP_DOC[g][row.n]||"", nm="ipdx-"+i;
+      return '<div class="ip-dxrow v-'+(v||"see")+'">'
+        +'<div class="ip-dxname">'+hesc(row.n)+(IP_DXQ?'<small>'+hesc(row.r)+'</small>':'')+'</div>'
+        +'<div class="ip-opts" role="radiogroup" aria-label="'+hesc(row.n)+'">'+opts.map(function(o,j){
+          return '<label class="ip-opt'+(o[0]?' '+o[0]:'')+(v===o[0]?' on':'')+'"><input type="radio" name="'+nm+'" id="'+nm+'-'+j+'"'+(v===o[0]?' checked':'')+(ro?' disabled':'')
+            +' onchange="ipSetDx(\''+g+'\',\''+hesc(row.n).replace(/'/g,"&#39;")+'\',\''+o[0]+'\')"><span>'+o[1]+'</span></label>';}).join("")+'</div>'
+        +'</div>';}).join("")+'</div>'
+    :'<div class="ip-none" style="padding:18px 4px">Nothing matches. Try a different word.</div>';
+
+  return '<div class="ip-sec">'+how+'</div>'
+    +'<div class="ip-sec"><div class="ip-dxsearch"><input class="ip-in" id="ip-dxq" type="search" placeholder="🔍  Search all populations and diagnoses…" value="'+hesc(IP_DXQ)+'" oninput="ipDxSearch(this.value)"></div>'
+    +'<div class="ip-realmwrap">'+nav+'<div class="ip-realmbody '+(IP_DXQ?'q':(IP_REALM===IP_POP_REALM?'pop':'dx'))+'">'+title+list+'</div></div></div>';
+}
+function ipRealm(r){ IP_REALM=r; IP_DXQ=""; renderIntakeProfile(); }
+function ipJump(name){ const r=ipRealmOf(name); if(r){ IP_REALM=r; IP_DXQ=""; renderIntakeProfile(); } }
+function ipDxSearch(v){ IP_DXQ=v; renderIntakeProfile(); const i=document.getElementById("ip-dxq"); if(i){ i.focus(); i.setSelectionRange(v.length,v.length); } }
+function ipSetDx(g,name,v){ if(!ipCanEdit()) return; if(v) IP_DOC[g][name]=v; else delete IP_DOC[g][name]; renderIntakeProfile(); }
+function ipRealmReset(){ if(!ipCanEdit()) return; const g=ipRealmGroup(IP_REALM); ipRealmItems(IP_REALM).forEach(function(n){ delete IP_DOC[g][n]; }); renderIntakeProfile(); }
+
+// ── Save ──
+async function ipSave(confirmOnly,confirmReq){
+  if(!ipCanEdit()) return;
+  if(!window.ipStore){ showToast("Saving works on the live site"); return; }
+  const now=new Date().toISOString();
+  const data=JSON.parse(JSON.stringify(IP_DOC));
+  const before=IP_SAVED?JSON.parse(IP_SAVED):{};
+  const reqChanged=ipReqPart(IP_DOC)!==ipReqPart(before);
+  data.updatedAt=confirmOnly?(IP_DOC.updatedAt||now):now; data.confirmedAt=now; data.updatedBy=libWhoAmI();
+  if(reqChanged) data.reqUpdatedAt=now;
+  if(reqChanged||confirmReq) data.reqConfirmedAt=now;
+  const btn=document.getElementById("ip-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const ok=await window.ipStore.set(IP_SID,data);
+  if(!ok){ showToast("⚠ Could not save — check your connection and try again"); ipMark(); return; }
+  IP_DOC=data; IP_SAVED=JSON.stringify(IP_DOC);
+  showToast(confirmOnly?"✓ New client request marked as still accurate":"💾 Saved"); renderIntakeProfile();
+}
+function ipConfirm(){ ipSave(!ipDirty(), true); }
+
+function ipCss(){ return '<style>'
+ +'.ip-empty{padding:30px;text-align:center;color:#999;font-size:13px}'
+ +'.ip-head{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 18px;margin-bottom:12px}'
+ +'.ip-id{display:flex;gap:14px;align-items:center;min-width:0}'
+ +'.ip-name{font-size:18px;font-weight:800;color:var(--ink)}.ip-meta{font-size:12.5px;color:#888;margin-top:1px}'
+ +'.ip-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.ip-pill{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:20px}'
+ +'.ip-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ip-actions .btn[disabled]{opacity:.55;cursor:default;box-shadow:none}'
+ +'.ip-picker{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em}'
+ +'.ip-picker select{font-weight:600;font-size:13px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--ink);padding:7px 10px;border:1px solid var(--hairline);border-radius:9px;background:#fff;max-width:220px}'
+ +'.ip-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:11px;padding:10px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5}'
+ +'.ip-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}'
+ +'.ip-stat{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:10px 14px}.ip-stat .n{font-size:20px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}.ip-stat .l{font-size:11px;color:#888;font-weight:600}'
+ +'.ip-tabs{display:flex;gap:4px;border-bottom:2px solid var(--hairline);margin-bottom:0;overflow-x:auto}'
+ +'.ip-tab{border:0;background:none;font-weight:600;font-size:13px;font-family:inherit;color:#888;padding:10px 14px;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap}'
+ +'.ip-tab.on{color:var(--navy);font-weight:800;border-bottom-color:var(--navy)}.ip-tab:focus-visible,.ip-chip:focus-visible,.ip-tri:focus-visible{outline:2px solid var(--navy);outline-offset:2px}'
+ +'.ip-panel{background:var(--surface);border:1px solid var(--hairline);border-top:0;border-radius:0 0 14px 14px;padding:6px 20px 18px}'
+ +'.ip-sec{padding:14px 0;border-bottom:1px solid #f4f3ef}.ip-sec:last-child{border-bottom:0}'
+ +'.ip-h{display:block;font-size:14px;font-weight:800;color:var(--ink);margin-bottom:4px}.ip-sub{font-size:12px;color:#888;margin-bottom:10px;line-height:1.5;max-width:68ch}'
+ +'.ip-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 24px;border-bottom:1px solid #f4f3ef}.ip-grid2 .ip-sec{border-bottom:0}'
+ +'.ip-in{width:100%;font-size:13px;font-family:inherit;padding:9px 12px;border:1px solid #ddd;border-radius:9px;background:#fff;color:var(--ink);line-height:1.5;resize:vertical}'
+ +'.ip-seg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.ip-segb{font-weight:700;font-size:13px;font-family:inherit;padding:9px 16px;border-radius:10px;border:1.5px solid #e2e0da;background:#fff;color:#555;cursor:pointer}'
+ +'.ip-chipset{display:flex;flex-wrap:wrap;gap:7px}'
+ +'.ip-chip{font-weight:600;font-size:12.5px;font-family:inherit;padding:7px 14px;border-radius:20px;border:1.5px solid #e2e0da;background:#fff;color:#555;cursor:pointer}.ip-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}'
+ +'.ip-tri{font-weight:600;font-size:12px;font-family:inherit;padding:6px 12px;border-radius:18px;border:1.5px solid #e2e0da;background:#fff;color:#555;cursor:pointer}'
+ +'.ip-tri.spec{background:#dcfce7;border-color:#86efac;color:#15803d;font-weight:700}.ip-tri.no{background:#fee2e2;border-color:#fca5a5;color:#b91c1c;font-weight:700;text-decoration:line-through;text-decoration-thickness:1px}'
+ +'.ip-key{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ip-key .ip-tri{cursor:default}'
+ +'.ip-picked{display:grid;gap:10px;margin-top:12px}.ip-lab{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}'
+ +'.ip-cat{border:1px solid var(--hairline);border-radius:10px;margin-top:8px;overflow:hidden}'
+ +'.ip-cath{width:100%;display:flex;align-items:center;gap:8px;border:0;background:#faf9f5;padding:10px 14px;font-weight:700;font-size:13px;font-family:inherit;color:var(--ink);cursor:pointer;text-align:left}.ip-cath span{flex:1}.ip-cath b{color:#aaa;width:14px;text-align:center}'
+ +'.ip-cath em{font-style:normal;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:10px}.ip-cath em.g{background:#dcfce7;color:#15803d}.ip-cath em.r{background:#fee2e2;color:#b91c1c}'
+ +'.ip-catb{padding:12px 14px;border-top:1px solid #f0ede8}'
+ +'.ip-brushes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ip-brush{font-weight:700;font-size:12px;font-family:inherit;padding:6px 14px;border-radius:18px;border:1.5px solid #e2e0da;background:#fff;color:#555;cursor:pointer}'
+ +'.ip-brush.on{border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy);color:var(--navy)}'
+ +'.ip-brush.b-v.on{background:#dbeafe}.ip-brush.b-p.on{background:#dcfce7}.ip-brush.b-b.on{background:#ede9fe}'
+ +'.ip-grid-wrap{overflow-x:auto;border:1px solid var(--hairline);border-radius:10px}'
+ +'.ip-cal{border-collapse:collapse;table-layout:fixed;width:100%;min-width:560px;user-select:none;touch-action:none}'
+ +'.ip-cal th{font-size:11px;font-weight:700;color:#888;padding:0 4px;height:28px;line-height:28px;background:#faf9f5;text-align:center}.ip-cal tbody th,.ip-cal thead th:first-child{text-align:right;padding-right:8px;width:52px;font-variant-numeric:tabular-nums}'
+ +'.ip-cell{height:28px;padding:0;line-height:26px;overflow:hidden;white-space:nowrap;border:1px solid #f0eee8;text-align:center;font-size:10.5px;font-weight:800;cursor:pointer}'
+ +'.ip-panel.ro .ip-cell{cursor:default}'
+ +'.m-v{background:#dbeafe;color:#1d4ed8}.m-p{background:#dcfce7;color:#15803d}.m-b{background:#ede9fe;color:#6d28d9}.m-x{background:#fff}'
+ +'.ip-legend{display:flex;gap:16px;margin-top:10px;font-size:12px;color:#666}.ip-legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(0,0,0,.06)}'
+ +'.ip-panel button[disabled]{cursor:default}'
+ +'.ip-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#888}'
+ +'.ip-req{position:relative;background:linear-gradient(180deg,#fff8e6 0,#fffdf6 140px);border:2px solid #e8b94a;border-radius:16px;padding:18px 20px 16px;margin-bottom:22px;box-shadow:0 6px 20px rgba(232,155,76,.14)}'
+ +'.ip-req.is-full{background:#fbfaf7;border-color:#ddd;box-shadow:none}.ip-req.is-full .ip-reqbody{opacity:.55}'
+ +'.ip-eyebrow-req{color:#9a5b00}.ip-req.is-full .ip-eyebrow-req{color:#888}'
+ +'.ip-reqhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-start}'
+ +'.ip-reqtitle{font-size:20px;font-weight:800;color:var(--ink);margin:2px 0 0;text-wrap:balance}'
+ +'.ip-reqmeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}'
+ +'.ip-linkbtn{border:1px solid #e8d7b0;background:#fff;color:#7a5200;font-weight:700;font-size:11.5px;font-family:inherit;padding:4px 10px;border-radius:20px;cursor:pointer}'
+ +'.ip-req .ip-seg{margin:14px 0 4px}.ip-req .ip-segb{background:#fff}'
+ +'.ip-fullnote{font-size:12.5px;color:#666;margin:8px 0 0}'
+ +'.ip-reqbody{display:grid;gap:18px;margin-top:14px;padding-top:14px;border-top:1px dashed #ecd9a8}'
+ +'.ip-reqrow{display:flex;flex-wrap:wrap;gap:18px 28px}.ip-reqrow>.ip-reqcell{flex:1 1 260px;min-width:0}.ip-reqcell{min-width:0}'
+ +'.ip-pref{border:0;padding:0;margin:0;min-width:0}.ip-pref legend{padding:0;margin-bottom:6px}'
+ +'.ip-prefnote{font-size:12.5px;color:#6b4a00;background:#fff3cf;border:1px solid #f2dc9c;border-radius:10px;padding:9px 12px;margin-bottom:10px;line-height:1.5;max-width:75ch}'
+ +'.ip-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}'
+ +'.ip-check{display:flex;align-items:center;gap:9px;background:#fff;border:1.5px solid #e2e0da;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#444;cursor:pointer}'
+ +'.ip-check input{width:16px;height:16px;accent-color:var(--navy);margin:0}.ip-check.on{border-color:var(--navy);background:#eef0f8;color:var(--navy)}'
+ +'.ip-req.ro .ip-check{cursor:default}'
+ +'.ip-reqfoot{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px dashed #ecd9a8;font-size:12.5px;color:#666}'
+ +'.ip-reqfoot .btn[disabled]{opacity:.55;cursor:default;box-shadow:none}'
+ +'.ip-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}@media (max-width:760px){.ip-cards{grid-template-columns:1fr}}'
+ +'.ip-card{display:flex;align-items:center;gap:12px;text-align:left;background:var(--surface);border:1.5px solid var(--hairline);border-radius:14px;padding:12px 14px;cursor:pointer;font-family:inherit;transition:transform .12s,box-shadow .12s,border-color .12s}'
+ +'.ip-card:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(37,42,82,.10);border-color:#cfd3e6}'
+ +'.ip-card:focus-visible{outline:2px solid var(--navy);outline-offset:2px}'
+ +'.ip-card-ic{flex:0 0 40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#eef0f8}'
+ +'.ip-card-tx{display:flex;flex-direction:column;min-width:0}'
+ +'.ip-card-t{font-size:14.5px;font-weight:800;color:var(--ink)}.ip-card-s{font-size:12px;font-weight:600;color:#888;margin-top:2px;line-height:1.35}'
+ +'.ip-card.on{background:var(--navy);border-color:var(--navy);box-shadow:0 8px 20px rgba(37,42,82,.22)}'
+ +'.ip-card.on .ip-card-t{color:#fff}.ip-card.on .ip-card-s{color:#c9cdea}.ip-card.on .ip-card-ic{background:rgba(255,255,255,.14)}'
+ +'.ip-card-req .ip-card-ic{background:#fff3cf}.ip-card-req{border-color:#efd391}'
+ +'.ip-card-req.on{background:linear-gradient(135deg,#f4c95d,#e89b4c);border-color:#e3a64a;box-shadow:0 8px 20px rgba(232,155,76,.30)}'
+ +'.ip-card-req.on .ip-card-t{color:#3d2600}.ip-card-req.on .ip-card-s{color:#5c3b00}.ip-card-req.on .ip-card-ic{background:rgba(255,255,255,.45)}'
+ +'@media (prefers-reduced-motion:reduce){.ip-card{transition:none}.ip-card:hover{transform:none}}'
+ +'.ip-mgroup{border:1px solid var(--hairline);border-radius:12px;margin-top:10px;overflow:hidden}'
+ +'.ip-mgh{width:100%;display:flex;align-items:center;gap:8px;border:0;background:#faf9f5;padding:11px 14px;font-weight:800;font-size:13.5px;font-family:inherit;color:var(--ink);cursor:pointer;text-align:left}'
+ +'.ip-mgh span{flex:1}.ip-mgh b{color:#aaa;width:14px;text-align:center}'
+ +'.ip-mgh em{font-style:normal;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:10px}.ip-mgh em.u{background:#e6e9f5;color:var(--navy)}.ip-mgh em.c{background:#fef3c7;color:#92400e}'
+ +'.ip-mlist{border-top:1px solid #f0ede8}'
+ +'.ip-mrow{display:grid;grid-template-columns:minmax(0,1fr) 90px 150px;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid #f4f3ef}'
+ +'.ip-mrow:first-child{border-top:0}.ip-mrow.is-on{background:#f7f8fd}'
+ +'.ip-mrow-h{background:#fff;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#888;padding-top:9px;padding-bottom:7px}'
+ +'.ip-mrow-h span:not(:first-child){text-align:center;line-height:1.3}'
+ +'.ip-mname{font-size:13px;font-weight:600;color:var(--ink);min-width:0}'
+ +'.ip-cert{display:inline-block;font-size:10px;font-weight:800;color:#92400e;background:#fef3c7;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:1px}'
+ +'.ip-mcb{display:flex;justify-content:center;cursor:pointer}.ip-mcb input{width:18px;height:18px;accent-color:var(--navy);margin:0;cursor:pointer}'
+ +'.ip-mcb input:disabled{cursor:default}'
+ +'.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}'
+ +'@media (max-width:560px){.ip-mrow{grid-template-columns:minmax(0,1fr) 56px 76px}.ip-mrow-h span{font-size:9.5px}}'
+ +'.ip-profnote{font-size:12.5px;color:#666;margin:0 0 10px}'
+ +'.ip-panel-solo{border-top:1px solid var(--hairline);border-radius:14px}'
+ +'.ip-other{margin-top:18px;padding-top:16px;border-top:1px dashed #ecd9a8}'
+ +'.ip-xsite{background:#fff;border:1px solid #e8d7b0;border-left:4px solid #15803d;border-radius:12px;padding:12px 14px;margin-bottom:12px}'
+ +'.ip-xhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:8px}'
+ +'.ip-xlab{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#888}'
+ +'.ip-xsel{width:auto;min-width:200px;padding:7px 10px}.ip-xcount{font-size:12px;font-weight:700;color:#15803d;background:#dcfce7;border-radius:20px;padding:2px 9px}'
+ +'.ip-xrm{margin-left:auto;color:#b91c1c;border-color:#fecaca}'
+ +'.ip-xsite .ip-cal{min-width:520px}'
+ +'.ip-dxsum{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:700px){.ip-dxsum{grid-template-columns:1fr}}'
+ +'.ip-dxsumcol{border-radius:12px;padding:12px 14px;min-width:0}.ip-dxsumcol.spec{background:#f0fdf4;border:1px solid #bbf7d0}.ip-dxsumcol.no{background:#fef2f2;border:1px solid #fecaca}'
+ +'.ip-dxsumcol .ip-lab span{display:inline-block;margin-left:4px;padding:0 7px;border-radius:9px;background:#fff;font-size:10.5px}'
+ +'.ip-dxsumcol.spec .ip-lab{color:#15803d}.ip-dxsumcol.no .ip-lab{color:#b91c1c}'
+ +'.ip-sumchip{font-weight:700;font-size:12px;font-family:inherit;padding:4px 10px;border-radius:16px;cursor:pointer;border:1px solid}'
+ +'.ip-sumchip.spec{background:#fff;color:#15803d;border-color:#86efac}.ip-sumchip.no{background:#fff;color:#b91c1c;border-color:#fca5a5}'
+ +'.ip-none{font-size:12px;color:#aaa}'
+ +'.ip-dxhow{font-size:12.5px;color:#555;line-height:1.9}'
+ +'.ip-opt-demo{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 9px;border-radius:12px;border:1px solid #ddd;background:#fff;color:#555;line-height:1.6}'
+ +'.ip-opt-demo.spec{background:#dcfce7;border-color:#86efac;color:#15803d}.ip-opt-demo.no{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}'
+ +'.ip-dxsearch{margin-bottom:12px}'
+ +'.ip-realmwrap{display:grid;grid-template-columns:172px minmax(0,1fr);gap:10px;align-items:start}'
+ +'.ip-dxside{position:sticky;top:8px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 140px);overflow-y:auto}'
+ +'.ip-sidebox{border-radius:12px;padding:10px 12px;border:2px solid}.ip-sidebox.spec{background:#f0fdf4;border-color:#86efac}.ip-sidebox.no{background:#fef2f2;border-color:#fca5a5}'
+ +'.ip-sideh{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}.ip-sidebox.spec .ip-sideh{color:#15803d}.ip-sidebox.no .ip-sideh{color:#b91c1c}'
+ +'.ip-sideh span{display:inline-block;margin-left:4px;padding:0 7px;border-radius:9px;background:#fff;font-size:11px}'
+ +'.ip-sumlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}'
+ +'.ip-sumlist li{display:flex;align-items:center;gap:4px;background:#fff;border-radius:8px;padding:2px 2px 2px 0}'
+ +'.ip-sumname{flex:1;min-width:0;text-align:left;border:0;background:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:5px 8px;cursor:pointer;line-height:1.3}'
+ +'.ip-sumlist li.spec .ip-sumname{color:#15803d}.ip-sumlist li.no .ip-sumname{color:#b91c1c}'
+ +'.ip-sumname:hover{text-decoration:underline}'
+ +'.ip-sumx{flex:0 0 24px;height:24px;border:0;border-radius:6px;background:none;color:#999;font-size:16px;line-height:1;cursor:pointer}.ip-sumx:hover{background:#f1f0ea;color:#333}'
+ +'@media (max-width:1100px){.ip-realmwrap{grid-template-columns:220px minmax(0,1fr)}.ip-dxside{grid-column:1/-1;position:static;max-height:none;display:grid;grid-template-columns:1fr 1fr}}'
+ +'.ip-realmnav{display:flex;flex-direction:column;gap:3px;position:sticky;top:8px}'
+ +'.ip-realm{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:none;padding:9px 11px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;color:#555;cursor:pointer}'
+ +'.ip-realm:hover{background:#f4f3ef}.ip-realm.on{background:var(--navy);color:#fff}'
+ +'.ip-realmnav{gap:14px}'
+ +'.ip-navsec{background:#fff;border:2px solid;border-radius:13px;overflow:hidden}'
+ +'.ip-navsec.pop{border-color:#1d7479}.ip-navsec.dx{border-color:var(--navy)}'
+ +'.ip-navh{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#fff;padding:10px 13px}'
+ +'.ip-navsec.pop .ip-navh{background:#1d7479}.ip-navsec.dx .ip-navh{background:var(--navy)}'
+ +'.ip-navlist{display:flex;flex-direction:column;gap:2px;padding:6px}'
+ +'.ip-navsec.pop .ip-realm.on{background:#1d7479;color:#fff}.ip-navsec.pop .ip-realm:not(.on):hover{background:#e6f4f3}'
+ +'.ip-realmbody.pop{border:2px solid #1d7479}.ip-realmbody.dx{border:2px solid var(--navy)}'
+ +'.ip-realmtitle.pop{background:#e6f4f3;border-bottom-color:#b6dedb}.ip-realmtitle.dx{background:#eef0f8;border-bottom-color:#d5d9ec}'
+ +'.ip-realmtitle{font-size:16px}'
+ +'.ip-realmeyebrow{flex-basis:100%;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:1px}'
+ +'.ip-realmtitle.pop .ip-realmeyebrow{color:#1d7479}.ip-realmtitle.dx .ip-realmeyebrow{color:var(--navy)}'
+ +'.ip-realm .nm{flex:1;min-width:0}.ip-realm .ct{display:flex;gap:4px}'
+ +'.ip-realm .ct i{font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:9px}.ip-realm .ct i.s{background:#dcfce7;color:#15803d}.ip-realm .ct i.n{background:#fee2e2;color:#b91c1c}'
+ +'.ip-realmbody{border:1px solid var(--hairline);border-radius:12px;overflow:hidden;min-width:0}'
+ +'.ip-realmtitle{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;background:#faf9f5;padding:11px 14px;font-size:14px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--hairline)}'
+ +'.ip-realmtitle small{font-size:11.5px;font-weight:600;color:#888;flex-basis:100%;order:3}.ip-realmtitle span{font-size:11px;color:#888}.ip-realmtitle .ip-linkbtn{margin-left:auto}'
+ +'.ip-dxrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:9px 14px;border-top:1px solid #f4f3ef}.ip-dxrow:first-child{border-top:0}'
+ +'.ip-dxrow.v-spec{background:#f6fef8}.ip-dxrow.v-no{background:#fff7f7}'
+ +'.ip-dxname{flex:1 1 200px;font-size:13px;font-weight:600;color:var(--ink);min-width:0}.ip-dxname small{display:block;font-size:11px;color:#999;font-weight:600}'
+ +'.ip-dxrow.v-no .ip-dxname{color:#991b1b}'
+ +'.ip-opts{display:inline-flex;flex-wrap:wrap;max-width:100%;border:1px solid #e2e0da;border-radius:10px;overflow:hidden;background:#fff}'
+ +'.ip-opt{position:relative;cursor:pointer}.ip-opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}'
+ +'.ip-opt span{display:block;font-size:11.5px;font-weight:700;color:#777;padding:6px 9px;border-left:1px solid #eee;white-space:nowrap}.ip-opt:first-child span{border-left:0}'
+ +'.ip-opt:hover span{background:#f6f5f1}.ip-opt input:focus-visible+span{outline:2px solid var(--navy);outline-offset:-2px}'
+ +'.ip-opt.on span{background:#eef0f8;color:var(--navy)}.ip-opt.spec.on span{background:#16a34a;color:#fff}.ip-opt.no.on span{background:#dc2626;color:#fff}'
+ +'.ip-panel.ro .ip-opt,.ip-panel.ro .ip-opt input{cursor:default}'
+ +'@media (max-width:760px){.ip-realmwrap{grid-template-columns:1fr}.ip-realmnav{flex-direction:row;overflow-x:auto;position:static;padding-bottom:4px}.ip-realm{width:auto;white-space:nowrap;flex:0 0 auto;background:#f4f3ef}.ip-navlist{flex-direction:row;overflow-x:auto}.ip-realmnav{flex-direction:column}}'
+ +'.ip-layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:18px;align-items:start}'
+ +'.ip-rail{position:sticky;top:8px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh / 1.35 - 90px);overflow-y:auto;padding-bottom:2px}'
+ +'.ip-rail .ip-dxside{position:static;max-height:none;overflow:visible;display:flex;flex-direction:column;grid-column:auto}'
+ +'.ip-rid{display:flex;gap:11px;align-items:center;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px}'
+ +'.ip-rid .ip-name{font-size:15.5px}.ip-rid .ip-meta{font-size:12px}'
+ +'.ip-railpick{font-size:13px;padding:8px 10px}.ip-ro{font-size:12px;font-weight:700;color:#777;background:#f1f0ea;border-radius:9px;padding:6px 10px;text-align:center}'
+ +'.ip-nav{display:flex;flex-direction:column;gap:6px}'
+ +'.ip-navi{display:flex;gap:11px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1.5px solid var(--hairline);border-radius:13px;padding:10px 12px;font-family:inherit;cursor:pointer;transition:border-color .12s,box-shadow .12s}'
+ +'.ip-navi:hover{border-color:#cfd3e6}.ip-navi:focus-visible{outline:2px solid var(--navy);outline-offset:2px}'
+ +'.ip-navic{flex:0 0 34px;height:34px;border-radius:10px;background:#eef0f8;display:flex;align-items:center;justify-content:center;font-size:16px}'
+ +'.ip-navtx{display:flex;flex-direction:column;min-width:0}.ip-navtx .t{font-size:13.5px;font-weight:800;color:var(--ink);line-height:1.25}.ip-navtx .s{font-size:11.5px;font-weight:600;color:#888;margin-top:2px;line-height:1.3}'
+ +'.ip-navtx .s.tone-stale,.ip-navtx .s.tone-never{color:#b91c1c}.ip-navtx .s.tone-warn{color:#b45309}'
+ +'.ip-navi.on{border-color:var(--navy);box-shadow:inset 4px 0 0 var(--navy)}.ip-navi-req .ip-navic{background:#fff3cf}.ip-navi-req.on{border-color:#e3a64a;box-shadow:inset 4px 0 0 #e3a64a;background:#fffbeb}'
+ +'.ip-railsave{width:100%}.ip-railsave[disabled]{opacity:.55;cursor:default;box-shadow:none}'
+ +'.ip-mainhead{margin:2px 0 12px}.ip-mainhead h2{font-size:20px;font-weight:800;color:var(--ink);margin:2px 0 0}.ip-mainhead p{font-size:12.5px;color:#888;margin:3px 0 0}'
+ +'.ip-main .ip-req{margin-top:0}'
+ +'@media (max-width:900px){.ip-layout{grid-template-columns:1fr}.ip-rail{position:static}}'
+ +'.ip-stamp{display:flex;align-items:flex-start;gap:10px;border-radius:12px;padding:10px 12px;border:2px solid}'
+ +'.ip-stamp.fresh{background:#f0fdf4;border-color:#22c55e;color:#14532d}'
+ +'.ip-stamp.stale{background:#fef2f2;border-color:#dc2626;color:#7f1d1d}'
+ +'.ip-stamp.never{background:#fff7ed;border-color:#ea580c;color:#7c2d12}'
+ +'.ip-stampnum{flex:0 0 40px;height:40px;border-radius:50%;border:3px solid currentColor;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-6deg);background:#fff}'
+ +'.ip-stampnum b{font-size:17px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}.ip-stampnum span{font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}'
+ +'.ip-stamp.stale .ip-stampnum{color:#dc2626}.ip-stamp.fresh .ip-stampnum{color:#16a34a}.ip-stamp.never .ip-stampnum{color:#ea580c}'
+ +'.ip-stamptx{flex:1;min-width:0}.ip-stamptx .big{font-size:13.5px;font-weight:800;line-height:1.3;text-wrap:balance}.ip-stamptx .sm{font-size:11.5px;margin-top:2px;opacity:.85}.ip-stamptx .ip-stampbtn{margin-top:8px}'
+ +'.ip-stampbtn{flex:0 0 auto;border:0;background:#dc2626;color:#fff;font-family:inherit;font-weight:800;font-size:12px;padding:7px 12px;border-radius:9px;cursor:pointer;box-shadow:0 3px 8px rgba(220,38,38,.25)}'
+ +'.ip-stampbtn:hover{background:#b91c1c}'
+ +'.ip-missing{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fffbeb;border:1.5px solid #fcd97a;color:#6b4300;border-radius:12px;padding:8px 14px;margin:-4px 0 12px;font-size:13px}.ip-missing>div{flex:1;min-width:200px}'
+ +'.ip-goal{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid #e8d7b0;border-radius:12px;padding:10px 14px;margin:12px 0 2px;color:#1b1f3a}'
+ +'.ip-goalic{flex:0 0 36px;height:36px;border-radius:50%;background:#eef0f8;display:flex;align-items:center;justify-content:center;font-size:17px}'
+ +'.ip-goal .t{font-size:14.5px;font-weight:700}.ip-goal .t b{font-weight:900;color:var(--navy)}.ip-goal .s{font-size:12.5px;color:#666;margin-top:1px}'
+ +'@media (max-width:640px){.ip-stamp{flex-wrap:wrap}.ip-stamptx .big{font-size:14px}}'
+ +'.ip-profile{margin-top:4px}.ip-profhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:10px}'
+ +'.ip-title2{font-size:17px;font-weight:800;color:var(--ink);margin-top:2px}'
+ +'.ip-mini{display:flex;flex-wrap:wrap;gap:8px}.ip-mini .ip-stat{padding:6px 12px}.ip-mini .ip-stat .n{font-size:16px}'
+ +'.ip-profile .ip-tabs{background:var(--surface);border:1px solid var(--hairline);border-bottom:2px solid var(--hairline);border-radius:14px 14px 0 0;padding:0 8px}'
+ +'</style>'; }
+
+// ══════════════════════════════════════════════
+//  INTAKE FINDER — search every clinician's Clinical Profile for Intake
+// ══════════════════════════════════════════════
+// Reads 'intakeProfiles' (one doc per clinician) and ranks who fits a new
+// client: hard filters (taking clients, won't-treat, ages, matching hours)
+// remove people; everything else (specialties, certifications, preferences,
+// freshness) only changes the order. Every result says WHY it matched.
+var IF_DATA=null, IF_LOADED_AT=null, IF_OPEN={}, IF_SHOWX=false, IF_SUGG=-1;
+var IF={client:"", concerns:[], format:"any", sites:[], cells:[], q:"", inclFull:false}, IF_SHOWSTALE=false;
+var IF_CLIENTS=[
+  {k:"child", l:"Child",       ages:["Children (0–5)","Children (6–11)"], pref:"Children (under 12)"},
+  {k:"teen",  l:"Adolescent",  ages:["Adolescents (12–17)"],              pref:"Adolescents (12–17)"},
+  {k:"ya",    l:"Young adult", ages:["Young Adults (18–25)"],             pref:"Young Adults (18–25)"},
+  {k:"adult", l:"Adult",       ages:["Adults (26–64)"],                   pref:"Adults"},
+  {k:"older", l:"Older adult", ages:["Older Adults (65+)"],               pref:"Older Adults (65+)"},
+  {k:"couple",l:"Couple",      ages:["Couples"],                          pref:"Couples"},
+  {k:"family",l:"Family",      ages:["Families"],                         pref:"Families"},
+  {k:"group", l:"Group",       ages:["Groups"],                           pref:"Groups"}
+];
+var IF_TIMES=[{k:"am",l:"Morning",sub:"before noon",h0:7,h1:11},{k:"pm",l:"Afternoon",sub:"12–5",h0:12,h1:16},{k:"eve",l:"Evening",sub:"5pm +",h0:17,h1:20}];
+function ifTimeOf(h){ h=+h; return h<12?"am":h<17?"pm":"eve"; }
+function ifSiteName(k){ const d=(typeof CONFIG!=="undefined"&&CONFIG.siteDirectory)||{}; return (d[k]&&d[k].l)||k; }
+
+async function ifLoad(force){
+  if(IF_DATA&&!force) return;
+  if(!window.ipStore){ IF_DATA=[]; return; }
+  const docs=await window.ipStore.all()||[];
+  const byId={}; docs.forEach(function(d){ byId[d.__id]=d; });
+  let people=[]; try{ people=capClinicians(); }catch(e){ people=STAFF.slice(); }
+  // anyone with a profile counts, even if they're not on the capacity list
+  docs.forEach(function(d){ if(!people.some(function(p){return p._id===d.__id;})){ const s=STAFF.find(function(x){return x._id===d.__id;}); if(s) people.push(s); } });
+  IF_DATA=people.map(function(s){ return {s:s, p:byId[s._id]||null}; });
+  IF_LOADED_AT=new Date();
+}
+
+// Every open new-client slot for a clinician, flattened: {d,h,v(bool),p(bool),site}
+function ifSlots(p){
+  const out=[];
+  const offices=(p.offices&&p.offices.length)?p.offices:[""];
+  Object.keys(p.avail||{}).forEach(function(d){ Object.keys(p.avail[d]).forEach(function(h){
+    const m=p.avail[d][h];
+    if(m==="v"||m==="b") out.push({d:d,h:+h,mode:"v",site:""});
+    if(m==="p"||m==="b") offices.forEach(function(o){ out.push({d:d,h:+h,mode:"p",site:o}); });
+  }); });
+  (p.extraSites||[]).forEach(function(e){ if(!e.site) return; Object.keys(e.avail||{}).forEach(function(d){ Object.keys(e.avail[d]).forEach(function(h){
+    out.push({d:d,h:+h,mode:"p",site:e.site,extra:true});
+  }); }); });
+  return out;
+}
+function ifSlotOk(sl,ignoreTime){
+  if(IF.format==="virtual"&&sl.mode!=="v") return false;
+  if(IF.format==="inperson"&&sl.mode!=="p") return false;
+  if(IF.format==="inperson"&&IF.sites.length&&IF.sites.indexOf(sl.site)<0) return false;
+  if(!ignoreTime&&IF.cells.length&&IF.cells.indexOf(sl.d+"|"+ifTimeOf(sl.h))<0) return false;
+  return true;
+}
+function ifConcernKind(name){ if(IP_POPS.indexOf(name)>=0) return "pop"; if(IP_MODALITIES.indexOf(name)>=0) return "mod"; return "dx"; }
+
+// Score one clinician. Returns {ok, why:[], miss:[], score, slots}
+function ifEvaluate(row,ignoreTime){
+  const p=row.p; const r={ok:true,why:[],warn:[],miss:[],score:0,slots:[]};
+  if(!p){ r.ok=false; r.miss.push("Profile not filled in"); return r; }
+  if(p.status!=="open"){ if(!IF.inclFull){ r.ok=false; r.miss.push(p.status==="full"?"Not taking new clients":"Hasn’t said whether they’re taking clients"); } else r.warn.push(p.status==="full"?"Not taking new clients":"Status not set"); }
+  // client type
+  const ct=IF_CLIENTS.find(function(c){return c.k===IF.client;});
+  if(ct){
+    const ages=p.ages||[];
+    if(ages.length && !ct.ages.some(function(a){return ages.indexOf(a)>=0;})){ r.ok=false; r.miss.push("Doesn’t see "+ct.l.toLowerCase()+"s"); }
+    else if(!ages.length) r.warn.push("Ages not filled in");
+    if((p.prefTypes||[]).indexOf(ct.pref)>=0){ r.score+=3; r.why.push({t:"Wants "+ct.l.toLowerCase()+" referrals",k:"pref"}); }
+  }
+  // concerns
+  IF.concerns.forEach(function(c){
+    const kind=ifConcernKind(c);
+    if(kind==="mod"){
+      if((p.modCert||[]).indexOf(c)>=0){ r.score+=3; r.why.push({t:"Certified: "+c,k:"cert"}); }
+      else if((p.modalities||[]).indexOf(c)>=0){ r.score+=1.5; r.why.push({t:"Uses "+c,k:"use"}); }
+      else r.warn.push("Doesn’t list "+c);
+    } else {
+      const v=(p[kind]||{})[c];
+      if(v==="no"){ r.ok=false; r.miss.push("Won’t treat: "+c); }
+      else if(v==="spec"){ r.score+=4; r.why.push({t:"★ Specialty: "+c,k:"spec"}); }
+    }
+  });
+  // availability
+  const all=ifSlots(p);
+  r.slots=all.filter(function(sl){return ifSlotOk(sl,ignoreTime);});
+  const anyAvailFilter=IF.format!=="any"||IF.cells.length||IF.sites.length;
+  if(!all.length){ if(anyAvailFilter){ r.ok=false; r.miss.push("No new-client hours entered"); } else r.warn.push("No new-client hours entered"); }
+  else if(!r.slots.length){ r.ok=false; r.miss.push("No open hours that match"); }
+  else { const hrs=ifUniqHours(r.slots); r.score+=Math.min(hrs,10)*0.4; }
+  if(r.slots.some(function(s){return s.extra;})) r.why.push({t:"Can see clients at another site",k:"site"});
+  if(p.openings) r.score+=Math.min(+p.openings||0,5)*0.3;
+  // freshness
+  const age=ipAge(p);
+  if(age===null||age>=IP_STALE_DAYS){ r.score-=1; r.warn.push(age===null?"Request not set up":"Request not updated in "+age+" days"); }
+  const missing=ipMissing(p).filter(function(m){ return !(m==="age groups"&&r.warn.indexOf("Ages not filled in")>=0); });
+  if(missing.length) r.warn.push("Profile missing "+missing.join(" & "));
+  return r;
+}
+function ifUniqHours(slots){ const s={}; slots.forEach(function(x){ s[x.d+x.h]=1; }); return Object.keys(s).length; }
+
+// Collapse slots into readable runs: "Tue 3–7pm · Virtual"
+function ifRuns(slots){
+  const groups={};
+  slots.forEach(function(sl){ const key=sl.d+"|"+(sl.mode==="v"?"Virtual":"In person"+(sl.site?" · "+ifSiteName(sl.site):"")); (groups[key]=groups[key]||[]).push(sl.h); });
+  const out=[];
+  IP_DAYS.forEach(function(d){
+    Object.keys(groups).filter(function(k){return k.indexOf(d+"|")===0;}).sort().forEach(function(k){
+      const hs=groups[k].filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+      let st=hs[0], pr=hs[0];
+      const push=function(a,b){ out.push({d:d,label:k.split("|")[1],txt:ipHourLabel(a)+"–"+ipHourLabel(b+1),v:k.indexOf("|Virtual")>0}); };
+      for(let i=1;i<=hs.length;i++){ if(i<hs.length&&hs[i]===pr+1){ pr=hs[i]; continue; } push(st,pr); if(i<hs.length){ st=hs[i]; pr=hs[i]; } }
+    });
+  });
+  return out;
+}
+
+async function renderIntakeFinder(){
+  const body=document.getElementById("intake-finder-body"); if(!body) return;
+  if(!IF_DATA){ body.innerHTML='<div class="ip-empty">Loading clinical profiles…</div>'; await ifLoad(); }
+  const rows=IF_DATA.map(function(row){ return {row:row, ev:ifEvaluate(row,false)}; });
+  const hits=rows.filter(function(x){return x.ev.ok;}).sort(function(a,b){ return b.ev.score-a.ev.score || String(a.row.s["Clinician"]).localeCompare(String(b.row.s["Clinician"])); });
+  const misses=rows.filter(function(x){return !x.ev.ok;});
+
+  // one-line overview
+  const withP=IF_DATA.filter(function(r){return r.p;});
+  const taking=withP.filter(function(r){return r.p.status==="open";});
+  let vh=0, ph=0; taking.forEach(function(r){ const s=ifSlots(r.p); const u={},w={}; s.forEach(function(x){ if(x.mode==="v") u[x.d+x.h]=1; else w[x.d+x.h]=1; }); vh+=Object.keys(u).length; ph+=Object.keys(w).length; });
+  const stale=IF_DATA.map(function(r){ return {s:r.s, age:r.p?ipAge(r.p):null, blank:!r.p}; })
+    .filter(function(x){ return x.age===null||x.age>=IP_STALE_DAYS; })
+    .sort(function(a,b){ return (b.age===null?9999:b.age)-(a.age===null?9999:a.age); });
+
+  const intro='<div class="if-intro"><div><h2>Find a clinician for a new client</h2>'
+    +'<p>Pick what you know about the client on the left. Clinicians who fit appear on the right, best fit first.</p></div>'
+    +'<div class="if-overview"><span><b>'+taking.length+'</b> of '+IF_DATA.length+' taking new clients</span><span><b>'+vh+'</b> virtual hrs</span><span><b>'+ph+'</b> in-person hrs</span>'
+    +'<button class="ip-linkbtn" onclick="ifRefresh()" title="Reload everyone’s profiles">↻ Refresh</button></div></div>';
+
+  const staleBar=stale.length?'<div class="if-stale">'
+    +'<div class="if-stalehead"><span class="if-staleicon" aria-hidden="true">⚠</span><div><strong>'+stale.length+' clinician'+(stale.length===1?' hasn’t':'s haven’t')+' updated their New Client Request in '+IP_STALE_DAYS+' or more days.</strong> Their openings may be out of date.</div>'
+    +'<button class="if-staletoggle" aria-expanded="'+IF_SHOWSTALE+'" onclick="IF_SHOWSTALE=!IF_SHOWSTALE;renderIntakeFinder()">'+(IF_SHOWSTALE?'Hide':'Show who')+'</button></div>'
+    +(IF_SHOWSTALE?'<div class="if-stalelist">'+stale.map(function(x){
+        return '<button class="if-staleperson" onclick="ipOpenFor(\''+x.s._id+'\')"><span>'+hesc(x.s["Clinician"]||"")+'</span><em>'+(x.blank?'never filled in':x.age===null?'request not set up':x.age+' days')+'</em></button>';}).join("")+'</div>':'')
+    +'</div>':'';
+
+  body.innerHTML=ipCss()+ifCss()+intro+staleBar
+    +'<div class="if-layout">'
+      +'<aside class="if-filters" aria-label="Describe the client">'+ifFiltersHtml()+'</aside>'
+      +'<section class="if-results" aria-live="polite">'
+        +'<div class="if-step"><span>2</span>'+(hits.length?hits.length+' clinician'+(hits.length===1?' fits':'s fit'):'No one fits yet')+(ifAnyFilter()?'':' <em>— everyone taking new clients</em>')+'</div>'
+        +(hits.length?hits.map(function(x){return ifCardHtml(x.row,x.ev);}).join(""):'<div class="if-empty">Nobody matches all of that. Try removing a filter — “Ruled out” below shows why each person didn’t fit.</div>')
+        +(misses.length?'<div class="if-xwrap"><button class="if-xtoggle" aria-expanded="'+IF_SHOWX+'" onclick="IF_SHOWX=!IF_SHOWX;renderIntakeFinder()">'+(IF_SHOWX?'▾':'▸')+' Ruled out ('+misses.length+')</button>'
+          +(IF_SHOWX?'<div class="if-xlist">'+misses.sort(function(a,b){return String(a.row.s["Clinician"]).localeCompare(String(b.row.s["Clinician"]));}).map(function(x){
+              return '<div class="if-xrow"><button class="if-xname" onclick="ipOpenFor(\''+x.row.s._id+'\')">'+hesc(x.row.s["Clinician"]||"")+'</button><span>'+x.ev.miss.map(hesc).join(" · ")+'</span></div>';}).join("")+'</div>':'')
+          +'</div>':'')
+      +'</section>'
+    +'</div>';
+}
+function ifAnyFilter(){ return IF.client||IF.concerns.length||IF.format!=="any"||IF.cells.length||IF.sites.length; }
+
+function ifFiltersHtml(){
+  const chip=function(on,label,click,cls){ return '<button class="if-chip'+(on?' on':'')+(cls?' '+cls:'')+'" aria-pressed="'+on+'" onclick="'+click+'">'+label+'</button>'; };
+  const sites=ipSites();
+  return '<div class="if-step"><span>1</span>Describe the client'+(ifAnyFilter()?'<button class="ip-linkbtn" onclick="ifClear()">Clear all</button>':'')+'</div>'
+    +'<div class="if-fsec"><div class="if-fl">Who</div><div class="if-chips">'
+      +IF_CLIENTS.map(function(c){return chip(IF.client===c.k,c.l,"ifSet('client','"+c.k+"')");}).join("")+'</div></div>'
+    +'<div class="if-fsec"><label class="if-fl" for="if-q">Needs help with</label>'
+      +'<div class="if-ta"><input id="if-q" class="ip-in" autocomplete="off" placeholder="Type: anxiety, trauma, EMDR…" value="'+hesc(IF.q)+'" oninput="ifQ(this.value)" onkeydown="ifKey(event)">'
+      +'<div id="if-sugg" class="if-sugg" role="listbox"></div></div>'
+      +(IF.concerns.length?'<div class="if-tokens">'+IF.concerns.map(function(c,i){const k=ifConcernKind(c);
+        return '<span class="if-tok '+k+'">'+hesc(c)+'<button aria-label="Remove '+hesc(c)+'" onclick="ifDrop('+i+')">×</button></span>';}).join("")+'</div>':'')
+    +'</div>'
+    +'<div class="if-fsec"><div class="if-fl">Virtual or in person</div><div class="if-seg">'
+      +[["any","Either"],["virtual","Virtual"],["inperson","In person"]].map(function(f){return chip(IF.format===f[0],f[1],"ifSet('format','"+f[0]+"')");}).join("")+'</div>'
+      +(IF.format==="inperson"?'<div class="if-chips" style="margin-top:8px">'+sites.map(function(o){return chip(IF.sites.indexOf(o.k)>=0,hesc(o.l),"ifTog('sites','"+o.k+"')","site");}).join("")+'</div><div class="if-hint">No site picked = any site</div>':'')
+    +'</div>'
+    +'<div class="if-fsec"><div class="if-fl">When <span class="if-flsub">numbers = clinicians open then · click to pick</span></div>'+ifWhenHtml()+'</div>'
+    +'<label class="if-incl"><input type="checkbox"'+(IF.inclFull?' checked':'')+' onchange="IF.inclFull=this.checked;renderIntakeFinder()"> Also show clinicians not taking new clients</label>';
+}
+
+// "When" picker: days × time of day. Each square shows how many clinicians who
+// fit everything else have openings then; click squares (or a day / time label) to pick.
+function ifWhenHtml(){
+  const cnt={}; let max=0;
+  IF_DATA.forEach(function(row){
+    const ev=ifEvaluate(row,true); if(!ev.ok) return;
+    const seen={};
+    ev.slots.forEach(function(sl){ const k=sl.d+"|"+ifTimeOf(sl.h); if(!seen[k]){ seen[k]=1; cnt[k]=(cnt[k]||0)+1; if(cnt[k]>max) max=cnt[k]; } });
+  });
+  let h='<div class="if-when"><div></div>'+IP_DAYS.map(function(d){return '<button class="if-wd" onclick="ifPickDay(\''+d+'\')" title="Pick all of '+d+'">'+d.slice(0,2)+'</button>';}).join("");
+  IF_TIMES.forEach(function(t){
+    h+='<button class="if-wt" onclick="ifPickTime(\''+t.k+'\')" title="Pick every '+t.l.toLowerCase()+'">'+t.l+'<small>'+t.sub+'</small></button>';
+    IP_DAYS.forEach(function(d){
+      const k=d+"|"+t.k, n=cnt[k]||0, sel=IF.cells.indexOf(k)>=0;
+      const lvl=n?Math.min(4,Math.ceil(n/Math.max(1,max)*4)):0;
+      h+='<button class="if-hc l'+lvl+(sel?' sel':'')+'" aria-pressed="'+sel+'" onclick="ifCell(\''+k+'\')" aria-label="'+d+' '+t.l+': '+n+' clinicians open">'+(n||"·")+'</button>';
+    });
+  });
+  return h+'</div>';
+}
+
+function ifCardHtml(row,ev){
+  const s=row.s, p=row.p||{}; const open=!!IF_OPEN[s._id];
+  const runs=ifRuns(ev.slots); const shown=open?runs:runs.slice(0,3);
+  const st=IP_STATUS[p.status];
+  return '<article class="if-card">'
+    +'<div class="if-ctop">'+avatarHtml(s["Clinician"]||"",s._id,32)
+      +'<div class="if-cid"><button class="if-cname" onclick="ipOpenFor(\''+s._id+'\')" title="Open their Clinical Profile">'+hesc(s["Clinician"]||"")+'</button>'
+      +'<div class="if-cmeta">'+hesc(displayTitle(s)||s["Title"]||"")+((p.offices||[]).length?' · '+p.offices.map(ifSiteName).map(hesc).join(", "):'')+'</div></div>'
+      +(st?'<span class="ip-pill" style="background:'+st.bg+';color:'+st.c+'">'+(p.status==="open"&&p.openings?hesc(p.openings)+' wanted':st.l)+'</span>':'')
+    +'</div>'
+    +(ev.why.length||ev.warn.length?'<div class="if-why">'+ev.why.map(function(w){return '<span class="if-b '+w.k+'">'+hesc(w.t)+'</span>';}).join("")
+      +ev.warn.map(function(w){return '<span class="if-b warn">⚠ '+hesc(w)+'</span>';}).join("")+'</div>':'')
+    +(shown.length?'<div class="if-runs">'+shown.map(function(r){return '<span class="if-run '+(r.v?'v':'p')+'"><b>'+r.d+'</b> '+r.txt+' · '+hesc(r.label)+'</span>';}).join("")
+      +(runs.length>shown.length?'<button class="ip-linkbtn" onclick="ifToggle(\''+s._id+'\')">+'+(runs.length-shown.length)+' more</button>':'')+'</div>':'')
+    +(p.wants?'<div class="if-quote">“'+hesc(p.wants)+'”</div>':'')
+    +(open?ifDetailHtml(p):'')
+    +'<button class="if-more" aria-expanded="'+open+'" onclick="ifToggle(\''+s._id+'\')">'+(open?'▴ Less':'▾ Details')+'</button>'
+    +'</article>';
+}
+function ifAnyTime(){ return IF.cells.length||IF.format!=="any"||IF.sites.length; }
+function ifDetailHtml(p){
+  const spec=Object.keys(p.dx||{}).filter(function(k){return p.dx[k]==="spec";}).concat(Object.keys(p.pop||{}).filter(function(k){return p.pop[k]==="spec";}));
+  const no=Object.keys(p.dx||{}).filter(function(k){return p.dx[k]==="no";}).concat(Object.keys(p.pop||{}).filter(function(k){return p.pop[k]==="no";}));
+  const line=function(l,arr,cls){ return arr&&arr.length?'<div class="if-dl"><span>'+l+'</span><div>'+arr.map(function(x){return '<i class="'+(cls||'')+'">'+hesc(x)+'</i>';}).join("")+'</div></div>':''; };
+  return '<div class="if-detail">'
+    +line("Prefers",p.prefTypes)+line("Ages",p.ages)
+    +line("Certified",p.modCert,"c")+line("Modalities",(p.modalities||[]).filter(function(m){return (p.modCert||[]).indexOf(m)<0;}))
+    +line("Specialties",spec,"g")+line("Won’t treat",no,"r")
+    +(p.modOther?'<div class="if-dl"><span>Other</span><div>'+hesc(p.modOther)+'</div></div>':'')
+    +(p.notes?'<div class="if-dl"><span>Notes</span><div>'+hesc(p.notes)+'</div></div>':'')
+    +((p.extraSites||[]).filter(function(e){return e.site;}).map(function(e){return '<div class="if-dl"><span>'+hesc(ifSiteName(e.site))+'</span><div>'+hesc(e.note||"Special availability")+'</div></div>';}).join(""))
+    +'</div>';
+}
+
+// ── filter actions ──
+function ifSet(k,v){ IF[k]=(IF[k]===v&&k!=="format")?"":v; if(k==="format"&&v!=="inperson") IF.sites=[]; renderIntakeFinder(); }
+function ifTog(k,v){ const a=IF[k]; const i=a.indexOf(v); if(i>=0) a.splice(i,1); else a.push(v); renderIntakeFinder(); }
+function ifCell(k){ ifTog("cells",k); }
+function ifPickGroup(keys){ const all=keys.every(function(k){return IF.cells.indexOf(k)>=0;});
+  keys.forEach(function(k){ const i=IF.cells.indexOf(k); if(all&&i>=0) IF.cells.splice(i,1); else if(!all&&i<0) IF.cells.push(k); }); renderIntakeFinder(); }
+function ifPickDay(d){ ifPickGroup(IF_TIMES.map(function(t){return d+"|"+t.k;})); }
+function ifPickTime(t){ ifPickGroup(IP_DAYS.map(function(d){return d+"|"+t;})); }
+function ifClear(){ IF={client:"",concerns:[],format:"any",sites:[],cells:[],q:"",inclFull:IF.inclFull}; renderIntakeFinder(); }
+function ifDrop(i){ IF.concerns.splice(i,1); renderIntakeFinder(); }
+function ifToggle(id){ IF_OPEN[id]=!IF_OPEN[id]; renderIntakeFinder(); }
+async function ifRefresh(){ await ifLoad(true); renderIntakeFinder(); showToast("↻ Profiles refreshed"); }
+function ifAllTerms(){ return IP_POPS.concat([].concat.apply([],Object.keys(IP_DX).map(function(k){return IP_DX[k];}))).concat(IP_MODALITIES); }
+function ifQ(v){
+  IF.q=v; const box=document.getElementById("if-sugg"); if(!box) return;
+  const q=v.trim().toLowerCase(); IF_SUGG=-1;
+  if(!q){ box.innerHTML=""; box.classList.remove("on"); return; }
+  const m=ifAllTerms().filter(function(t){return t.toLowerCase().indexOf(q)>=0 && IF.concerns.indexOf(t)<0;}).slice(0,8);
+  box.innerHTML=m.length?m.map(function(t,i){const k=ifConcernKind(t);
+    return '<button role="option" class="if-sg" data-t="'+hesc(t)+'" onmousedown="event.preventDefault();ifPick(this.dataset.t)"><span>'+hesc(t)+'</span><em>'+(k==="mod"?"modality":k==="pop"?"population":"diagnosis / concern")+'</em></button>';}).join("")
+    :'<div class="if-sgnone">No match in the lists</div>';
+  box.classList.add("on");
+}
+function ifKey(e){
+  const items=document.querySelectorAll("#if-sugg .if-sg");
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); if(!items.length) return;
+    IF_SUGG=(IF_SUGG+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;
+    items.forEach(function(b,i){ b.classList.toggle("act",i===IF_SUGG); }); }
+  else if(e.key==="Enter"){ e.preventDefault(); const b=items[IF_SUGG<0?0:IF_SUGG]; if(b) ifPick(b.dataset.t); }
+  else if(e.key==="Escape"){ ifQ(""); e.target.value=""; }
+}
+function ifPick(t){
+  if(IF.concerns.indexOf(t)<0) IF.concerns.push(t);
+  IF.q=""; renderIntakeFinder();
+  const i=document.getElementById("if-q"); if(i) i.focus();
+}
+
+function ifCss(){ return '<style>'
+ +'.if-intro{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px 20px;margin-bottom:14px}'
+ +'.if-intro h2{font-size:24px;font-weight:900;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:balance}.if-intro p{font-size:13px;color:#777;margin:3px 0 0}'
+ +'.if-overview{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:12.5px;color:#666}.if-overview b{color:var(--navy);font-size:15px;font-variant-numeric:tabular-nums}'
+ +'.if-stale{background:#fff7e6;border:2px solid #f2c063;border-radius:14px;padding:11px 14px;margin-bottom:16px}'
+ +'.if-stalehead{display:flex;align-items:center;gap:12px;font-size:13.5px;color:#6b4300}.if-stalehead>div{flex:1}'
+ +'.if-staleicon{flex:0 0 32px;height:32px;border-radius:50%;background:#f2c063;color:#5c3b00;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:16px}'
+ +'.if-staletoggle{border:1.5px solid #e8b94a;background:#fff;color:#7a4a00;font-family:inherit;font-weight:800;font-size:12px;padding:6px 12px;border-radius:9px;cursor:pointer}'
+ +'.if-stalelist{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}'
+ +'.if-staleperson{display:flex;gap:8px;align-items:center;border:1px solid #f0d9a6;background:#fff;border-radius:10px;padding:6px 10px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer}'
+ +'.if-staleperson em{font-style:normal;font-weight:800;color:#b45309;font-size:11.5px}.if-staleperson:hover{border-color:#e8b94a}'
+ +'.if-layout{display:grid;grid-template-columns:minmax(440px,1.15fr) minmax(0,1fr);gap:20px;align-items:start}'
+ +'.if-filters{position:sticky;top:8px;background:var(--surface);border:1.5px solid #dfe2ef;border-radius:18px;padding:18px 22px;max-height:calc(100vh - 120px);overflow-y:auto;box-shadow:0 6px 18px rgba(37,42,82,.07)}'
+ +'.if-step{display:flex;align-items:center;gap:12px;font-size:21px;font-weight:900;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}.if-step>span{flex:0 0 34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center}'
+ +'.if-step em{font-style:normal;font-weight:600;font-size:12.5px;color:#999}.if-step .ip-linkbtn{margin-left:auto}'
+ +'.if-fsec{padding:16px 0;border-top:1px solid #eeece6}'
+ +'.if-fl{display:block;font-size:12.5px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#555;margin-bottom:10px}.if-flsub{text-transform:none;letter-spacing:0;font-weight:600;color:#999;font-size:12px}'
+ +'.if-chips,.if-seg{display:flex;flex-wrap:wrap;gap:8px}'
+ +'.if-chip{font-family:inherit;font-size:14.5px;font-weight:700;padding:10px 16px;border-radius:12px;border:1.5px solid #e2e0da;background:#fff;color:#555;cursor:pointer;line-height:1.2}'
+ +'.if-chip:hover{border-color:#c9cde4}.if-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}'
+ +'.if-chip:focus-visible,.if-hc:focus-visible,.if-wd:focus-visible,.if-wt:focus-visible{outline:2px solid var(--navy);outline-offset:2px}'
+ +'.if-seg .if-chip{flex:1}.if-chip.site.on{background:#1d7479;border-color:#1d7479}'
+ +'.if-hint{font-size:12px;color:#999;margin-top:8px}'
+ +'.if-when{display:grid;grid-template-columns:86px repeat(7,minmax(0,1fr));gap:5px}'
+ +'.if-wd,.if-wt{border:0;background:none;font-family:inherit;color:#777;cursor:pointer;border-radius:6px}.if-wd{font-size:13px;font-weight:900;padding:4px 0}.if-wd:hover,.if-wt:hover{background:#f1f0ea}'
+ +'.if-wt{font-size:13px;font-weight:800;text-align:left;padding:2px 6px;line-height:1.15}.if-wt small{display:block;font-size:11px;font-weight:600;color:#999}'
+ +'.if-hc{height:44px;border:0;border-radius:9px;font-family:inherit;font-weight:900;font-size:15px;cursor:pointer;font-variant-numeric:tabular-nums}'
+ +'.if-hc.l0{background:#f4f3ef;color:#ccc}.if-hc.l1{background:#e0f2f1;color:#1d7479}.if-hc.l2{background:#a7dcd7;color:#0f4f53}.if-hc.l3{background:#4fb3aa;color:#fff}.if-hc.l4{background:#1d7479;color:#fff}'
+ +'.if-hc.sel{box-shadow:0 0 0 2.5px var(--navy) inset,0 0 0 1px #fff inset}.if-hc.sel.l0{background:#e6e9f5;color:var(--navy)}'
+ +'.if-ta{position:relative}.if-ta .ip-in{font-size:14.5px;padding:11px 14px;border-radius:12px}.if-sugg{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e2e0da;border-radius:10px;box-shadow:0 10px 24px rgba(20,24,50,.14);z-index:20;overflow:hidden}'
+ +'.if-sugg.on{display:block}.if-sg{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:#fff;padding:10px 13px;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}'
+ +'.if-sg em{font-style:normal;font-size:10.5px;color:#999;white-space:nowrap}.if-sg:hover,.if-sg.act{background:#eef0f8}.if-sgnone{padding:9px 11px;font-size:12px;color:#999}'
+ +'.if-tokens{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}'
+ +'.if-tok{display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:700;padding:6px 6px 6px 12px;border-radius:18px;background:#eef0f8;color:var(--navy)}'
+ +'.if-tok.pop{background:#e6f4f3;color:#1d7479}.if-tok.mod{background:#fef3c7;color:#92400e}'
+ +'.if-tok button{border:0;background:rgba(0,0,0,.06);width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;color:inherit}'
+ +'.if-incl{display:flex;gap:9px;align-items:center;font-size:13.5px;color:#555;padding-top:14px;border-top:1px solid #f1efe9;cursor:pointer}.if-incl input{accent-color:var(--navy)}'
+ +'.if-results .if-step{margin-top:6px;font-size:18px}.if-results .if-step>span{flex-basis:30px;height:30px;font-size:14px}'
+ +'.if-card{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:10px 13px 6px;margin-bottom:8px}'
+ +'.if-ctop{display:flex;gap:12px;align-items:center}.if-cid{flex:1;min-width:0}'
+ +'.if-cname{border:0;background:none;padding:0;font-family:inherit;font-size:14px;font-weight:800;color:var(--ink);cursor:pointer;text-align:left}.if-cname:hover{text-decoration:underline}'
+ +'.if-cmeta{font-size:11.5px;color:#888;margin-top:1px}'
+ +'.if-why{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}'
+ +'.if-b{font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:#eef0f8;color:var(--navy)}'
+ +'.if-b.spec{background:#dcfce7;color:#15803d}.if-b.cert{background:#fef3c7;color:#92400e}.if-b.pref{background:#ede9fe;color:#6d28d9}.if-b.site{background:#e6f4f3;color:#1d7479}'
+ +'.if-b.warn{background:#fff;border:1px solid #f2c063;color:#92400e}'
+ +'.if-runs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;align-items:center}'
+ +'.if-run{font-size:11.5px;padding:2px 8px;border-radius:8px;color:#333}.if-run.v{background:#dbeafe}.if-run.p{background:#dcfce7}.if-run b{font-weight:800}'
+ +'.if-quote{margin-top:6px;font-size:12px;color:#6b4a00;font-style:italic}'
+ +'.if-detail{margin-top:10px;border-top:1px solid #f1efe9;padding-top:8px;display:grid;gap:6px}'
+ +'.if-dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;font-size:12px;color:#444}.if-dl>span{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding-top:3px}'
+ +'.if-dl i{display:inline-block;font-style:normal;background:#f4f3ef;border-radius:8px;padding:2px 8px;margin:0 4px 4px 0}.if-dl i.g{background:#dcfce7;color:#15803d}.if-dl i.r{background:#fee2e2;color:#b91c1c}.if-dl i.c{background:#fef3c7;color:#92400e}'
+ +'.if-more{display:block;border:0;background:none;font-family:inherit;font-size:12px;font-weight:700;color:#888;cursor:pointer;padding:6px 0 2px;margin-top:4px}.if-more:hover{color:var(--navy)}'
+ +'.if-empty{background:var(--surface);border:1px dashed #d8d5cd;border-radius:14px;padding:26px;text-align:center;font-size:13px;color:#777}'
+ +'.if-xwrap{margin-top:16px}.if-xtoggle{border:0;background:none;font-family:inherit;font-size:13px;font-weight:800;color:#666;cursor:pointer;padding:4px 2px}'
+ +'.if-xlist{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;margin-top:6px}'
+ +'.if-xrow{display:grid;grid-template-columns:200px minmax(0,1fr);gap:10px;padding:8px 14px;border-top:1px solid #f4f3ef;font-size:12.5px;color:#777}.if-xrow:first-child{border-top:0}'
+ +'.if-xname{border:0;background:none;text-align:left;font-family:inherit;font-weight:700;color:var(--ink);cursor:pointer;padding:0}.if-xname:hover{text-decoration:underline}'
+ +'@media (max-width:1200px){.if-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}@media (max-width:900px){.if-layout{grid-template-columns:1fr}.if-filters{position:static;max-height:none}.if-xrow{grid-template-columns:1fr}}'
+ +'</style>'; }
+
+// ══════════════════════════════════════════════
 //  PLACEHOLDER PAGES — reserved spots in the nav, to be built out later
 // ══════════════════════════════════════════════
 var PLACEHOLDERS={
-  "intake-profile":{icon:"🗂", t:"Clinical Profile for Intake", d:"Each clinician’s intake profile — specialties, populations, modalities, and availability — so Central Intake can match new clients to the right therapist."},
   "discharge":     {icon:"🔁", t:"Discharge & Transfer",        d:"The workflow for discharging clients and transferring care between clinicians."},
   "report-center": {icon:"📑", t:"Report Center",               d:"Practice reports in one place."}
 };
@@ -2666,6 +3758,461 @@ function openMyEmployeeFile(btn){
   if(me){ try{ openRoster(me._id); }catch(e){} }
   else showToast('No employee record is linked to this sign-in');
 }
+
+// ══════════════════════════════════════════════
+//  MANUAL BOOK VIEW (Clinical Manual, Employee Handbook)
+// ══════════════════════════════════════════════
+// Chapters are ordinary 'library' articles (cat 'cmanual' or 'manual'),
+// ordered by `order`. The book view adds a table of contents with each
+// chapter's sections, search across the whole manual, and prev/next.
+// The Clinical Manual can be (re)imported from the plain-text draft format:
+// numbered chapter titles listed under "Contents", short title lines as
+// section headings, "- " bullets, "1. " steps, and "| a | b |" tables.
+var LIB_BOOK_CATS=["cmanual","manual"];
+var LIB_BOOKID=null, LIB_BOOKQ="", LIB_TOCOPEN={};
+function libIsBook(k){ return LIB_BOOK_CATS.indexOf(k)>=0; }
+function libChapters(){
+  return LIB_ALL.filter(function(a){return a.cat===LIB_CAT;})
+    .sort(function(a,b){ return (parseFloat(a.order)||0)-(parseFloat(b.order)||0) || String(a.title||"").localeCompare(String(b.title||"")); });
+}
+function libSections(body){ return libHeads(body).map(function(h){return h.t;}); }
+// Headings in order: {lvl:2|3, t, i} — i is the anchor index used by libRender.
+function libHeads(body){ const out=[]; String(body||"").split("\n").forEach(function(l){ const t=l.trim();
+  if(t.indexOf("### ")===0) out.push({lvl:3,t:t.slice(4),i:out.length}); else if(t.indexOf("## ")===0) out.push({lvl:2,t:t.slice(3),i:out.length}); }); return out; }
+// Group ### under their ## for the contents sidebar.
+function libHeadGroups(body){ const g=[]; libHeads(body).forEach(function(h){ if(h.lvl===2||!g.length) g.push({h:h,kids:[]}); else g[g.length-1].kids.push(h); }); return g; }
+
+async function renderLibBook(body,tabs){
+  const cat=LIB_CATS.find(function(c){return c.k===LIB_CAT;})||LIB_CATS[0];
+  const chs=libChapters();
+  if(!chs.length){
+    body.innerHTML=tabs+'<div class="lb-empty"><div style="font-size:34px;margin-bottom:8px">'+cat.icon+'</div>'
+      +'<div style="font-size:15px;font-weight:800;margin-bottom:4px">The '+hesc(cat.l)+' is empty</div>'
+      +'<div style="font-size:12.5px;color:#888;max-width:440px;margin:0 auto 16px;line-height:1.55">'+hesc(cat.hint)+'</div>'
+      +(libCanEdit()
+        ?(LIB_CAT==="cmanual"?'<button class="btn btn-primary" style="font-size:13px" onclick="cmImportPick()">📥 Import the manual from a text file</button> ':'')
+          +'<button class="btn btn-secondary" style="font-size:13px" onclick="libNew()">➕ Write the first chapter</button>'
+        :'<div style="font-size:12px;color:#aaa">Content is added by leadership.</div>')
+      +'</div>'+libBookCss()+libSignCss()+cmFileInput();
+    return;
+  }
+  if(!LIB_BOOKID||!chs.some(function(a){return a.__id===LIB_BOOKID;})) LIB_BOOKID=chs[0].__id;
+  const idx=chs.findIndex(function(a){return a.__id===LIB_BOOKID;});
+  const ch=chs[idx];
+
+  // table of contents
+  const toc='<nav class="lb-toc" aria-label="Contents"><div class="lb-toch">Contents</div>'+chs.map(function(a,i){
+    const on=a.__id===LIB_BOOKID, groups=on?libHeadGroups(a.body):[];
+    return '<div class="lb-tocch'+(on?' on':'')+'"><button class="lb-tocbtn" onclick="libBookGo(\''+a.__id+'\')"'+(on?' aria-current="page"':'')+'>'+hesc(a.title||"Untitled")+'</button>'
+      +(groups.length?'<div class="lb-tocsecs">'+groups.map(function(g){
+          const k=a.__id+"|"+g.h.i, open=!!LIB_TOCOPEN[k];
+          return '<div class="lb-tocgrp'+(g.kids.length?' has':'')+(open?' open':'')+'"><div class="lb-tocrow">'
+            +'<button class="lb-toch2" onclick="libTocGo(\''+k+'\','+g.h.i+')">'+hesc(g.h.t)+'</button>'
+            +(g.kids.length?'<button class="lb-toctog" aria-expanded="'+open+'" aria-label="Show '+g.kids.length+' topics" onclick="libTocTog(\''+k+'\')">'+(open?'−':g.kids.length)+'</button>':'')+'</div>'
+            +(open?'<div class="lb-tockids">'+g.kids.map(function(h){return '<button onclick="libBookJump('+h.i+')">'+hesc(h.t)+'</button>';}).join("")+'</div>':'')+'</div>';
+        }).join("")+'</div>':'')+'</div>';
+  }).join("")+'</nav>';
+
+  let main;
+  if(LIB_BOOKVIEW==="sign") main=libSignHtml(LIB_CAT,chs);
+  else if(LIB_BOOKVIEW==="signoffs"&&isSuperAdminView()) main=await libSignoffsHtml(LIB_CAT,chs);
+  else if(LIB_BOOKVIEW==="changes") main=libChangesHtml(chs);
+  else if(LIB_BOOKQ.trim().length>=2){
+    main=libBookSearchHtml(chs);
+  } else main=libBookReaderHtml(chs,idx,cat);
+  const tools='<div class="lb-tools"><input id="lb-q" class="ip-in" type="search" autocomplete="off" placeholder="🔍  Search the '+hesc(cat.l)+'…" value="'+hesc(LIB_BOOKQ)+'" oninput="libBookSearch(this.value)">'
+    +'<div class="lb-admin"><button class="btn btn-secondary" style="font-size:12px" onclick="LIB_BOOKVIEW=\'changes\';LIB_DIFFID=null;renderLibrary()">🕓 What’s changed</button>'
+      +(isSuperAdminView()?'<button class="btn btn-secondary" style="font-size:12px" onclick="LIB_BOOKVIEW=\'signoffs\';renderLibrary()">✍ Sign-offs</button>':'')+'</div>'
+    +(libCanEdit()?'<div class="lb-admin">'
+      +(LIB_CAT==="cmanual"?'<button class="btn btn-secondary" style="font-size:12px" onclick="cmImportPick()" title="Load a new draft; changed chapters get a new version">📥 Import new draft</button>':'')
+      +'<button class="btn btn-secondary" style="font-size:12px" onclick="libNew()">➕ Add chapter</button></div>':'')
+    +'</div>';
+  body.innerHTML=libBookCss()+libSignCss()+tabs+libSignBanner(LIB_CAT)+tools+'<div class="lb-wrap">'+toc+'<div id="lb-main" style="min-width:0">'+main+'</div></div>'+cmFileInput();
+}
+function libBookReaderHtml(chs,idx,cat){
+    const ch=chs[idx], prev=chs[idx-1], next=chs[idx+1];
+    return '<article class="lb-reader">'
+      +'<div class="lb-rhead"><div><div class="lb-eyebrow">'+hesc(cat.l)+'</div><h2>'+hesc(ch.title||"Untitled")+'</h2>'
+      +'<div class="lb-meta">v'+(ch.version||1)+' · updated '+hesc(String(ch.updatedAt||"").slice(0,10))+(ch.updatedBy?' by '+hesc(ch.updatedBy):'')+'</div></div>'
+      +'<div class="lb-ractions">'
+        +((ch.history||[]).length?'<button class="ip-linkbtn" onclick="LIB_LOG=!LIB_LOG;renderLibrary()">🕓 Change log ('+(ch.history||[]).length+')</button>':'')
+        +((ch.version||1)>1&&ch.prevBody!==undefined?'<button class="ip-linkbtn" onclick="LIB_BOOKVIEW=\'changes\';LIB_DIFFID=\''+ch.__id+'\';renderLibrary()">Compare with v'+((ch.version||1)-1)+'</button>':'')
+        +(libCanEdit()?'<button class="ip-linkbtn" onclick="LIB_OPENID=\''+ch.__id+'\';LIB_EDIT=true;renderLibrary()">✏ Edit chapter</button>':'')
+      +'</div></div>'
+      +(LIB_LOG&&(ch.history||[]).length?'<div class="lb-log">'+(ch.history||[]).slice().reverse().map(function(h){return '<div><strong>v'+h.v+'</strong> · '+hesc(String(h.at||"").slice(0,10))+(h.by?' · '+hesc(h.by):'')+' — '+hesc(h.note||"")+'</div>';}).join("")+'</div>':'')
+      +'<div class="lb-body">'+libRender(ch.body,"lbs-")+'</div>'
+      +'<div class="lb-pn">'
+        +(prev?'<button class="lb-pnb" onclick="libBookGo(\''+prev.__id+'\')"><small>← Previous</small>'+hesc(prev.title)+'</button>':'<span></span>')
+        +(next?'<button class="lb-pnb nx" onclick="libBookGo(\''+next.__id+'\')"><small>Next →</small>'+hesc(next.title)+'</button>':'<span></span>')
+      +'</div></article>';
+}
+function libBookGo(id){ LIB_BOOKID=id; LIB_BOOKQ=""; LIB_LOG=false; LIB_BOOKVIEW="read"; renderLibrary();
+  const pg=document.getElementById("page-"+LIB_CUR); if(pg) pg.scrollTop=0; }
+function libBookJump(j){ const el=document.getElementById("lbs-"+j); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); }
+var LIB_QT=null;
+function libBookSearch(v){
+  LIB_BOOKQ=v; LIB_BOOKVIEW="read";
+  clearTimeout(LIB_QT);
+  LIB_QT=setTimeout(function(){
+    const m=document.getElementById("lb-main"); if(!m){ renderLibrary(); return; }
+    const chs=libChapters(), cat=LIB_CATS.find(function(c){return c.k===LIB_CAT;})||LIB_CATS[0];
+    const idx=Math.max(0,chs.findIndex(function(a){return a.__id===LIB_BOOKID;}));
+    m.innerHTML=LIB_BOOKQ.trim().length>=2?libBookSearchHtml(chs):(chs.length?libBookReaderHtml(chs,idx,cat):"");
+    if(!v){ const i=document.getElementById("lb-q"); if(i) i.value=""; }
+  },150);
+}
+function libTocTog(k){ LIB_TOCOPEN[k]=!LIB_TOCOPEN[k]; renderLibrary(); }
+function libTocGo(k,i){ LIB_TOCOPEN[k]=true; renderLibrary(); setTimeout(function(){ libBookJump(i); },30); }
+function libBookOpenHit(id,sec){ LIB_BOOKID=id; LIB_BOOKQ="";
+  const a=LIB_ALL.find(function(x){return x.__id===id;});
+  if(a&&sec>=0){ libHeadGroups(a.body).forEach(function(g){ if(g.kids.some(function(h){return h.i===sec;})) LIB_TOCOPEN[id+"|"+g.h.i]=true; }); }
+  renderLibrary(); setTimeout(function(){ if(sec>=0) libBookJump(sec); },60); }
+function libBookSearchHtml(chs){
+  const q=LIB_BOOKQ.trim().toLowerCase(); const hits=[];
+  chs.forEach(function(a){
+    let sec=-1, secName="";
+    String(a.body||"").split("\n").forEach(function(l){
+      const t=l.trim(); if(!t) return;
+      if(t.indexOf("## ")===0||t.indexOf("### ")===0){ sec++; secName=t.replace(/^#+ /,""); if(secName.toLowerCase().indexOf(q)>=0) hits.push({a:a,sec:sec,secName:secName,snip:""}); return; }
+      const low=t.toLowerCase(), at=low.indexOf(q);
+      if(at>=0){ const st=Math.max(0,at-70), en=Math.min(t.length,at+q.length+90);
+        hits.push({a:a,sec:sec,secName:secName,snip:(st?"…":"")+t.slice(st,en).replace(/^[-|>\d. ]+/,"")+(en<t.length?"…":"")}); }
+    });
+  });
+  const mark=function(s){ const h=hesc(s); const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"); return h.replace(re,"<mark>$1</mark>"); };
+  return '<div class="lb-reader"><div class="lb-rhead"><div><div class="lb-eyebrow">Search</div><h2>'+hits.length+' result'+(hits.length===1?'':'s')+' for “'+hesc(LIB_BOOKQ.trim())+'”</h2></div>'
+    +'<div class="lb-ractions"><button class="ip-linkbtn" onclick="libBookSearch(\'\')">Clear search</button></div></div>'
+    +(hits.length?'<div class="lb-hits">'+hits.slice(0,60).map(function(h){
+      return '<button class="lb-hit" onclick="libBookOpenHit(\''+h.a.__id+'\','+h.sec+')"><span class="lb-hitwhere">'+hesc(h.a.title)+(h.secName?' › '+mark(h.secName):'')+'</span>'
+        +(h.snip?'<span class="lb-hitsnip">'+mark(h.snip)+'</span>':'')+'</button>';}).join("")+'</div>'
+      :'<div class="lb-empty" style="margin:10px 0">Nothing found. Try a shorter word.</div>')
+    +(hits.length>60?'<div style="font-size:12px;color:#999;margin-top:8px">Showing the first 60 — add a word to narrow it down.</div>':'')+'</div>';
+}
+
+// ── Import the Clinical Manual from the plain-text draft ──
+function cmFileInput(){ return '<input type="file" id="cm-file" accept=".txt,.md,text/plain" style="display:none" onchange="cmImportFile(this)">'; }
+function cmImportPick(){ const f=document.getElementById("cm-file"); if(f){ f.value=""; f.click(); } }
+function cmParse(txt){
+  const lines=String(txt||"").replace(/\r/g,"").split("\n").map(function(l){return l.replace(/\s*\(tel:[^)]*\)/g,"").replace(/\s+$/,"");});
+  // 1) chapter titles = the list under "Contents"
+  const ci=lines.findIndex(function(l){return l.trim().toLowerCase()==="contents";});
+  if(ci<0) throw new Error("Couldn’t find a “Contents” list in this file.");
+  const titles=[]; let i=ci+1;
+  for(;i<lines.length;i++){ const t=lines[i].trim(); if(!t) continue;
+    if(/^(\d{1,2}|Appendix [A-Z]) \S/.test(t)) titles.push(t); else break; }
+  if(!titles.length) throw new Error("The “Contents” list is empty.");
+  const afterContents=i;
+  // 2) split the body at each chapter title (first match after the contents list)
+  const starts=[]; let from=afterContents;
+  titles.forEach(function(t){ const at=lines.findIndex(function(l,k){return k>=from && l.trim()===t;}); if(at>=0){ starts.push({t:t,at:at}); from=at+1; } });
+  if(!starts.length) throw new Error("None of the chapters listed under “Contents” were found in the text.");
+  const chapters=[];
+  // front matter: title block + everything before Contents + anything between Contents and chapter 1
+  const front=lines.slice(0,ci).concat([""]).concat(lines.slice(afterContents,starts[0].at));
+  const firstPara=front.findIndex(function(l){return l.trim().length>100;});
+  const titleBits=front.slice(0,firstPara<0?front.length:firstPara).map(function(l){return l.trim();}).filter(Boolean);
+  const intro=titleBits.length>1?["**"+titleBits.slice(0,3).join(" · ")+"**",titleBits.slice(3).join(" · "),""]:[];
+  chapters.push({key:"front",title:"About this manual",order:0,body:intro.concat(cmConvert(front.slice(firstPara<0?front.length:firstPara))).join("\n").trim()});
+  starts.forEach(function(s,n){
+    const end=n+1<starts.length?starts[n+1].at:lines.length;
+    const m=s.t.match(/^(\d{1,2}|Appendix ([A-Z])) (.+)$/);
+    const isApp=!!m[2], num=isApp?m[2]:m[1];
+    chapters.push({key:isApp?"app"+num:"ch"+num, order:isApp?100+num.charCodeAt(0)-64:+num,
+      title:(isApp?"Appendix "+num:num)+" · "+m[3], body:cmConvert(lines.slice(s.at+1,end)).join("\n").trim()});
+  });
+  return chapters;
+}
+// plain-text lines → the library's light markup
+function cmConvert(ls){
+  const out=[];
+  ls.forEach(function(raw){
+    const t=raw.trim();
+    if(!t){ if(out.length&&out[out.length-1]!=="") out.push(""); return; }
+    if(t.charAt(0)==="|"){ out.push(t); return; }
+    if(/^#{2,3} \S/.test(t)){ if(out.length&&out[out.length-1]!=="") out.push(""); out.push(t); return; }
+    if(/^- /.test(t)||/^\d+[.)] /.test(t)){ out.push(t); return; }
+    if(/^Draft provision/i.test(t)){ out.push("> "+t); return; }
+    const isHead=t.length<=90 && !/[.:;?!,)]$/.test(t) && t.indexOf("__")<0 && /^[A-Z0-9]/.test(t);
+    if(isHead){ if(out.length&&out[out.length-1]!=="") out.push(""); out.push("## "+t); return; }
+    out.push(t);
+  });
+  return out;
+}
+async function cmImportFile(inp){
+  const f=inp.files&&inp.files[0]; if(!f||!libCanEdit()||!window.libStore) return;
+  let chs;
+  try{ chs=cmParse(await f.text()); }catch(e){ showToast("⚠ "+(e.message||"Couldn’t read that file")); return; }
+  const existing=LIB_ALL.filter(function(a){return a.cat==="cmanual";});
+  // Keep sub-topic levels (###) that were set on the current chapter.
+  chs.forEach(function(c){ const old=existing.find(function(a){return a.key===c.key;}); if(!old) return;
+    const subs={}; libHeads(old.body).forEach(function(h){ if(h.lvl===3) subs[h.t]=1; });
+    c.body=c.body.split("\n").map(function(l){ return (l.indexOf("## ")===0&&subs[l.slice(3)])?"#"+l:l; }).join("\n"); });
+  const plan=chs.map(function(c){ const old=existing.find(function(a){return a.key===c.key;});
+    return {c:c, old:old, change:!old?"new":(String(old.body||"")!==c.body||old.title!==c.title?"update":"same")}; });
+  const nNew=plan.filter(function(p){return p.change==="new";}).length, nUpd=plan.filter(function(p){return p.change==="update";}).length;
+  if(!nNew&&!nUpd){ showToast("Nothing changed — the manual already matches this file"); return; }
+  if(!confirm("Import “"+f.name+"”?\n\n"+chs.length+" chapters found ("+chs.map(function(c){return c.title.split(" · ")[0];}).join(", ")+").\n"
+    +nNew+" new, "+nUpd+" updated (each updated chapter gets a new version), "+(chs.length-nNew-nUpd)+" unchanged.")) return;
+  const now=new Date().toISOString(), who=libWhoAmI(); let ok=0;
+  for(const p of plan){
+    if(p.change==="same") continue;
+    const v=(p.old&&p.old.version||0)+1;
+    const hist=((p.old&&p.old.history)||[]).concat([{v:v,at:now,by:who,note:(p.old?"Updated":"Imported")+" from "+f.name}]).slice(-25);
+    const id=p.old?p.old.__id:libNewId();
+    const data={cat:"cmanual",key:p.c.key,title:p.c.title,body:p.c.body,order:String(p.c.order),version:v,updatedAt:now,updatedBy:who,prevBody:(p.old&&p.old.body)||"",history:hist};
+    if(await window.libStore.set(id,data)){ ok++;
+      const rec=Object.assign({__id:id},data); const k=LIB_ALL.findIndex(function(x){return x.__id===id;}); if(k>=0) LIB_ALL[k]=rec; else LIB_ALL.push(rec); }
+  }
+  showToast(ok===nNew+nUpd?"📥 Imported "+ok+" chapter"+(ok===1?"":"s"):"⚠ Imported "+ok+" of "+(nNew+nUpd)+" — try again for the rest");
+  LIB_BOOKID=null; renderLibrary();
+}
+
+function libBookCss(){ return '<style>'
+ +'.ip-linkbtn{border:1px solid #e3ddd0;background:#fff;color:#5c3b00;font-weight:700;font-size:12px;font-family:inherit;padding:5px 11px;border-radius:20px;cursor:pointer;white-space:nowrap}.ip-linkbtn:hover{border-color:#c9b98f}'
+ +'.lb-empty{background:#fff;border:1px dashed #d8d5cd;border-radius:14px;padding:34px 24px;text-align:center}'
+ +'.lb-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}.lb-tools .ip-in{flex:1;min-width:240px;font-size:14px;padding:10px 14px;border-radius:12px;width:auto}'
+ +'.lb-admin{display:flex;gap:8px}'
+ +'.lb-wrap{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}'
+ +'.lb-toc{position:sticky;top:8px;max-height:calc(100vh - 120px);overflow-y:auto;background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:10px 8px}'
+ +'.lb-toch{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#999;padding:4px 10px 8px}'
+ +'.lb-tocbtn{display:block;width:100%;text-align:left;border:0;background:none;font-family:inherit;font-size:13px;font-weight:700;color:#444;padding:8px 10px;border-radius:9px;cursor:pointer;line-height:1.35}'
+ +'.lb-tocbtn:hover{background:#f4f3ef}.lb-tocch.on>.lb-tocbtn{background:#7f1d1d;color:#fff}'
+ +'.lb-tocsecs{display:flex;flex-direction:column;gap:1px;margin:6px 0 10px 8px;border-left:2px solid #f0d6d6;padding-left:4px}'
+ +'.lb-tocrow{display:flex;align-items:flex-start;gap:4px}'
+ +'.lb-toch2{flex:1;border:0;background:none;text-align:left;font-family:inherit;font-size:12.5px;font-weight:700;color:#444;padding:6px 8px;cursor:pointer;line-height:1.35;border-radius:7px}.lb-toch2:hover{color:#7f1d1d;background:#fbf3f3}'
+ +'.lb-tocgrp.has>.lb-tocrow .lb-toch2{color:#26316e;font-weight:800}'
+ +'.lb-toctog{flex:0 0 auto;min-width:24px;height:22px;margin-top:4px;border:1px solid #e8dede;background:#fff;border-radius:11px;font-family:inherit;font-size:11px;font-weight:800;color:#7f1d1d;cursor:pointer;padding:0 6px}'
+ +'.lb-tocgrp.open .lb-toctog{background:#7f1d1d;color:#fff;border-color:#7f1d1d}'
+ +'.lb-tockids{display:flex;flex-direction:column;margin:2px 0 6px 12px;border-left:2px dotted #e8d2d2}'
+ +'.lb-tockids button{border:0;background:none;text-align:left;font-family:inherit;font-size:12px;color:#666;padding:4px 10px;cursor:pointer;line-height:1.35}.lb-tockids button:hover{color:#7f1d1d;background:#fbf3f3}'
+ +'.lb-reader{background:#fff;border:1px solid #e8e6e0;border-radius:16px;padding:22px 30px 18px;min-width:0}'
+ +'.lb-rhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-start;border-bottom:2px solid #f1efe9;padding-bottom:12px;margin-bottom:6px}'
+ +'.lb-eyebrow{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#7f1d1d}'
+ +'.lb-rhead h2{font-size:24px;font-weight:900;color:var(--ink);margin:2px 0 0;text-wrap:balance;letter-spacing:-.01em}'
+ +'.lb-meta{font-size:12px;color:#999;margin-top:3px}.lb-ractions{display:flex;gap:6px;flex-wrap:wrap}'
+ +'.lb-log{background:#faf9f5;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#555;display:grid;gap:4px;margin:10px 0}'
+ +'.lb-body{max-width:76ch}.lb-body .lib-h2,.lb-body .lib-h3{scroll-margin-top:12px}'
+ +'.lb-pn{display:flex;justify-content:space-between;gap:10px;margin-top:22px;padding-top:14px;border-top:2px solid #f1efe9}'
+ +'.lb-pnb{display:flex;flex-direction:column;gap:2px;max-width:48%;text-align:left;border:1px solid #e8e6e0;background:#fff;border-radius:12px;padding:10px 14px;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--ink);cursor:pointer}'
+ +'.lb-pnb small{font-size:11px;font-weight:700;color:#999}.lb-pnb.nx{text-align:right;align-items:flex-end;margin-left:auto}.lb-pnb:hover{border-color:#7f1d1d}'
+ +'.lb-hits{display:flex;flex-direction:column;gap:6px;margin-top:10px}'
+ +'.lb-hit{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid #eee;background:#fff;border-radius:10px;padding:10px 13px;font-family:inherit;cursor:pointer}.lb-hit:hover{border-color:#7f1d1d;background:#fffafa}'
+ +'.lb-hitwhere{font-size:12.5px;font-weight:800;color:#7f1d1d}.lb-hitsnip{font-size:13px;color:#444;line-height:1.5}.lb-hit mark{background:#fde68a;color:inherit;border-radius:3px;padding:0 1px}'
+ +'@media (max-width:900px){.lb-wrap{grid-template-columns:1fr}.lb-toc{position:static;max-height:none}.lb-reader{padding:18px}}'
+ +'</style>'; }
+
+// ══════════════════════════════════════════════
+//  MANUAL CHANGE TRACKING + SIGN-OFFS
+// ══════════════════════════════════════════════
+// Every chapter save already keeps version, who/when, a "what changed" note,
+// and the previous text (prevBody). On top of that:
+//  · "What's changed" — one log across the whole manual, with a line-by-line
+//    comparison of each chapter's latest edit.
+//  · Sign-offs — a Super Admin publishes a version for signature
+//    ('libSignoffs/{rid}': cat, title, note, due, snapshot {chapterId:version},
+//    sids [who must sign]). Each person signs once per round
+//    ('libSignatures/{rid}_{sid}': typed name + timestamp; signers can't edit it).
+var LIB_BOOKVIEW="read", LIB_SIGN={}, LIB_DIFFID=null;
+function libMySid(){ return (currentViewer()&&currentViewer()._id) || window.AUTH_STAFF_ID || null; }
+async function libSignLoad(cat,force){
+  if(LIB_SIGN[cat]&&!force) return LIB_SIGN[cat];
+  const out={rounds:[],mine:{},all:null};
+  if(window.signStore){
+    out.rounds=(await window.signStore.rounds(cat)||[]).sort(function(a,b){return String(b.createdAt).localeCompare(String(a.createdAt));});
+    const sid=libMySid();
+    if(sid) (await window.signStore.mySigs(sid)||[]).forEach(function(g){ out.mine[g.rid]=g; });
+  }
+  LIB_SIGN[cat]=out; return out;
+}
+function libSignCurrent(cat){ const S=LIB_SIGN[cat]; return S&&S.rounds[0]||null; }
+function libSignNeeded(cat){
+  const r=libSignCurrent(cat), sid=libMySid(); const S=LIB_SIGN[cat];
+  return !!(r&&sid&&(r.sids||[]).indexOf(sid)>=0&&!(S.mine[r.__id]));
+}
+function libSignBanner(cat){
+  const r=libSignCurrent(cat); if(!r) return "";
+  const S=LIB_SIGN[cat], mine=S.mine[r.__id];
+  if(libSignNeeded(cat)) return '<div class="lb-signbar need"><span class="lb-signic">✍</span><div><strong>Your signature is needed:</strong> '+hesc(r.title)+(r.due?' · due '+hesc(usDate(r.due)):'')+'</div>'
+    +'<button class="lb-signbtn" onclick="LIB_BOOKVIEW=\'sign\';renderLibrary()">Review &amp; sign →</button></div>';
+  if(mine) return '<div class="lb-signbar ok"><span class="lb-signic">✓</span><div>You signed <strong>'+hesc(r.title)+'</strong> on '+hesc(usDate(String(mine.signedAt).slice(0,10)))+'.</div></div>';
+  return "";
+}
+
+// ── Sign view (the person signing) ──
+function libSignHtml(cat,chs){
+  const r=libSignCurrent(cat); const S=LIB_SIGN[cat];
+  if(!r) return '<div class="lb-reader"><div class="lb-empty">Nothing to sign right now.</div></div>';
+  const mine=S.mine[r.__id];
+  // what changed since the last round this person signed
+  const prevSigned=S.rounds.slice(1).find(function(x){return S.mine[x.__id];});
+  const base=prevSigned?prevSigned.snapshot||{}:null;
+  const changed=chs.filter(function(a){ return !base || (base[a.__id]||0)!==(r.snapshot||{})[a.__id]; })
+    .filter(function(a){ return (r.snapshot||{})[a.__id]!==undefined; });
+  const ack=(chs.find(function(a){return a.key==="ch13";})||{}).body;
+  const ackText=ack?String(ack).split("\n").filter(function(l){ const t=l.trim(); return t && t.indexOf("##")!==0 && t.indexOf("__")<0; }).join("\n")
+    :"I acknowledge that I have read this version, understand the requirements that apply to my role, and will follow them. I will ask for clarification when something is unclear.";
+  return '<div class="lb-reader lb-sign">'
+    +'<div class="lb-rhead"><div><div class="lb-eyebrow">Sign-off</div><h2>'+hesc(r.title)+'</h2>'
+    +'<div class="lb-meta">Published '+hesc(usDate(String(r.createdAt).slice(0,10)))+(r.createdBy?' by '+hesc(r.createdBy):'')+(r.due?' · please sign by '+hesc(usDate(r.due)):'')+'</div></div>'
+    +'<div class="lb-ractions"><button class="ip-linkbtn" onclick="LIB_BOOKVIEW=\'read\';renderLibrary()">← Back to reading</button></div></div>'
+    +(r.note?'<div class="lb-signnote"><div class="lb-lab">What’s new in this version</div>'+libRender(r.note)+'</div>':'')
+    +'<div class="lb-lab" style="margin-top:14px">'+(base?'Chapters changed since you last signed ('+changed.length+')':'This is your first sign-off — please read the whole '+hesc((LIB_CATS.find(function(c){return c.k===cat;})||{}).l||"manual"))+'</div>'
+    +(base?(changed.length?'<div class="lb-chlist">'+changed.map(function(a){return '<button class="lb-chip" onclick="LIB_BOOKVIEW=\'read\';libBookGo(\''+a.__id+'\')">'+hesc(a.title)+' →</button>';}).join("")+'</div>':'<div class="lb-meta">No chapter text changed — this round re-confirms the current version.</div>'):'')
+    +(mine
+      ?'<div class="lb-signed">✓ You signed this version on '+hesc(new Date(mine.signedAt).toLocaleString())+' as “'+hesc(mine.typedName)+'”.</div>'
+      :'<div class="lb-ackbox"><div class="lb-lab">Acknowledgment</div><div class="lb-acktext">'+libRender(ackText)+'</div>'
+        +'<label class="lb-ackcheck"><input type="checkbox" id="lb-ack" onchange="libSignReady()"> I have read this version and agree to the acknowledgment above.</label>'
+        +'<label class="lb-lab" for="lb-typed" style="margin-top:12px;display:block">Type your full name to sign</label>'
+        +'<div class="lb-signrow"><input id="lb-typed" class="ip-in lb-typed" autocomplete="name" oninput="libSignReady()" placeholder="Your full name">'
+        +'<button class="lb-signbtn" id="lb-signgo" disabled onclick="libSignSubmit()">✍ Sign</button></div>'
+        +'<div class="lb-meta" style="margin-top:6px">Your typed name, the date and time, and the version are saved as your signature.</div></div>')
+    +'</div>';
+}
+function libSignReady(){ const a=document.getElementById("lb-ack"), t=document.getElementById("lb-typed"), b=document.getElementById("lb-signgo");
+  if(b) b.disabled=!(a&&a.checked&&t&&t.value.trim().length>=3); }
+async function libSignSubmit(){
+  const r=libSignCurrent(LIB_CAT), sid=libMySid(); if(!r||!sid||!window.signStore) return;
+  const typed=(document.getElementById("lb-typed")||{}).value||"";
+  const me=STAFF.find(function(x){return x._id===sid;})||{};
+  const data={rid:r.__id, cat:LIB_CAT, sid:sid, name:me["Clinician"]||"", typedName:typed.trim(), signedAt:new Date().toISOString(), title:r.title};
+  const ok=await window.signStore.sign(r.__id+"_"+sid,data);
+  if(!ok){ showToast("⚠ Could not save your signature — try again"); return; }
+  LIB_SIGN[LIB_CAT].mine[r.__id]=data; showToast("✍ Signed — thank you"); renderLibrary();
+  try{ loadHomeSignAlert(); }catch(e){}
+}
+
+// ── Sign-offs (Super Admin) ──
+async function libSignoffsHtml(cat,chs){
+  const S=LIB_SIGN[cat]; const r0=S.rounds[0];
+  if(S.all===null||S.allFor!==(r0&&r0.__id)){ S.all=r0&&window.signStore?(await window.signStore.roundSigs(r0.__id)||[]):[]; S.allFor=r0&&r0.__id; }
+  const label=(LIB_CATS.find(function(c){return c.k===cat;})||{}).l||"Manual";
+  const today=new Date().toISOString().slice(0,10);
+  const form='<div class="lb-newround"><div class="lb-lab">Ask everyone to sign the current version</div>'
+    +'<div class="lb-formrow"><input id="lb-rt" class="ip-in" value="'+hesc(label+" — "+usDate(today))+'" aria-label="Title">'
+    +'<input id="lb-rd" class="ip-in" type="date" aria-label="Sign by" style="max-width:170px"></div>'
+    +'<textarea id="lb-rn" class="ip-in" rows="3" placeholder="What’s new in this version (shown to everyone before they sign)…"></textarea>'
+    +'<button class="btn btn-primary" style="font-size:12.5px;margin-top:8px" onclick="libRoundCreate()">✍ Send for signature</button>'
+    +'<div class="lb-meta" style="margin-top:6px">Everyone on the clinical roster is asked to sign. It appears on their My Homebase and at the top of this page.</div></div>';
+  let cur="";
+  if(r0){
+    const sigs={}; (S.all||[]).forEach(function(g){ sigs[g.sid]=g; });
+    const people=(r0.sids||[]).map(function(id){ return {id:id, s:STAFF.find(function(x){return x._id===id;})||{}, g:sigs[id]}; })
+      .sort(function(a,b){ return (a.g?1:0)-(b.g?1:0) || String(a.s["Clinician"]||"").localeCompare(String(b.s["Clinician"]||"")); });
+    const n=people.filter(function(p){return p.g;}).length, tot=people.length;
+    cur='<div class="lb-round"><div class="lb-roundhead"><div><div class="lb-lab">Current sign-off</div><div class="lb-roundtitle">'+hesc(r0.title)+'</div>'
+      +'<div class="lb-meta">Sent '+hesc(usDate(String(r0.createdAt).slice(0,10)))+(r0.due?' · due '+hesc(usDate(r0.due)):'')+'</div></div>'
+      +'<div class="lb-prog"><b>'+n+'</b> of '+tot+' signed<div class="lb-bar"><i style="width:'+(tot?Math.round(n/tot*100):0)+'%"></i></div></div></div>'
+      +'<div class="lb-people">'+people.map(function(p){ return '<div class="lb-person '+(p.g?'ok':'no')+'"><span>'+hesc(p.s["Clinician"]||p.id)+'</span><em>'+(p.g?'✓ '+hesc(usDate(String(p.g.signedAt).slice(0,10))):'Not yet')+'</em></div>'; }).join("")+'</div></div>';
+  }
+  const past=S.rounds.slice(1).map(function(r){ return '<div class="lb-pastrow"><span>'+hesc(r.title)+'</span><em>'+hesc(usDate(String(r.createdAt).slice(0,10)))+' · '+(r.sids||[]).length+' asked</em></div>'; }).join("");
+  return '<div class="lb-reader"><div class="lb-rhead"><div><div class="lb-eyebrow">Super Admin</div><h2>Sign-offs</h2></div>'
+    +'<div class="lb-ractions"><button class="ip-linkbtn" onclick="LIB_BOOKVIEW=\'read\';renderLibrary()">← Back to reading</button></div></div>'
+    +cur+form+(past?'<div class="lb-lab" style="margin-top:16px">Earlier sign-offs</div><div class="lb-past">'+past+'</div>':'')+'</div>';
+}
+async function libRoundCreate(){
+  if(!isSuperAdminView()||!window.signStore) return;
+  const title=((document.getElementById("lb-rt")||{}).value||"").trim(), due=(document.getElementById("lb-rd")||{}).value||"", note=((document.getElementById("lb-rn")||{}).value||"").trim();
+  if(!title){ showToast("⚠ Give this sign-off a title"); return; }
+  let sids=[]; try{ sids=capClinicians().map(function(s){return s._id;}); }catch(e){}
+  if(!sids.length){ showToast("⚠ No clinicians found to ask"); return; }
+  if(!confirm("Send “"+title+"” to "+sids.length+" people for signature?")) return;
+  const snap={}; libChapters().forEach(function(a){ snap[a.__id]=a.version||1; });
+  const id="so_"+Date.now().toString(36);
+  const data={cat:LIB_CAT,title:title,note:note,due:due,snapshot:snap,sids:sids,createdAt:new Date().toISOString(),createdBy:libWhoAmI()};
+  if(!(await window.signStore.createRound(id,data))){ showToast("⚠ Could not send — try again"); return; }
+  LIB_SIGN[LIB_CAT].rounds.unshift(Object.assign({__id:id},data)); LIB_SIGN[LIB_CAT].all=null;
+  showToast("✍ Sent for signature"); renderLibrary();
+}
+
+// ── What's changed: one log across the manual + line-by-line comparison ──
+function libChangesHtml(chs){
+  if(LIB_DIFFID){ const a=chs.find(function(x){return x.__id===LIB_DIFFID;}); if(a) return libDiffHtml(a); }
+  const rows=[];
+  chs.forEach(function(a){ (a.history||[]).forEach(function(h){ rows.push({a:a,h:h,latest:h.v===(a.version||1)}); }); });
+  rows.sort(function(x,y){ return String(y.h.at).localeCompare(String(x.h.at)); });
+  return '<div class="lb-reader"><div class="lb-rhead"><div><div class="lb-eyebrow">Change tracking</div><h2>What’s changed</h2>'
+    +'<div class="lb-meta">Every edit to every chapter: who made it, when, and why.</div></div>'
+    +'<div class="lb-ractions"><button class="ip-linkbtn" onclick="LIB_BOOKVIEW=\'read\';renderLibrary()">← Back to reading</button></div></div>'
+    +(rows.length?'<div class="lb-changes">'+rows.slice(0,200).map(function(x){
+        return '<div class="lb-chrow"><div class="lb-chwhen">'+hesc(usDate(String(x.h.at).slice(0,10)))+'</div>'
+          +'<div class="lb-chwhat"><button class="lb-chtitle" onclick="LIB_BOOKVIEW=\'read\';libBookGo(\''+x.a.__id+'\')">'+hesc(x.a.title)+'</button> <span class="lb-v">v'+x.h.v+'</span>'
+          +'<div>'+hesc(x.h.note||"")+(x.h.by?' <span class="lb-by">— '+hesc(x.h.by)+'</span>':'')+'</div></div>'
+          +(x.latest&&x.a.prevBody!==undefined&&x.h.v>1?'<button class="ip-linkbtn" onclick="LIB_DIFFID=\''+x.a.__id+'\';renderLibrary()">Compare</button>':'')+'</div>';
+      }).join("")+'</div>':'<div class="lb-empty" style="margin-top:10px">No changes recorded yet.</div>')
+    +'</div>';
+}
+function libDiffLines(a,b){
+  const A=String(a||"").split("\n"), B=String(b||"").split("\n"), n=A.length, m=B.length;
+  const L=[]; for(let i=0;i<=n;i++){ L.push(new Array(m+1).fill(0)); }
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j]=A[i]===B[j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+  const out=[]; let i=0,j=0;
+  while(i<n&&j<m){ if(A[i]===B[j]){ out.push([" ",A[i]]); i++; j++; } else if(L[i+1][j]>=L[i][j+1]) out.push(["-",A[i++]]); else out.push(["+",B[j++]]); }
+  while(i<n) out.push(["-",A[i++]]); while(j<m) out.push(["+",B[j++]]);
+  return out;
+}
+function libDiffHtml(a){
+  const d=libDiffLines(a.prevBody,a.body).filter(function(x){return x[1].trim();});
+  const nAdd=d.filter(function(x){return x[0]==="+";}).length, nDel=d.filter(function(x){return x[0]==="-";}).length;
+  const last=(a.history||[]).slice(-1)[0]||{};
+  return '<div class="lb-reader"><div class="lb-rhead"><div><div class="lb-eyebrow">Compare · v'+((a.version||1)-1)+' → v'+(a.version||1)+'</div><h2>'+hesc(a.title)+'</h2>'
+    +'<div class="lb-meta">'+hesc(last.note||"")+(last.by?' — '+hesc(last.by):'')+' · <span style="color:#15803d;font-weight:800">+'+nAdd+' added</span> · <span style="color:#b91c1c;font-weight:800">−'+nDel+' removed</span></div></div>'
+    +'<div class="lb-ractions"><button class="ip-linkbtn" onclick="LIB_DIFFID=null;renderLibrary()">← All changes</button></div></div>'
+    +'<div class="lb-diff">'+libDiffRows(d)+'</div></div>';
+}
+
+// Show changed lines with one line of context; fold long unchanged stretches.
+function libDiffRows(d){
+  const keep=d.map(function(x,i){ return x[0]!==" " || (d[i-1]&&d[i-1][0]!==" ") || (d[i+1]&&d[i+1][0]!==" "); });
+  let out="", skip=0;
+  const row=function(x){ return '<div class="lb-d '+(x[0]==="+"?'add':x[0]==="-"?'del':'same')+'"><span>'+(x[0]===" "?"":x[0]==="-"?"−":"+")+'</span>'+hesc(x[1].replace(/^## /,""))+'</div>'; };
+  d.forEach(function(x,i){ if(keep[i]){ if(skip){ out+='<div class="lb-d fold">… '+skip+' unchanged line'+(skip===1?'':'s')+' …</div>'; skip=0; } out+=row(x); } else skip++; });
+  if(skip) out+='<div class="lb-d fold">… '+skip+' unchanged line'+(skip===1?'':'s')+' …</div>';
+  return out||'<div class="lb-d fold">No text differences.</div>';
+}
+
+// ── My Homebase: unsigned manual versions ──
+async function loadHomeSignAlert(){
+  const host=document.getElementById("home-signalert"); if(!host||!window.signStore) return;
+  const sid=libMySid(); if(!sid){ host.innerHTML=""; return; }
+  const items=[];
+  for(const cat of LIB_BOOK_CATS){
+    await libSignLoad(cat,true);
+    if(libSignNeeded(cat)){ const r=libSignCurrent(cat); items.push({cat:cat,r:r}); }
+  }
+  host.innerHTML=items.map(function(it){
+    const page=it.cat==="cmanual"?"clin-policies":"handbook";
+    return homeAlertRow('✍','navy','Please review and sign: '+hesc(it.r.title),(it.r.due?'Due '+hesc(usDate(it.r.due))+'. ':'')+'Read what changed, then sign.','Review &amp; sign →',"libGoSign('"+it.cat+"','"+page+"')");
+  }).join("");
+}
+function libGoSign(cat,page){ LIB_CAT=cat; LIB_BOOKVIEW="sign"; LIB_CUR=page; showPage(page,document.getElementById("nav-"+page)); }
+
+function libSignCss(){ return '<style>'
+ +'.lb-signbar{display:flex;align-items:center;gap:12px;border-radius:14px;padding:11px 16px;margin-bottom:14px;font-size:13.5px}'
+ +'.lb-signbar.need{background:#eef0f8;border:2.5px solid #252a52;color:#1b1f3a}.lb-signbar.ok{background:#f0fdf4;border:1.5px solid #86efac;color:#14532d}'
+ +'.lb-signbar>div{flex:1}.lb-signic{flex:0 0 34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;background:#252a52;color:#fff}.lb-signbar.ok .lb-signic{background:#16a34a}'
+ +'.lb-signbtn{border:0;background:#252a52;color:#fff;font-family:inherit;font-weight:800;font-size:13px;padding:9px 16px;border-radius:10px;cursor:pointer;white-space:nowrap}.lb-signbtn:disabled{opacity:.45;cursor:default}'
+ +'.lb-lab{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#777;margin-bottom:6px}'
+ +'.lb-signnote{background:#faf9f5;border-radius:12px;padding:12px 16px;margin-top:12px}'
+ +'.lb-chlist{display:flex;flex-wrap:wrap;gap:6px}.lb-chip{border:1px solid #e8e6e0;background:#fff;border-radius:16px;padding:5px 12px;font-family:inherit;font-size:12.5px;font-weight:700;color:#7f1d1d;cursor:pointer}'
+ +'.lb-ackbox{margin-top:18px;border:2px solid #252a52;border-radius:14px;padding:16px 18px;background:#fcfcff}'
+ +'.lb-acktext p{font-size:13px!important}.lb-ackcheck{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;font-weight:700;color:var(--ink);margin-top:10px;cursor:pointer}.lb-ackcheck input{width:18px;height:18px;margin-top:1px;accent-color:#252a52}'
+ +'.lb-signrow{display:flex;gap:10px;flex-wrap:wrap}.lb-typed{flex:1;min-width:220px;font-size:20px!important;font-family:"Snell Roundhand","Segoe Script","Brush Script MT",cursive!important;padding:10px 14px!important}'
+ +'.lb-signed{margin-top:18px;background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:14px 16px;font-size:14px;font-weight:700;color:#14532d}'
+ +'.lb-round{border:1px solid #e8e6e0;border-radius:14px;padding:14px 16px;margin-top:12px}.lb-roundhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}'
+ +'.lb-roundtitle{font-size:16px;font-weight:900;color:var(--ink)}.lb-prog{min-width:200px;font-size:13px;color:#555}.lb-prog b{font-size:20px;color:var(--ink)}'
+ +'.lb-bar{height:8px;background:#f1f0ea;border-radius:6px;margin-top:6px;overflow:hidden}.lb-bar i{display:block;height:100%;background:#16a34a}'
+ +'.lb-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-top:12px}'
+ +'.lb-person{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;border-radius:9px;padding:7px 10px}.lb-person.ok{background:#f0fdf4;color:#14532d}.lb-person.no{background:#fef2f2;color:#7f1d1d;font-weight:700}.lb-person em{font-style:normal;font-size:11.5px}'
+ +'.lb-newround{margin-top:16px;background:#faf9f5;border-radius:14px;padding:14px 16px}.lb-newround .ip-in{margin-top:6px}.lb-formrow{display:flex;gap:8px;flex-wrap:wrap}.lb-formrow .ip-in{flex:1}'
+ +'.lb-past{display:grid;gap:4px}.lb-pastrow{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 10px;background:#faf9f5;border-radius:8px}.lb-pastrow em{font-style:normal;color:#999}'
+ +'.lb-changes{display:flex;flex-direction:column;margin-top:8px}.lb-chrow{display:flex;gap:14px;align-items:flex-start;padding:10px 4px;border-top:1px solid #f1efe9;font-size:13px;color:#444}'
+ +'.lb-chwhen{flex:0 0 86px;font-size:12px;font-weight:700;color:#999;padding-top:1px}.lb-chwhat{flex:1;min-width:0}.lb-chtitle{border:0;background:none;padding:0;font-family:inherit;font-weight:800;font-size:13.5px;color:#7f1d1d;cursor:pointer}'
+ +'.lb-v{font-size:11px;font-weight:800;color:#888;background:#f1f0ea;border-radius:8px;padding:1px 6px}.lb-by{color:#999}'
+ +'.lb-diff{margin-top:10px;border:1px solid #eee;border-radius:10px;overflow:hidden;font-size:13px;line-height:1.55}'
+ +'.lb-d{display:flex;gap:8px;padding:5px 12px;border-top:1px solid #f6f5f1}.lb-d span{flex:0 0 12px;font-weight:900}'
+ +'.lb-d.fold{justify-content:center;color:#aaa;font-size:12px;background:#faf9f5}'
+ +'.lb-d.add{background:#f0fdf4;color:#14532d}.lb-d.del{background:#fef2f2;color:#7f1d1d;text-decoration:line-through;text-decoration-color:rgba(127,29,29,.35)}.lb-d.same{color:#777}'
+ +'</style>'; }
 
 // ══════════════════════════════════════════════
 //  PERFORMANCE REVIEWS — annual full review + 6-month check-in
@@ -3180,6 +4727,36 @@ function updateReviewsBadge(){
     if(ph==="open"&&!r.mgr.submittedAt) n++;
     else if(ph==="meeting"&&!(r.ack&&r.ack.mSignedAt)) n++; });
   b.textContent=n; b.style.display=n?"":"none";
+}
+// My Homebase: nudge a clinician whose Clinical Profile for Intake is missing
+// or IP_STALE_DAYS+ days old, with a one-click way to fix it.
+async function loadHomeIpAlert(){
+  const host=document.getElementById("home-ipalert"); if(!host||!window.ipStore) return;
+  const sid=(currentViewer()&&currentViewer()._id) || window.AUTH_STAFF_ID || null;
+  if(!sid){ host.innerHTML=""; return; }
+  let isClin=false; try{ isClin=capClinicians().some(function(x){return x._id===sid;}); }catch(e){}
+  const p=await window.ipStore.get(sid);
+  if(!p && !isClin){ host.innerHTML=""; return; }
+  let out="";
+  const age=ipAge(p);
+  if(age===null||age>=IP_STALE_DAYS){
+    out+='<div class="hs-alert red"><span class="hs-aic hs-days" aria-hidden="true">'+(age===null?'!':age+'<small>days</small>')+'</span>'
+      +'<div class="hs-atx"><div class="t">'+(age===null?'Your New Client Request isn’t set up yet':'It’s been '+age+' days since you updated your New Client Request')+'</div>'
+      +'<div class="s">Intake uses it to send you new clients. '+(age===null?'Set your openings and availability so they can match you.':'Update your openings and availability, or confirm they’re still right.')+'</div></div>'
+      +(age!==null?'<button class="hs-abtn ghost" onclick="ipHomeConfirm()">✓ Still accurate</button>':'')
+      +'<button class="hs-abtn" onclick="ipOpenTab(\''+sid+'\',\'req\')">'+(age===null?'Set it up →':'Update →')+'</button></div>';
+  }
+  const miss=ipMissing(p);
+  if(miss.length) out+=homeAlertRow('🧩','amber','Your clinical profile is missing '+miss.join(' and '),'Intake uses this to judge whether a new client is a good fit for you.','Add '+miss[0]+' →',"ipOpenTab('"+sid+"','ages')");
+  host.innerHTML=out;
+}
+async function ipHomeConfirm(){
+  const sid=(currentViewer()&&currentViewer()._id) || window.AUTH_STAFF_ID || null; if(!sid||!window.ipStore) return;
+  const p=await window.ipStore.get(sid); if(!p) return;
+  p.confirmedAt=p.reqConfirmedAt=new Date().toISOString();
+  const ok=await window.ipStore.set(sid,p);
+  showToast(ok?"✓ Thanks — your new client request is marked current":"⚠ Could not save — open your profile instead");
+  if(ok){ if(IP_SID===sid) IP_DOC=null; loadHomeIpAlert(); }
 }
 async function loadHomeReviews(){
   const host=document.getElementById("home-reviews"); if(!host||!window.revStore) return;
@@ -4917,7 +6494,8 @@ function openRoster(id){
   const _hasCap = (function(){ try{ return capClinicians().some(x=>x._id===id); }catch(e){ return false; } })();
   document.getElementById('m-actions').innerHTML=
     (isAdminView() ? `<button class="btn btn-primary" onclick="openRosterEdit('${id}')">✏ Edit this record</button>` : '')
-    + (_hasCap ? `<button class="btn btn-secondary" onclick="rosterViewCapacity('${id}')"${isAdminView()?' style="margin-left:8px"':''}>📊 View Capacity Dashboard</button>` : '');
+    + (_hasCap ? `<button class="btn btn-secondary" onclick="rosterViewCapacity('${id}')"${isAdminView()?' style="margin-left:8px"':''}>📊 View Capacity Dashboard</button>` : '')
+    + (_hasCap ? `<button class="btn btn-secondary" onclick="closeDetail();ipOpenFor('${id}')" style="margin-left:8px">🗂 Clinical Profile for Intake</button>` : '');
   toggleEdit(false);
   document.getElementById('detail-modal').classList.add('open','as-page');
 }
@@ -7332,6 +8910,7 @@ function canSeePage(pageId){
   if(pageId==='meetings-hr') return false;           // meeting-pay management: admin only
   if(pageId==='reviews-hr') return false;            // review management: admin only
   if(pageId==='report-center') return false;         // Report Center: admin only (CTM/CPM later)
+  if(pageId==='intake-finder') return false;         // Intake Finder: admin only (Intake/CTM role later)
   return true;                                        // roster + capacity: scoped, allowed
 }
 
@@ -9003,13 +10582,14 @@ const PAGE_META={
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'CEU Bulk Upload',sub:'File training certificates to staff records'},
   'meetings':{title:'Time & Attendance',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
-  'clin-policies':{title:'Clinical Policies & Standards of Care',sub:'Clinical policy and step-by-step SOPs — always the current version'},
+  'clin-policies':{title:'Clinical Manual',sub:'APP’s clinical manual — always the current version'},
   'clin-howtos':{title:'Clinical How-Tos',sub:'Practical guides for clinical systems and workflows'},
   'handbook':{title:'Employee Handbook',sub:'Policies and expectations for everyone at APP — always the current version'},
   'paperwork':{title:'Paperwork & Templates',sub:'Client paperwork packets and letterhead'},
   'reflib':{title:'Learning & Reference',sub:'Articles, websites, videos, and files the practice has collected'},
-  'intake-profile':{title:'Clinical Profile for Intake',sub:'Coming soon'},
+  'intake-profile':{title:'Clinical Profile for Intake',sub:'Your openings, availability, and the clients you see — what Central Intake uses to match referrals'},
   'discharge':{title:'Discharge & Transfer',sub:'Coming soon'},
+  'intake-finder':{title:'Intake Finder',sub:'Find the right clinician with an opening — across every site'},
   'report-center':{title:'Report Center',sub:'Coming soon'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
@@ -9056,6 +10636,8 @@ function showPage(id,btn){
   if(LIB_PAGES[id]){LIB_CUR=id;renderLibrary();return;}
   if(id==='reflib'){renderRefLib();return;}
   if(id==='paperwork'){renderPaperwork();return;}
+  if(id==='intake-profile'){renderIntakeProfile();return;}
+  if(id==='intake-finder'){IF_DATA=null;renderIntakeFinder();return;}
   if(PLACEHOLDERS[id]){renderPlaceholder(id);return;}
   if(id==='reviews'){renderReviews();return;}
   if(id==='reviews-hr'){renderReviewsHr();return;}
@@ -9077,7 +10659,7 @@ function showPage(id,btn){
     }
   }
   if(id==='crisis')renderCrisisNumbers();
-  if(id==='home'){renderHome();if(typeof loadHomePanelAvail==='function')loadHomePanelAvail();if(typeof loadHomeReviews==='function')loadHomeReviews();return;}
+  if(id==='home'){renderHome();if(typeof loadHomePanelAvail==='function')loadHomePanelAvail();if(typeof loadHomeReviews==='function')loadHomeReviews();if(typeof loadHomeIpAlert==='function')loadHomeIpAlert();if(typeof loadHomeSignAlert==='function')loadHomeSignAlert();return;}
   if(id==='therapist-profile'){renderTherapistProfile();return;}
   if(id==='intake-coord'){renderIntakeCoord();return;}
   if(id==='announcements'){renderAnnouncements();return;}
@@ -10442,16 +12024,7 @@ function renderHome() {
   if(!container) return;
 
   const today = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  const q = QUOTES[homeQuoteIdx];
-
   clearInterval(window._quoteTimer);
-  window._quoteTimer = setInterval(()=>{
-    homeQuoteIdx = (homeQuoteIdx+1) % QUOTES.length;
-    const qEl = document.getElementById('home-quote-text');
-    const aEl = document.getElementById('home-quote-attr');
-    if(qEl){qEl.style.opacity='0';setTimeout(()=>{qEl.textContent='"'+QUOTES[homeQuoteIdx].q+'"';qEl.style.opacity='1';},400);}
-    if(aEl){aEl.style.opacity='0';setTimeout(()=>{aEl.textContent='— '+QUOTES[homeQuoteIdx].a;aEl.style.opacity='1';},400);}
-  }, 30000);
 
   // Announcements come from CONFIG.tickerItems (Firestore) — they name real
   // staff, so nothing is hardcoded here. Doubled for the seamless scroll loop.
@@ -10472,32 +12045,38 @@ function renderHome() {
     d.setHours(0,0,0,0);
     return Math.round((d-today2)/86400000) <= 30;
   });
-  const alertsPreview = urgentLic.length
-    ? '<div class="home-section">' +
-      '<div class="home-section-title">🔔 Alerts</div>' +
-      '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-      '<div style="font-size:13px;font-weight:600;color:#991b1b">' + urgentLic.length + ' license' + (urgentLic.length!==1?'s':'') + ' expiring or lapsed</div>' +
-      '<button onclick="showPage(\'alerts\',null)" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">View Alerts →</button>' +
-      '</div></div>'
+  // Practice-wide license alert: admins only (therapists get their own below).
+  const alertsPreview = (isAdminView() && urgentLic.length)
+    ? homeAlertRow('🪪','red', urgentLic.length + ' license' + (urgentLic.length!==1?'s':'') + ' expiring or lapsed', 'Across the practice, within 30 days', 'View alerts →', "showPage('alerts',null)")
     : '';
 
   container.innerHTML =
-    // ── HERO ──
-    '<div style="background:linear-gradient(135deg,#252a52 0%,#3a4170 100%);padding:22px 28px 20px">' +
-      '<div style="font-size:12px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">' + today + '</div>' +
-      '<div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:16px">APP Control Center</div>' +
-      '<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:14px 18px;border-left:3px solid #8e96c8">' +
-        '<div style="font-size:13px;font-style:italic;color:#eef0f8;line-height:1.65;transition:opacity .4s" id="home-quote-text">"' + q.q + '"</div>' +
-        '<div style="font-size:11px;color:#8e96c8;margin-top:6px;font-weight:600;transition:opacity .4s" id="home-quote-attr">— ' + q.a + '</div>' +
-      '</div>' +
-    '</div>' +
+    // ── HEADER ──
+    '<div class="hm-top"><div class="hm-date">' + today + '</div><h1 class="hm-hi">' + homeGreeting() + '</h1></div>' +
 
     // ── TICKER ──
     (tickerHTML ? '<div class="home-ticker"><div class="home-ticker-inner" id="home-ticker-inner">' + tickerHTML + '</div></div>' : '') +
 
-    // ── QUICK ACCESS ──
-    '<div id="home-panel-avail" style="padding:0 20px"></div>' +
-    '<div id="home-reviews" style="padding:0 20px"></div>' +
+    // ── AT A GLANCE: left = alerts + capacity, right = your team site ──
+    '<div class="hm-grid">' +
+      '<div class="hm-col">' +
+        '<section class="hs-card hs-alerts" aria-labelledby="hs-alerts-h">' +
+          '<div class="hs-h" id="hs-alerts-h"><span>🔔</span> Needs your attention</div>' +
+          '<div id="home-alertlist">' +
+            homeMyAlertsHtml() + alertsPreview +
+            '<div id="home-ipalert"></div>' +
+            '<div id="home-signalert"></div>' +
+            '<div id="home-reviews"></div>' +
+            '<div id="home-panel-avail"></div>' +
+          '</div>' +
+          '<div class="hs-clear" id="home-allclear">✓ You’re all caught up — nothing needs your attention.</div>' +
+        '</section>' +
+        homeCapacityHtml() +
+      '</div>' +
+      '<div class="hm-col">' + homeTeamSiteHtml() + '</div>' +
+    '</div>' +
+
+    '<div class="hs-more"><span>More</span></div>' +
     '<div style="padding:16px 20px 4px"><div class="home-section-title">Quick Access</div></div>' +
     '<div class="home-quick">' +
       '<div class="home-quick-card" onclick="showPage(\'announcements\',null)"><div class="home-quick-icon">📢</div><div class="home-quick-label">Announcements</div><div class="home-quick-sub">Latest news</div></div>' +
@@ -10510,20 +12089,12 @@ function renderHome() {
       '<div class="home-quick-card" onclick="window.open(\'https://www.thewatercooleratapp.com\',\'_blank\')"><div class="home-quick-icon">💧</div><div class="home-quick-label">Watercooler</div><div class="home-quick-sub">Full hub ↗</div></div>' +
     '</div>' +
 
-    // ── SITE WEATHER ──
-    '<div style="padding:0 20px 4px;margin-top:8px"><div class="home-section-title">Site Updates &amp; Weather</div></div>' +
-    '<div id="home-sites" style="padding:0 20px 20px;display:flex;flex-direction:column;gap:12px">' +
-      '<div style="text-align:center;padding:20px;color:#aaa;font-size:12px">Loading site weather…</div>' +
-    '</div>' +
-
     // ── ANNOUNCEMENTS PREVIEW ──
     '<div class="home-section">' +
       '<div class="home-section-title">Latest Announcements</div>' +
       announcementsHtml() +
       '<div style="text-align:right;margin-top:8px"><button onclick="showPage(\'announcements\',null)" style="background:none;border:none;font-size:12px;color:#252a52;font-weight:600;cursor:pointer;font-family:inherit">View all →</button></div>' +
     '</div>' +
-
-    alertsPreview +
 
     // ── CRISIS STRIP ──
     '<div class="home-section">' +
@@ -10575,6 +12146,138 @@ function renderHome() {
     '</div>';
 
   loadHomeSites();
+  homeWatchAlerts();
+  homeLoadWeather();
+}
+
+// ── My Homebase snapshot helpers ──
+function homeGreeting(){ const h=new Date().getHours(); const me=homeMe(); const first=me&&me['Clinician']?String(me['Clinician']).split(' ')[0]:'';
+  return (h<12?'Good morning':h<17?'Good afternoon':'Good evening')+(first?', '+hesc(first):''); }
+function homeMe(){ return currentViewer() || STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;}) || null; }
+// One compact alert row; every home alert uses this shape.
+function homeAlertRow(icon,tone,title,sub,btn,click){
+  return '<div class="hs-alert '+tone+'"><span class="hs-aic" aria-hidden="true">'+icon+'</span>'
+    +'<div class="hs-atx"><div class="t">'+title+'</div>'+(sub?'<div class="s">'+sub+'</div>':'')+'</div>'
+    +(btn?'<button class="hs-abtn" onclick="'+click+'">'+btn+'</button>':'')+'</div>';
+}
+// Alerts about the signed-in person's own record.
+function homeMyAlertsHtml(){
+  const me=homeMe(); if(!me) return "";
+  let out="";
+  const exp=me['License Expiration']||me['Lic Exp Date']||'';
+  if(exp){ const d=new Date(exp); if(!isNaN(d)){ const t=new Date(); t.setHours(0,0,0,0); d.setHours(0,0,0,0);
+    const days=Math.round((d-t)/864e5);
+    if(days<=60) out+=homeAlertRow('🪪', days<0?'red':days<=30?'red':'amber',
+      days<0?'Your license expired '+usDate(exp):'Your license expires in '+days+' day'+(days===1?'':'s'),
+      'Upload your renewal so your credentialing stays current.','My Employee File →',"openMyEmployeeFile()"); } }
+  return out;
+}
+// Show "all caught up" only when every alert slot is empty (slots fill in async).
+function homeWatchAlerts(){
+  const list=document.getElementById('home-alertlist'), clear=document.getElementById('home-allclear'); if(!list||!clear) return;
+  const check=function(){ const any=list.textContent.trim().length>0; clear.style.display=any?'none':''; list.style.display=any?'':'none'; };
+  check(); if(window._homeAlertObs) window._homeAlertObs.disconnect();
+  window._homeAlertObs=new MutationObserver(check); window._homeAlertObs.observe(list,{childList:true,subtree:true,characterData:true});
+}
+// Capacity snapshot — only for people with a capacity goal (psychotherapists).
+function homeCapacityHtml(){
+  const me=homeMe(); if(!me) return "";
+  let isClin=false; try{ isClin=capClinicians().some(function(x){return x._id===me._id;}); }catch(e){}
+  if(!isClin) return "";
+  let c=null; try{ c=capCompute(me); }catch(e){}
+  if(!c) return "";
+  const pct=c.hasData===false?null:c.attainPct, col=capStatusColor(pct), lab=capStatusLabel(pct);
+  const nb=c.nextBenchmark||{}, nbPct=nb.goal>0?Math.min(100,Math.round(c.ytd/nb.goal*100)):0;
+  const qPct=c.qtdGoal>0?Math.min(100,Math.round(c.qtd/c.qtdGoal*100)):0;
+  const r=34, circ=2*Math.PI*r, filled=pct===null?0:Math.min(1,pct/100)*circ;
+  return '<section class="hs-card hs-cap" aria-labelledby="hs-cap-h">'
+    +'<div class="hs-h" id="hs-cap-h"><span>📈</span> Your capacity<button class="hs-link" onclick="showPage(\'capacity\',document.getElementById(\'nav-capacity\'))">Full dashboard →</button></div>'
+    +(c.hasData===false?'<div class="hs-none">No session data yet this year.</div>':'')
+    +'<div class="hs-capbody">'
+      +'<div class="hs-ring"><svg viewBox="0 0 80 80" width="96" height="96" aria-hidden="true"><circle cx="40" cy="40" r="'+r+'" fill="none" stroke="#eef0f4" stroke-width="9"/>'
+        +(filled>0?'<circle cx="40" cy="40" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+filled.toFixed(1)+' '+circ.toFixed(1)+'" transform="rotate(-90 40 40)"/>':'')+'</svg>'
+        +'<div class="hs-ringtx"><b>'+(pct===null?'—':pct+'%')+'</b><span>attainment</span></div></div>'
+      +'<div class="hs-capfacts">'
+        +'<div class="hs-pill" style="background:'+col+'1a;color:'+col+'">'+hesc(lab)+'</div>'
+        +'<div class="hs-fact"><div class="l">This quarter</div><div class="v">'+Math.round(c.qtd)+' <small>of '+Math.round(c.qtdGoal)+' hrs</small></div><div class="hs-bar"><i style="width:'+qPct+'%;background:'+col+'"></i></div></div>'
+        +'<div class="hs-fact"><div class="l">'+hesc(nb.label||'Next benchmark')+'</div><div class="v">'+Math.round(c.ytd)+' <small>of '+Math.round(nb.goal||0)+' hrs</small></div><div class="hs-bar"><i style="width:'+nbPct+'%;background:#3a4170"></i></div></div>'
+        +(c.hoursToNext>0?'<div class="hs-note">'+c.hoursToNext+' hrs to go · about <b>'+c.perWeekNeeded+'/wk</b> for the rest of the quarter</div>':'<div class="hs-note">✓ You’ve reached your next benchmark.</div>')
+      +'</div></div>'
+    +'</section>';
+}
+// ── Your Team Site: weather, your leads (CTM / CPM / clinical supervisor),
+// the site's Google Chat space, address and emergency numbers ──
+// Approximate town-centre coordinates for the weather widget (public data).
+var SITE_COORDS={AMH:[42.3732,-72.5199],HAD:[42.3418,-72.5887],NOHO:[42.3251,-72.6412],SOWK:[42.0501,-72.5823]};
+function homeSiteCode(){ const me=homeMe(); const dir=CONFIG.siteDirectory||{}; const c=me&&me['Team']; return c&&dir[c]?c:null; }
+function homeRoleText(x){ return (String(x['Title']||'')+','+String(x['Service Types']||'')).toLowerCase(); }
+function homeFindLead(code,test){ return STAFF.find(function(x){ return x['Team']===code && normStatus(x['Employee Status'])!=='Terminated' && test(homeRoleText(x)); })||null; }
+function homeLeadRow(label,person,fallbackName){
+  const nm=person?person['Clinician']:fallbackName;
+  const em=person&&person['Email Address'];
+  return '<div class="ts-lead">'+(nm?avatarHtml(nm,person?person._id:'',34):'<span class="ts-noav">?</span>')
+    +'<div class="ts-leadtx"><div class="r">'+label+'</div><div class="n">'+(nm?hesc(nm):'<span style="color:#aaa">Not assigned</span>')+'</div></div>'
+    +(em?'<a class="ts-mail" href="mailto:'+hesc(em)+'" title="Email '+hesc(nm)+'" aria-label="Email '+hesc(nm)+'">✉</a>':'')+'</div>';
+}
+function homeTeamSiteHtml(){
+  const me=homeMe(); const dir=CONFIG.siteDirectory||{};
+  const code=homeSiteCode(); const site=code&&dir[code];
+  if(!site) return '<section class="hs-card ts"><div class="hs-h"><span>🏢</span> Your Team Site</div><div class="hs-none">'
+    +(me?'No team site is set on your profile.':'Sign in with your staff account to see your team site.')+'</div>'
+    +'<button class="hs-link" style="margin-left:0" onclick="showPage(\'site-info\',null)">All sites →</button></section>';
+  const ctm=homeFindLead(code,function(t){ return t.indexOf('clinical team manager')>=0||/\bctm\b/.test(t); });
+  const cpm=homeFindLead(code,function(t){ return t.indexOf('program manager')>=0||/\bcpm\b/.test(t); });
+  const supName=(me&&me['Supervisor']||'').trim();
+  const sup=supName?STAFF.find(function(x){ return String(x['Clinician']||'').trim().toLowerCase()===supName.toLowerCase(); }):null;
+  return '<section class="hs-card ts" aria-labelledby="ts-h">'
+    +'<div class="ts-head"><div><div class="hs-h" id="ts-h" style="margin:0"><span>🏢</span> Your Team Site</div>'
+      +'<div class="ts-name"><span class="pill t-'+hesc(code)+'">'+hesc(teamLabel(code))+'</span> '+hesc(site.l||code)+'</div>'
+      +(site.addr?'<a class="hs-addr" href="https://maps.google.com/?q='+encodeURIComponent(site.addr)+'" target="_blank" rel="noopener">'+hesc(site.addr)+' ↗</a>':'')+'</div>'
+      +'<div class="ts-wx" id="hm-wx" aria-live="polite">'+(SITE_COORDS[code]?'<span class="ts-wxload">Weather…</span>':'')+'</div></div>'
+    +'<div class="ts-sec"><div class="ts-lab">Your team leads</div>'
+      +homeLeadRow('Clinical Team Manager',ctm)
+      +homeLeadRow('Clinical Program Manager',cpm)
+      +homeLeadRow('Your clinical supervisor',sup,supName)
+    +'</div>'
+    +'<div class="ts-foot">'
+      +(site.police?'<span>Police <a href="'+hesc(telHref(site.police))+'">'+hesc(site.police)+'</a></span>':'')
+      +(site.fire?'<span>Fire <a href="'+hesc(telHref(site.fire))+'">'+hesc(site.fire)+'</a></span>':'')
+      +'<span class="ts-links"><button class="hs-link" style="margin:0" onclick="showPage(\'site-info\',null)">Site info →</button>'
+      +'<button class="hs-link" style="margin:0" onclick="showPage(\'crisis\',null)">Crisis &amp; safety →</button></span>'
+    +'</div></section>';
+}
+// Google Chat space link per site — not shown on My Homebase yet (feed parked until Chat API setup).
+// Admins paste a site’s Google Chat space link (e.g. https://chat.google.com/room/…).
+async function homeSetChat(code){
+  if(!isAdminView()) return;
+  const cur=(CONFIG.siteChat||{})[code]||"";
+  const v=prompt("Paste the Google Chat space link for "+teamLabel(code)+" (open the space in Google Chat and copy the address bar):",cur);
+  if(v===null) return;
+  const url=v.trim();
+  if(url && !/^https:\/\/(chat\.google\.com|mail\.google\.com)\//.test(url)){ showToast("⚠ That doesn’t look like a Google Chat link"); return; }
+  CONFIG.siteChat=Object.assign({},CONFIG.siteChat||{}); if(url) CONFIG.siteChat[code]=url; else delete CONFIG.siteChat[code];
+  await persistConfig(); showToast(url?"💬 Chat link saved":"Chat link removed"); renderHome(); homeRefreshAsync();
+}
+function homeRefreshAsync(){ try{ loadHomePanelAvail(); loadHomeReviews(); loadHomeIpAlert(); loadHomeSignAlert(); }catch(e){} }
+// Small live weather widget (Open-Meteo: free, no key). Cached for 30 minutes.
+var HM_WX={};
+function homeWxIcon(c){ c=+c; return c===0?['☀️','Clear']:c<=2?['🌤️','Partly cloudy']:c===3?['☁️','Cloudy']:c<=48?['🌫️','Fog']:c<=57?['🌦️','Drizzle']:c<=67?['🌧️','Rain']:c<=77?['🌨️','Snow']:c<=82?['🌧️','Showers']:c<=86?['🌨️','Snow showers']:['⛈️','Storms']; }
+async function homeLoadWeather(){
+  const code=homeSiteCode(); const host=document.getElementById('hm-wx'); if(!host||!code||!SITE_COORDS[code]) return;
+  const cached=HM_WX[code];
+  let w=cached&&(Date.now()-cached.t<30*60000)?cached.w:null;
+  if(!w){
+    try{
+      const ll=SITE_COORDS[code];
+      const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+ll[0]+'&longitude='+ll[1]+'&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1');
+      const j=await r.json();
+      w={t:Math.round(j.current.temperature_2m), c:j.current.weather_code, hi:Math.round(j.daily.temperature_2m_max[0]), lo:Math.round(j.daily.temperature_2m_min[0]), pp:j.daily.precipitation_probability_max?j.daily.precipitation_probability_max[0]:null};
+      HM_WX[code]={t:Date.now(),w:w};
+    }catch(e){ host.innerHTML=''; return; }
+  }
+  const el=document.getElementById('hm-wx'); if(!el) return;
+  const ic=homeWxIcon(w.c);
+  el.innerHTML='<span class="ts-wxic" aria-hidden="true">'+ic[0]+'</span><div><div class="ts-wxt">'+w.t+'° <small>'+ic[1]+'</small></div><div class="ts-wxs">H '+w.hi+'° · L '+w.lo+'°'+(w.pp!=null&&w.pp>=30?' · '+w.pp+'% rain':'')+'</div></div>';
 }
 
 
@@ -11305,6 +13008,50 @@ window.refStore = {
   },
   removeFile: async (id) => {
     try { await deleteDoc(doc(db, 'refLibraryFiles', id)); return true; }
+    catch (e) { return false; }
+  }
+};
+
+// ── Clinical Profile for Intake (one doc per clinician) ──
+window.ipStore = {
+  get: async (sid) => {
+    try { const d = await getDoc(doc(db, 'intakeProfiles', sid)); return d.exists() ? d.data() : null; }
+    catch (e) { return null; }
+  },
+  set: async (sid, data) => {
+    try { await setDoc(doc(db, 'intakeProfiles', sid), data); return true; }
+    catch (e) { return false; }
+  },
+  all: async () => {
+    try { const snap = await getDocs(collection(db, 'intakeProfiles'));
+      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
+    catch (e) { return null; }
+  }
+};
+
+// ── Manual sign-offs: rounds (Super Admin) + one signature per person per round ──
+window.signStore = {
+  rounds: async (cat) => {
+    try { const snap = await getDocs(query(collection(db, 'libSignoffs'), where('cat', '==', cat)));
+      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
+    catch (e) { return null; }
+  },
+  createRound: async (id, data) => {
+    try { await setDoc(doc(db, 'libSignoffs', id), data); return true; }
+    catch (e) { return false; }
+  },
+  mySigs: async (sid) => {
+    try { const snap = await getDocs(query(collection(db, 'libSignatures'), where('sid', '==', sid)));
+      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
+    catch (e) { return null; }
+  },
+  roundSigs: async (rid) => {
+    try { const snap = await getDocs(query(collection(db, 'libSignatures'), where('rid', '==', rid)));
+      const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; }
+    catch (e) { return null; }
+  },
+  sign: async (id, data) => {
+    try { await setDoc(doc(db, 'libSignatures', id), data); return true; }
     catch (e) { return false; }
   }
 };

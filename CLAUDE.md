@@ -22,8 +22,11 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   (address/DOB — self + admins), `staffCredentials` (CAQH/PECOS logins — admins
   only), plus `photos`, `userRoles`, `staffFiles`, `applications`,
   `availability`, `panelAvail`, `onboarding`, `onboardFiles`, `meetings`,
-  `reviews`, `library` (articles shown on Clinical Policies & Standards of
-  Care, Clinical How-Tos, and Employee Handbook — split by `cat`),
+  `reviews`, `library` (articles shown on Clinical Manual, Clinical
+  How-Tos, and Employee Handbook — split by `cat`; the two manuals, `cmanual`
+  and `manual`, are Super Admin–only and shown as a book with sign-offs),
+  `libSignoffs` + `libSignatures` (manual sign-off rounds and signatures),
+  `intakeProfiles` (Clinical Profile for Intake, one per clinician),
   `refLibrary` + `refLibraryFiles` (Learning & Reference and Paperwork &
   Templates items and their uploaded files), and `kv/*` blobs (tiered by key).
 - **`storage.rules`** — unused (Firebase Storage needs the paid Blaze plan,

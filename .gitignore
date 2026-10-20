@@ -20,3 +20,8 @@ claude-outputs/
 *-[0-9].json
 * copy.*
 *copy.html
+
+# Personal project files that live in this folder but are not part of Homebase
+# (GSC 3D renderings, empty Finder folders).
+GSC/
+untitled folder/

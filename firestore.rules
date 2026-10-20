@@ -150,9 +150,35 @@ service cloud.firestore {
 
     // Manuals & SOPs (Policies & Procedures): employee manual, clinical
     // SOPs, policies, how-tos. Everyone signed in reads; admins maintain it.
+    // The two manuals (cat 'cmanual' = Clinical Manual, 'manual' = Employee
+    // Handbook) are Super Admin–only; other article pages stay Admin-editable.
     match /library/{aid} {
       allow read: if isDomain();
-      allow create, update, delete: if isAdmin();
+      allow create: if isSuperAdmin()
+        || (isAdmin() && !(request.resource.data.cat in ['cmanual', 'manual']));
+      allow update: if isSuperAdmin()
+        || (isAdmin() && !(resource.data.cat in ['cmanual', 'manual'])
+            && !(request.resource.data.cat in ['cmanual', 'manual']));
+      allow delete: if isSuperAdmin()
+        || (isAdmin() && !(resource.data.cat in ['cmanual', 'manual']));
+    }
+
+    // Manual sign-off rounds: Super Admins publish a version for signature;
+    // everyone signed in can see them.
+    match /libSignoffs/{rid} {
+      allow read: if isDomain();
+      allow create, update, delete: if isSuperAdmin();
+    }
+    // One signature per person per round, id = {rid}_{staffId}. You can only
+    // sign as yourself, and can't change a signature afterwards.
+    match /libSignatures/{id} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create: if isDomain()
+        && request.resource.data.sid == myStaffId()
+        && id == request.resource.data.rid + '_' + myStaffId()
+        && exists(/databases/$(database)/documents/libSignoffs/$(request.resource.data.rid))
+        && request.resource.data.size() < 12;
+      allow update, delete: if isSuperAdmin();
     }
 
     // Reference Library (Learning & Reference): collected articles, websites,
@@ -170,6 +196,16 @@ service cloud.firestore {
         && request.resource.data.b64 is string
         && request.resource.data.b64.size() < 900000
         && request.resource.data.size() < 10;
+      allow delete: if isAdmin();
+    }
+
+    // Clinical Profile for Intake: one doc per clinician (id = staff id).
+    // Everyone signed in can read (Central Intake matches from these);
+    // the clinician edits their own, admins edit anyone's.
+    match /intakeProfiles/{sid} {
+      allow read: if isDomain();
+      allow create, update: if (isAdmin() || (isDomain() && sid == myStaffId()))
+        && request.resource.data.size() < 30;
       allow delete: if isAdmin();
     }
 
