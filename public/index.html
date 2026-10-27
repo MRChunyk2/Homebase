@@ -137,6 +137,7 @@ td{padding:10px 14px;border-bottom:1px solid #f3f2ee;white-space:nowrap;font-siz
 .t-HAD{background:#e6e9f5;color:#2b3168}
 .t-NOHO{background:#fdeccf;color:#9a6212}
 .t-SOWK{background:#fbe3d8;color:#b1532f}
+.cap-pprow:hover td,.cap-pprow:focus-visible td{background:#f4f7fd}.cap-pprow:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
 .t-RSTI{background:#fcefd2;color:#9a7414}
 .t-NCA{background:#e7e8ec;color:#3f4451}
 
@@ -629,6 +630,7 @@ a.ts-chatempty:hover{border-color:#1a73e8}.ts-chatempty b{color:#1a73e8}
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Admin Logistics</div>
       <button class="nav-item" id="nav-payroll" data-page="payroll" onclick="showPage('payroll',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
+      <button class="nav-item" id="nav-payreview" data-page="payreview" onclick="showPage('payreview',this)"><span class="nav-icon">🧾</span>Payroll Review</button>
       <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Finder</button>
       <button class="nav-item" id="nav-report-center" data-page="report-center" onclick="showPage('report-center',this)"><span class="nav-icon">📑</span>Report Center</button>
       <button class="nav-item" id="nav-admin" data-page="admin" onclick="showPage('admin',this)"><span class="nav-icon">🔐</span>Roles &amp; Permissions</button>
@@ -719,6 +721,11 @@ a.ts-chatempty:hover{border-color:#1a73e8}.ts-chatempty b{color:#1a73e8}
   <!-- PAYROLL PROCESSING -->
   <div class="page" id="page-payroll" style="overflow-y:auto;background:#f6f5f1">
     <div id="payroll-body" style="max-width:1100px;margin:0 auto;padding:22px 24px 80px;width:100%"></div>
+  </div>
+
+  <!-- PAYROLL REVIEW (Valant import → attainment + compensation; Super Admin) -->
+  <div class="page" id="page-payreview" style="overflow-y:auto;background:#f6f5f1">
+    <div id="payreview-body" style="width:100%"></div>
   </div>
 
   <!-- RECRUITMENT -->
@@ -967,7 +974,7 @@ a.ts-chatempty:hover{border-color:#1a73e8}.ts-chatempty b{color:#1a73e8}
         <button class="btn btn-secondary" onclick="toggleEdit(false)">Cancel</button>
         <button class="btn btn-primary" onclick="saveEdit()">Save Changes ✓</button>
       </div>
-      <button class="close-btn" onclick="closeDetail()">×</button>
+      <button class="close-btn" onclick="closeDetailBtn()">×</button>
     </div>
     <div class="modal-body">
       <div id="m-view">
@@ -1278,6 +1285,7 @@ function deleteCEU(sid, idx){
   const c = s['_ceus'][idx]; if(!c) return;
   if(!confirm('Delete CEU "'+(c.title||'')+'"? This cannot be undone.')) return;
   if(c.fileId && window.filesStore) window.filesStore.remove(c.fileId);
+  if(c.filePath) fileRemove(c.filePath);
   s['_ceus'].splice(idx,1);
   persistStaff();
   showToast('🗑 CEU deleted');
@@ -1290,16 +1298,24 @@ var _ceuSelf=null;
 function ceuSelfPick(sid, inp){
   const f=inp.files&&inp.files[0]; inp.value='';
   if(!f) return;
-  if(f.size>CEU_FILE_MAX){ showToast('⚠ '+fmtBytes(f.size)+' is too big — 650 KB max. A phone photo or lower-quality scan usually fits.'); return; }
-  const rd=new FileReader();
-  rd.onload=function(e){
-    _ceuSelf={sid:sid,fileName:f.name,type:f.type||'application/octet-stream',size:f.size,data:e.target.result};
-    const n=document.getElementById('ceu-self-name'); if(n) n.textContent='✓ '+f.name;
-    const fm=document.getElementById('ceu-self-form'); if(fm) fm.style.display='block';
-    const t=document.getElementById('ceu-self-title'); if(t&&!t.value) t.value=ceuGuessTitle(f.name);
-    const d=document.getElementById('ceu-self-date'); if(d&&!d.value) d.value=new Date().toISOString().slice(0,10);
-  };
-  rd.readAsDataURL(f);
+  if(fileTooBig(f,CEU_FILE_MAX)) return;
+  _ceuSelf={sid:sid,fileName:f.name,type:f.type||'application/octet-stream',size:f.size,file:f};
+  const n=document.getElementById('ceu-self-name'); if(n) n.textContent='✓ '+f.name;
+  const fm=document.getElementById('ceu-self-form'); if(fm) fm.style.display='block';
+  const t=document.getElementById('ceu-self-title'); if(t&&!t.value) t.value=ceuGuessTitle(f.name);
+  const d=document.getElementById('ceu-self-date'); if(d&&!d.value) d.value=new Date().toISOString().slice(0,10);
+}
+// Certificate bytes → Storage staffFiles/{sid}/{fileId}/{name}; metadata → Firestore staffFiles.
+// Returns {fid, path} or null. Removes the uploaded bytes if the metadata write fails.
+async function ceuStoreFile(sid, f, meta){
+  try{
+    if(!window.filesStore) return null;
+    const path='staffFiles/'+sid+'/'+fileNewId('ceu_')+'/'+fileSafeName(f.name);
+    if(!(await fileUpload(path,f))) return null;
+    const fid=await window.filesStore.add(Object.assign({sid:sid,kind:'ceu',name:f.name,type:f.type||'application/octet-stream',size:f.size,path:path,at:new Date().toISOString()},meta||{}));
+    if(!fid){ fileRemove(path); return null; }
+    return {fid:fid,path:path};
+  }catch(e){ console.error(e); return null; }
 }
 async function ceuSelfSave(sid){
   if(!_ceuSelf||_ceuSelf.sid!==sid){ showToast('Choose a file first'); return; }
@@ -1308,10 +1324,11 @@ async function ceuSelfSave(sid){
   const title=((document.getElementById('ceu-self-title')||{}).value||_ceuSelf.fileName).trim();
   const date=(document.getElementById('ceu-self-date')||{}).value||new Date().toISOString().slice(0,10);
   const hours=(document.getElementById('ceu-self-hours')||{}).value;
-  const fid=window.filesStore?await window.filesStore.add({sid:sid,kind:'ceu',name:_ceuSelf.fileName,type:_ceuSelf.type,size:_ceuSelf.size,date:date,data:_ceuSelf.data}):null;
-  if(!fid){ showToast('⚠ Upload failed — please try again'); return; }
+  showToast('Uploading…');
+  const up=await ceuStoreFile(sid,_ceuSelf.file,{date:date});
+  if(!up){ showToast('⚠ Upload failed — please try again'); return; }
   if(!Array.isArray(st['_ceus'])) st['_ceus']=[];
-  st['_ceus'].push({date:date,title:title,hours:hours?parseFloat(hours):'',fileId:fid,fileName:_ceuSelf.fileName});
+  st['_ceus'].push({date:date,title:title,hours:hours?parseFloat(hours):'',fileId:up.fid,filePath:up.path,fileName:_ceuSelf.fileName});
   _ceuSelf=null;
   await persistStaff();
   showToast('🎓 Certificate filed to the chart');
@@ -1682,6 +1699,13 @@ function cfgApply(stored){
       next[k] = v;
     });
   }
+  // Site option lists: a saved list may predate a site (e.g. Longmeadow / SOWK). Keep the
+  // saved order, then add back any built-in entry it is missing so every site is selectable.
+  ['teamOpts','primaryProgramOpts','programOpts','siteOrder'].forEach(k=>{
+    if(!Array.isArray(next[k]) || next[k]===CONFIG_DEFAULTS[k]) return;
+    (CONFIG_DEFAULTS[k]||[]).forEach(o=>{ if(next[k].indexOf(o)<0) next[k].push(o); });
+  });
+  ['teamLabels'].forEach(k=>{ next[k]=Object.assign({}, CONFIG_DEFAULTS[k]||{}, next[k]||{}); });
   CONFIG = next;
 }
 
@@ -2122,7 +2146,8 @@ function buildDD(data,filters,sel,containerId,renderFn){
   if(!row)return;
   row.innerHTML='';
   filters.forEach(({field,label})=>{
-    const vals=uniq(data,field);
+    let vals=uniq(data,field);
+    if(field==='Team' && filters===ROSTER_F) (CONFIG.teamOpts||[]).forEach(o=>{ if(o && vals.indexOf(o)<0) vals.push(o); });
     if(!vals.length)return;
     const s=document.createElement('select');
     s.className='fdd'+(sel[field]?' active-filter':'');
@@ -2452,8 +2477,10 @@ async function libStarter(){
 // The practice's collection of outside material: articles, websites, videos,
 // books, and uploaded files. One Firestore doc per item in 'refLibrary':
 //   {type, title, url, desc, topic, tags:[], fileId, fileName, fileType,
-//    fileSize, addedAt, addedBy, updatedAt}
-// Uploaded files live in 'refLibraryFiles' (base64, ~650 KB cap).
+//    fileSize, filePath, addedAt, addedBy, updatedAt}
+// Uploaded file BYTES live in Firebase Storage at refLibrary/{fileId}/{name} (20 MB cap);
+// 'refLibraryFiles/{fileId}' keeps the metadata + Storage path. Older uploads are base64
+// in 'refLibraryFiles' (b64 field) and still open.
 // Everyone reads; Admins and Super Admins add, edit, and remove.
 var REF_TYPES=[
  {k:"article", l:"Article",  icon:"📰", c:"#26316e"},
@@ -2463,7 +2490,7 @@ var REF_TYPES=[
  {k:"file",    l:"File",     icon:"📎", c:"#6b21a8"},
  {k:"other",   l:"Other",    icon:"🔖", c:"#555"}
 ];
-var REF_MAX_FILE=650*1024;
+var REF_MAX_FILE=20*1024*1024; // Firebase Storage cap (storage.rules)
 var REF_ALL=null, REF_TYPE="all", REF_Q="", REF_TOPIC="", REF_EDITID=null, REF_FILE=null;
 // Items with a "shelf" belong to Paperwork & Templates, not the main library.
 var REF_SHELVES=[
@@ -2636,7 +2663,7 @@ function refPickFile(inp){
   if(!f){ if(note) note.textContent=""; return; }
   if(f.size>REF_MAX_FILE){
     inp.value="";
-    if(note){ note.style.color="#b91c1c"; note.textContent="That file is "+refFmtSize(f.size)+" — the limit is "+refFmtSize(REF_MAX_FILE)+". Add a link to it instead (e.g. a shared Google Drive link)."; }
+    if(note){ note.style.color="#b91c1c"; note.textContent="That file is "+refFmtSize(f.size)+" — the limit is "+refFmtSize(REF_MAX_FILE)+". Compress it, or add a link instead (e.g. a shared Google Drive link)."; }
     return;
   }
   REF_FILE=f;
@@ -2676,18 +2703,20 @@ async function refSave(){
   if(isNew){ data.addedAt=now; data.addedBy=libWhoAmI(); data.shelf=(REF_CTX==="paperwork"?REF_NEWSHELF:""); }
   const oldFileId=old&&old.fileId;
   if(REF_FILE){
-    let b64;
-    try{ b64=await refReadB64(REF_FILE); }catch(e){ showToast("⚠ Could not read that file"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
-    const fid="reff_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-    const ok=await window.refStore.putFile(fid,{b64:b64,name:REF_FILE.name,type:REF_FILE.type||"application/octet-stream",size:REF_FILE.size,itemId:id});
-    if(!ok){ showToast("⚠ Upload failed — the file may be too large"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
-    data.fileId=fid; data.fileName=REF_FILE.name; data.fileType=REF_FILE.type||""; data.fileSize=REF_FILE.size;
+    // bytes → Firebase Storage, then the metadata doc in Firestore
+    const fid=fileNewId("reff_"), ftype=REF_FILE.type||"application/octet-stream";
+    const path="refLibrary/"+fid+"/"+fileSafeName(REF_FILE.name);
+    if(btn) btn.textContent="Uploading…";
+    if(!(await fileUpload(path,REF_FILE))){ showToast("⚠ Upload failed — please try again"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
+    const ok=await window.refStore.putFile(fid,{path:path,name:REF_FILE.name,type:ftype,size:REF_FILE.size,itemId:id,by:libWhoAmI(),at:now});
+    if(!ok){ fileRemove(path); showToast("⚠ Upload failed — please try again"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
+    data.fileId=fid; data.fileName=REF_FILE.name; data.fileType=REF_FILE.type||""; data.fileSize=REF_FILE.size; data.filePath=path;
   } else if(rmFile){
-    data.fileId=""; data.fileName=""; data.fileType=""; data.fileSize=0;
+    data.fileId=""; data.fileName=""; data.fileType=""; data.fileSize=0; data.filePath="";
   }
   const ok=await window.refStore.set(id,data);
   if(!ok){ showToast("⚠ Could not save — try again"); if(btn){btn.disabled=false;btn.textContent="💾 Save";} return; }
-  if(oldFileId&&(REF_FILE||rmFile)) window.refStore.removeFile(oldFileId);
+  if(oldFileId&&(REF_FILE||rmFile)){ window.refStore.removeFile(oldFileId); if(old.filePath) fileRemove(old.filePath); }
   const rec=Object.assign({},old||{__id:id},data);
   const i=REF_ALL.findIndex(function(x){return x.__id===id;});
   if(i>=0) REF_ALL[i]=rec; else REF_ALL.push(rec);
@@ -2701,6 +2730,7 @@ async function refDelete(){
   const ok=await window.refStore.remove(a.__id);
   if(!ok){ showToast("⚠ Could not remove"); return; }
   if(a.fileId) window.refStore.removeFile(a.fileId);
+  if(a.filePath) fileRemove(a.filePath);
   REF_ALL=REF_ALL.filter(function(x){return x.__id!==a.__id;});
   REF_EDITID=null; showToast("🗑 Removed"); refRerender();
 }
@@ -2711,19 +2741,9 @@ function refOpenUrl(id){
 async function refOpenFile(id){
   const a=(REF_ALL||[]).find(function(x){return x.__id===id;});
   if(!a||!a.fileId||!window.refStore){ showToast("File links need the live site"); return; }
-  const w=window.open("","_blank");
-  const f=await window.refStore.getFile(a.fileId);
-  if(!f||!f.b64){ if(w) w.close(); showToast("⚠ Could not open the file"); return; }
-  try{
-    const bin=atob(f.b64); const arr=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-    const blob=new Blob([arr],{type:f.type||"application/octet-stream"});
-    const u=URL.createObjectURL(blob);
-    const viewable=/^(application\/pdf|image\/|text\/|video\/|audio\/)/.test(f.type||"");
-    if(viewable&&w){ w.location.href=u; }
-    else { if(w) w.close(); const l=document.createElement("a"); l.href=u; l.download=f.name||a.fileName||"file"; document.body.appendChild(l); l.click(); l.remove(); }
-    setTimeout(function(){ URL.revokeObjectURL(u); },60000);
-  }catch(e){ if(w) w.close(); showToast("⚠ Could not open the file"); }
+  // Storage path on the item → no extra read. Otherwise the metadata doc (Storage path, or legacy b64).
+  if(a.filePath){ fileOpen({path:a.filePath,type:a.fileType,name:a.fileName},a.fileName); return; }
+  fileOpen(function(){ return window.refStore.getFile(a.fileId); },a.fileName,false,a.fileType);
 }
 
 
@@ -3755,7 +3775,7 @@ function openMyEmployeeFile(btn){
   const me=currentViewer()||STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;});
   showPage('roster',btn||document.getElementById('nav-myfile'));
   const t=document.getElementById('topbar-title'); if(t) t.textContent='My Employee File';
-  if(me){ try{ openRoster(me._id); }catch(e){} }
+  if(me){ try{ openRoster(me._id); MY_FILE_OPEN=true; }catch(e){} }
   else showToast('No employee record is linked to this sign-in');
 }
 
@@ -5298,7 +5318,7 @@ async function mtgImportApply(){
 // Each file becomes its own doc in the 'staffFiles' collection (so the roster
 // blob stays small), and a CEU entry {date,title,hours,fileId,fileName} is
 // added to the clinician's _ceus, which feeds the Training & CEU tab.
-var CEU_FILE_MAX = 650*1024; // per-file cap: keeps each Firestore doc under 1MB as base64
+var CEU_FILE_MAX = 20*1024*1024; // per-file cap — Firebase Storage (storage.rules)
 var _ceuUp = [];             // upload queue rows
 
 function ceuNorm(t){ return String(t||'').toLowerCase().replace(/[^a-z]/g,''); }
@@ -5362,7 +5382,7 @@ function renderCeuUpload(){
     '<div style="background:#fff;border:1px solid #e5e3df;border-radius:14px;overflow:hidden">'
     +'<div class="sec-label" style="margin:0;border-radius:0">🎓 CEU Bulk Upload</div>'
     +'<div style="padding:16px 18px">'
-    +'<div style="font-size:13px;color:#777;line-height:1.6;margin-bottom:12px">Select or drop certificate files (PDF, image — up to 650 KB each). Each file is matched to a clinician from its filename — e.g. <code>weiswasser-ethics-2026.pdf</code> — and filed to their <strong>Training &amp; CEU</strong> tab with the title, date, and hours you set below. Nothing is saved until you click File.</div>'
+    +'<div style="font-size:13px;color:#777;line-height:1.6;margin-bottom:12px">Select or drop certificate files (PDF, image — up to 20 MB each). Each file is matched to a clinician from its filename — e.g. <code>weiswasser-ethics-2026.pdf</code> — and filed to their <strong>Training &amp; CEU</strong> tab with the title, date, and hours you set below. Nothing is saved until you click File.</div>'
     +'<input type="file" id="ceu-up-input" multiple accept=".pdf,image/*,.doc,.docx" style="font-size:13px" onchange="ceuUpAdd(this)">'
     +(_ceuUp.length?
       '<div style="margin-top:14px;border:1px solid #eceae4;border-radius:10px;overflow:auto;max-height:420px">'
@@ -5391,47 +5411,41 @@ function ceuUpAdd(inp){
   files.forEach(function(f){
     const row={fileName:f.name,type:f.type||'application/octet-stream',size:f.size,
       title:ceuGuessTitle(f.name),date:new Date().toISOString().slice(0,10),hours:'',
-      sid:'',matched:false,err:'',data:null};
-    if(f.size>CEU_FILE_MAX){ row.err='too big ('+fmtBytes(f.size)+') — 650 KB max'; _ceuUp.push(row); renderCeuUpload(); return; }
+      sid:'',matched:false,err:'',file:f};
+    if(f.size>CEU_FILE_MAX){ row.err='too big ('+fmtBytes(f.size)+') — '+fmtBytes(CEU_FILE_MAX)+' max'; row.file=null; _ceuUp.push(row); renderCeuUpload(); return; }
     const m=ceuMatchStaff(f.name);
     if(m){ row.sid=m._id; row.matched=true; }
-    const rd=new FileReader();
-    rd.onload=function(e){ row.data=e.target.result; renderCeuUpload(); };
-    rd.readAsDataURL(f);
     _ceuUp.push(row);
   });
   renderCeuUpload();
 }
 async function ceuUpFileAll(){
   if(!isAdminView()){ showToast('⛔ Admins only'); return; }
-  const todo=_ceuUp.filter(function(r){return r.sid&&!r.err&&r.data;});
+  const todo=_ceuUp.filter(function(r){return r.sid&&!r.err&&r.file;});
   if(!todo.length){ showToast('Nothing ready to file — match each file to a clinician first'); return; }
   let ok=0, fail=0;
   for(const r of todo){
     const st=STAFF.find(function(x){return x._id===r.sid;});
     if(!st){ fail++; continue; }
-    const fid = window.filesStore ? await window.filesStore.add({
-      sid:r.sid, kind:'ceu', name:r.fileName, type:r.type, size:r.size,
-      date:r.date, data:r.data
-    }) : null;
-    if(!fid){ r.err='upload failed'; fail++; continue; }
+    const up = await ceuStoreFile(r.sid, r.file, {date:r.date});
+    if(!up){ r.err='upload failed'; fail++; continue; }
     if(!Array.isArray(st['_ceus'])) st['_ceus']=[];
-    st['_ceus'].push({date:r.date, title:r.title||r.fileName, hours:r.hours?parseFloat(r.hours):'', fileId:fid, fileName:r.fileName});
+    st['_ceus'].push({date:r.date, title:r.title||r.fileName, hours:r.hours?parseFloat(r.hours):'', fileId:up.fid, filePath:up.path, fileName:r.fileName});
+    r.done=true;
     ok++;
   }
   await persistStaff();
-  _ceuUp=_ceuUp.filter(function(r){return !(r.sid&&!r.err&&r.data);});
+  _ceuUp=_ceuUp.filter(function(r){return !r.done;});
   renderCeuUpload();
   const res=document.getElementById('ceu-up-result');
   if(res) res.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;font-size:13px;color:#157a45;font-weight:600">✅ Filed '+ok+' CEU'+(ok!==1?'s':'')+(fail?' · <span style="color:#dc2626">'+fail+' failed</span>':'')+' — visible on each clinician\'s Training &amp; CEU tab.</div>';
   showToast('🎓 Filed '+ok+' CEU'+(ok!==1?'s':''));
 }
 // Download a stored certificate (works anywhere a CEU row shows one).
+// Storage files: {path}; older certificates: base64 data: URL in the Firestore doc (still supported).
 async function ceuDownload(fid, name){
   if(!window.filesStore){ showToast('⚠ File storage unavailable'); return; }
-  const d=await window.filesStore.get(fid);
-  if(!d||!d.data){ showToast('⚠ Could not load the file'); return; }
-  const a=document.createElement('a'); a.href=d.data; a.download=name||d.name||'certificate'; a.click();
+  fileOpen(function(){ return window.filesStore.get(fid); }, name, false, /\.pdf$/i.test(name||'')?'application/pdf':/\.(png|jpe?g|gif|webp|heic)$/i.test(name||'')?'image/*':'');
 }
 
 // ══════════════════════════════════════════════
@@ -6386,6 +6400,7 @@ const sec=t=>`<div class="sec-label">${t}</div>`;
 // ── OPEN ROSTER MODAL ──
 let currentId=null,currentMode=null;
 function openRoster(id){
+  MY_FILE_OPEN=false;
   currentId=id;currentMode='roster';
   const p=STAFF.find(r=>r._id===id);
   const av=avC(p['Clinician']),s=p['Employee Status']||'',t=p['Team']||'';
@@ -6408,7 +6423,7 @@ function openRoster(id){
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
   const demoPanel =
-    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',displayTitle(p))+rowM(p,'Department','Department')+row('Primary Program',p['Primary Program'])+row('Secondary Program',p['Programs'])+rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])
+    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',displayTitle(p))+rowM(p,'Department','Department')+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     + (isAdminView() ? (function(){
         const role=roleOf(p);
@@ -6455,7 +6470,7 @@ function openRoster(id){
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
         <label class="btn btn-secondary" style="font-size:12px;cursor:pointer">📎 Choose file<input type="file" accept=".pdf,image/*" style="display:none" onchange="ceuSelfPick('${id}',this)"></label>
         <span id="ceu-self-name" style="font-size:12px;font-weight:700;color:#157a45"></span>
-        <span style="font-size:11px;color:#999">PDF or photo, up to 650 KB</span>
+        <span style="font-size:11px;color:#999">PDF or photo, up to 20 MB</span>
       </div>
       <div id="ceu-self-form" style="margin-top:10px;display:none">
         <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
@@ -6763,7 +6778,7 @@ function buildRosterEditForm(p){
     if(key==='Employee Status') cur=normStatus(cur);
     let list=opts.slice();
     if(cur && list.indexOf(cur)===-1) list.push(cur); // preserve any existing value not in the option list
-    return '<select id="'+id+'" data-key="'+key+'"'+missStyle(key)+'>'+list.map(function(o){var lbl=(key==='Team'&&o)?teamLabel(o):(key==='Capacity Tier'&&o)?capTierLabel(o):(o||'— select —');return '<option value="'+o.replace(/"/g,'&quot;')+'"'+(cur===o?' selected':'')+'>'+lbl+'</option>';}).join('')+'</select>';
+    return '<select id="'+id+'" data-key="'+key+'"'+missStyle(key)+'>'+list.map(function(o){var lbl=(key==='Team'&&o)?teamLabel(o):(key==='Capacity Tier'&&o)?capTierLabel(o):((key==='Primary Program'||key==='Programs')&&o)?programLabel(o):(o||'— select —');return '<option value="'+o.replace(/"/g,'&quot;')+'"'+(cur===o?' selected':'')+'>'+lbl+'</option>';}).join('')+'</select>';
   }
   function inp(id,key){
     const v=(p[key]||'').toString().replace(/"/g,'&quot;');
@@ -7022,7 +7037,10 @@ function saveEdit(){
     setTimeout(()=>promptBeginOnboarding(currentId),300);
   }
 }
-function closeDetail(){const dm=document.getElementById('detail-modal');dm.classList.remove('open');dm.classList.remove('as-page');toggleEdit(false);}
+// × on the record: from My Employee File there is no list to go back to, so return to My Homebase.
+var MY_FILE_OPEN=false;
+function closeDetailBtn(){ const mine=MY_FILE_OPEN; closeDetail(); if(mine) showPage('home',document.getElementById('nav-home')); }
+function closeDetail(){MY_FILE_OPEN=false;const dm=document.getElementById('detail-modal');dm.classList.remove('open');dm.classList.remove('as-page');toggleEdit(false);}
 
 // ── CONFIDENTIAL NOTES ──
 function confPanelHtml(p){
@@ -7129,7 +7147,7 @@ function startConvert(id){
 function openAddEmployee(){
   if(!isAdminView()){ showToast('⛔ Admins only'); return; }
   const sel=(id,opts,cur)=>`<select id="${id}">`+opts.map(o=>
-    `<option value="${hesc(o)}"${o===cur?' selected':''}>${o?hesc(o):'— select —'}</option>`).join('')+`</select>`;
+    `<option value="${hesc(o)}"${o===cur?' selected':''}>${o?hesc(id==='ae-prog'?programLabel(o):o):'— select —'}</option>`).join('')+`</select>`;
   const teamSel=`<select id="ae-team">`+CONFIG.teamOpts.map(o=>
     `<option value="${hesc(o)}">${o?hesc(teamLabel(o)):'— select —'}</option>`).join('')+`</select>`;
   document.getElementById('ae-grid').innerHTML = `
@@ -7413,16 +7431,15 @@ function obEditDeadline(id){
   persistRecruit(); renderOnboarding();
   showToast('📅 Deadline updated');
 }
+// LEGACY: onboarding files saved as base64 docs in 'onboardFiles'.
 async function obOpenFile(docId){
   if(!window.obFiles){ showToast('File links need the live site'); return; }
-  const f=await window.obFiles.get(docId);
-  if(!f||!f.b64){ showToast('Could not open the file — are you signed in as an admin?'); return; }
-  try{
-    const bin=atob(f.b64); const arr=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-    const url=URL.createObjectURL(new Blob([arr],{type:f.type||'application/octet-stream'}));
-    window.open(url,'_blank');
-  }catch(e){ showToast('Could not open the file'); }
+  fileOpen(function(){ return window.obFiles.get(docId); }, '', false, 'application/pdf');
+}
+// Current: onboarding files in Firebase Storage (onboarding/{token}/{item}/{file}).
+function obOpenPath(path, name){
+  const t=/\.pdf$/i.test(name)?'application/pdf':/\.(png|jpe?g|gif|webp|heic)$/i.test(name)?'image/*':'';
+  fileOpen({path:path,type:t,name:name}, name);
 }
 async function obLoadProgress(p){
   const host=document.getElementById('ob-prog-'+p._id); if(!host||!p['_ob']) return;
@@ -7439,6 +7456,8 @@ async function obLoadProgress(p){
       +(x.note?'<span style="color:#888;font-size:11.5px">— '+hesc(x.note)+'</span>':'')
       +fl.map(function(f){
         if(f.emailed) return '<span style="font-size:11.5px;color:#888">✉️ emailed to HR</span>';
+        // Storage upload (onboarding/{token}/…) or a legacy base64 doc in onboardFiles
+        if(f.path) return '<button onclick="event.stopPropagation();obOpenPath(\''+hesc(f.path)+'\',\''+hesc(f.name||'file')+'\')" style="background:#eef2ff;border:none;border-radius:7px;padding:2px 9px;font-size:11px;font-weight:700;color:#3730a3;cursor:pointer;font-family:inherit">📎 '+hesc(f.name||'file')+'</button>';
         if(!f.docId) return '';
         return '<button onclick="event.stopPropagation();obOpenFile(\''+hesc(f.docId)+'\')" style="background:#eef2ff;border:none;border-radius:7px;padding:2px 9px;font-size:11px;font-weight:700;color:#3730a3;cursor:pointer;font-family:inherit">📎 '+hesc(f.name||'file')+'</button>';
       }).join('')
@@ -8033,8 +8052,15 @@ const CAP_QUARTERS = [
 function teamLabel(code){ if(!code) return ''; return TEAM_LABELS[code] || code; }
 function capTierLabel(code){ if(!code) return ''; return (CONFIG.capacityTierLabels||{})[code] || code; }
 // Friendly display for filter dropdown values, keyed by field.
+// Program values start with a team code ("SOWK Outpatient"); show the site name instead.
+function programLabel(v){
+  return String(v||'').split(',').map(function(part){ const t=part.trim(); const m=t.match(/^([A-Z]+)\b(.*)$/);
+    const site=m && CONFIG.siteDirectory && CONFIG.siteDirectory[m[1]];
+    return site && site.l!==m[1] ? site.l+m[2] : t; }).join(', ');
+}
 function filterValLabel(field, v){
   if(field==='Team') return teamLabel(v);
+  if(field==='Primary Program'||field==='Programs') return programLabel(v);
   if(field==='Capacity Tier') return capTierLabel(v);
   return v;
 }
@@ -8899,6 +8925,7 @@ function visibleStaffIds(){
 function canSeePage(pageId){
   const role = currentRole();
   if(pageId==='payroll') return role==='superadmin';  // payroll entry: super admin only
+  if(pageId==='payreview') return role==='superadmin'; // payroll review: super admin only
   if(pageId==='admin')   return role==='superadmin';  // permissions page: super admin only
   if(role==='admin' || role==='superadmin') return true;
   if(pageId==='team-dashboard') return false;        // leadership view: admin only
@@ -9617,6 +9644,8 @@ function applyRoleVisibility(){
   if(dashBtn) dashBtn.style.display = canSeePage('team-dashboard') ? '' : 'none';
   const payBtn=document.getElementById('nav-payroll');
   if(payBtn) payBtn.style.display = canSeePage('payroll') ? '' : 'none';
+  const prBtn=document.getElementById('nav-payreview');
+  if(prBtn) prBtn.style.display = canSeePage('payreview') ? '' : 'none';
   const recBtn=document.getElementById('nav-recruitment');
   if(recBtn) recBtn.style.display = canSeePage('recruitment') ? '' : 'none';
   const rtBtn=document.getElementById('nav-rec-tasks');
@@ -9775,6 +9804,15 @@ function capChartHover(evt, uid){
   } else {
     capChartHide(uid);
   }
+}
+// Clicking near a pay-period dot opens that person's pay-period sheet.
+function capChartClick(evt, uid, sid){
+  const svg=document.getElementById(uid+'-svg'); if(!svg) return;
+  const r=svg.getBoundingClientRect(), vb=svg.viewBox.baseVal;
+  const sx=(evt.clientX-r.left)/r.width*vb.width, sy=(evt.clientY-r.top)/r.height*vb.height;
+  let best=null, bestd=1e9;
+  svg.querySelectorAll('.'+uid+'-pt[data-pp]').forEach(p=>{ const d=Math.hypot(+p.getAttribute('data-x')-sx,+p.getAttribute('data-y')-sy); if(d<bestd){bestd=d;best=p;} });
+  if(best && bestd<28 && typeof prOpenSheetForPP==='function') prOpenSheetForPP(sid, +best.getAttribute('data-pp'));
 }
 function capChartHide(uid){
   const tip=document.getElementById(uid+'-tip'); if(tip) tip.style.display='none';
@@ -9937,9 +9975,9 @@ function capDrillHTML(s,c){
   const actualDots=actualPts.slice(1).map(p=>{
     const px=x(p.w/CAP_YEAR_WEEKS), py=y(p.h);
     const split = (p.grpWtd>0) ? ` (${p.indHrs} ind + ${p.grpWtd} group @ .33)` : '';
-    const tip=`PP${p.pp} (ending ${p.label}): +${p.periodHrs} hrs${split} → ${p.h} cumulative`;
+    const tip=`PP${p.pp} (ending ${p.label}): +${p.periodHrs} hrs${split} → ${p.h} cumulative · click for pay sheet`;
     return `<circle cx="${px}" cy="${py}" r="4" fill="${statusCol}" stroke="#fff" stroke-width="1.5"
-      class="${uid}-pt" data-tip="${tip}" data-x="${px}" data-y="${py}" style="cursor:pointer"/>`;
+      class="${uid}-pt" data-tip="${tip}" data-x="${px}" data-y="${py}" data-pp="${p.pp-1}" style="cursor:pointer"/>`;
   }).join('');
 
   // Marker at the end of the last RECORDED period (data may lag the calendar:
@@ -9959,7 +9997,7 @@ function capDrillHTML(s,c){
     }).join('');
 
   const chart=`<div style="position:relative">
-    <svg id="${uid}-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:inherit" onmousemove="capChartHover(event,'${uid}')" onmouseleave="capChartHide('${uid}')">
+    <svg id="${uid}-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:inherit" onmousemove="capChartHover(event,'${uid}')" onmouseleave="capChartHide('${uid}')" onclick="capChartClick(event,'${uid}','${hesc(s._id)}')">
       ${qBands}${ppAxis}${grid}${paceLine}${actualArea}${actualLine}${bench}${actualDots}${todayLine}
     </svg>
     <div id="${uid}-tip" style="position:absolute;display:none;pointer-events:none;background:#1e293b;color:#fff;font-size:12px;padding:6px 10px;border-radius:7px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-130%);z-index:20"></div>
@@ -10036,8 +10074,8 @@ function capDrillHTML(s,c){
     const qLabels=['Q1','Q2','Q3','Q4'];
     const rampTag = r.isRampPeriod
       ? ` <span title="Onboarding ramp — goal set at ${r.rampPctLabel} of full pace this period" style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;color:#92610f;background:#fef3c7;border:1px solid #fcd97a;border-radius:8px;padding:1px 6px;vertical-align:middle">🌱 ONBOARDING · ${r.rampPctLabel}</span>` : '';
-    return `<tr style="border-bottom:1px solid #f1f0ec${r.isRampPeriod?';background:#fffdf5':''}">
-      <td style="padding:8px 12px;font-size:12px;color:#333;white-space:nowrap"><strong>${r.label}</strong> <span style="color:#aaa;font-weight:500">${r.range}</span>${rampTag}</td>
+    return `<tr class="cap-pprow" tabindex="0" role="button" title="Open the pay sheet for ${r.label}" onclick="prOpenSheetForPP('${hesc(s._id)}',${r.idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();prOpenSheetForPP('${hesc(s._id)}',${r.idx});}" style="border-bottom:1px solid #f1f0ec;cursor:pointer${r.isRampPeriod?';background:#fffdf5':''}">
+      <td style="padding:8px 12px;font-size:12px;color:#333;white-space:nowrap"><strong>${r.label}</strong> <span style="color:#aaa;font-weight:500">${r.range}</span>${rampTag} <span style="font-size:10.5px;color:#1a56db;font-weight:700;margin-left:4px">Pay sheet →</span></td>
       <td style="padding:8px 12px;font-size:11px;color:#888">${qLabels[r.quarter]||''}</td>
       <td style="padding:8px 12px;font-size:12.5px;text-align:right;font-weight:700;color:#1a1a1a">${Math.round(r.actual*10)/10}</td>
       <td style="padding:8px 12px;font-size:12.5px;text-align:right;color:#888">${Math.round(r.expected*10)/10}</td>
@@ -10598,6 +10636,7 @@ const PAGE_META={
   'admin':{title:'Roles & Permissions',sub:'Assign roles and manage access'},
   'hr-dashboard':{title:'HR Dashboard',sub:'Birthdays, anniversaries, and raise eligibility'},
   'payroll':{title:'Payroll Processing',sub:'Enter weekly capacity hours by pay period'},
+  'payreview':{title:'Payroll Review',sub:'Import Valant, review, close and save each pay period'},
   'intake':{title:'Intake Traffic Control',sub:'Coming soon'},
   'bookings':{title:'Office Bookings',sub:'Coming soon'},
   'maintenance':{title:'Maintenance',sub:'Coming soon'},
@@ -10644,6 +10683,7 @@ function showPage(id,btn){
   if(id==='meetings-hr'){renderMeetingsHr();return;}
   if(id==='hr-dashboard'){renderHrDashboard();return;}
   if(id==='payroll'){renderPayroll();return;}
+  if(id==='payreview'){renderPayReview();return;}
   if(id==='onboarding')renderOnboarding();
   if(id==='capacity')renderCapacity();
   if(id==='my-performance')renderMyPerformance();
@@ -11704,59 +11744,36 @@ function saveCEU(sid){
 }
 
 // ── EMPLOYEE FILES (in-browser storage; small files only for now) ──
-// Files are stored as base64 data URLs on the staff record (_files) and saved to
-// localStorage via persistStaff(). Browser storage is capped (~5MB total across
-// the whole app), so this is for small documents until a real backend is added.
-const FILE_MAX_BYTES = 1024 * 1024; // 1 MB per file cap to protect shared storage
+// Employee File documents: BYTES in Firebase Storage at staffFiles/{sid}/{fileId}/{name}
+// (20 MB cap; readable by that person and admins — see storage.rules). The staff record's
+// _files list keeps only metadata: {name, type, size, date, path, by}. Older entries carry the
+// file itself as a base64 data: URL in `data`; those still open and delete normally.
+const FILE_MAX_BYTES = 20 * 1024 * 1024; // matches storage.rules
 
 function triggerFileUpload(sid){
   const input = document.getElementById('file-input-'+sid);
   if(input) input.click();
 }
 
-function handleFileUpload(sid, inputEl){
+async function handleFileUpload(sid, inputEl){
   const file = inputEl.files && inputEl.files[0];
-  if(!file) return;
-  if(file.size > FILE_MAX_BYTES){
-    alert('"'+file.name+'" is '+(file.size/1048576).toFixed(1)+' MB. For now files must be under 1 MB (browser storage is limited until a backend is added).');
-    inputEl.value='';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      const s = STAFF.find(r=>r._id===sid); if(!s){ return; }
-      if(!s['_files']) s['_files']=[];
-      s['_files'].push({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
-        date: new Date().toISOString().slice(0,10),
-        data: e.target.result // base64 data URL
-      });
-      // Persist, then confirm the write actually landed (storage can silently fail when full).
-      (async function(){
-        try {
-          await window.storage.set('app_staff', JSON.stringify(STAFF));
-          const check = await window.storage.get('app_staff');
-          const ok = check && check.value && JSON.parse(check.value)
-            .find(r=>r._id===sid)?.['_files']?.some(f=>f.name===file.name && f.size===file.size);
-          if(!ok) throw new Error('not saved');
-          showToast('📎 Uploaded — '+file.name);
-        } catch(err){
-          s['_files'].pop(); // roll back in-memory add
-          alert('Could not save "'+file.name+'". Browser storage may be full. Try a smaller file or remove old uploads.');
-        }
-        if(currentMode==='roster' && currentId===sid){ renderRosterTabs(); }
-        safeRenderEmployeeProfile(sid);
-      })();
-    }catch(err){
-      alert('Upload failed: '+err.message);
-    }
-  };
-  reader.onerror = function(){ alert('Could not read "'+file.name+'".'); };
-  reader.readAsDataURL(file);
   inputEl.value='';
+  if(!file) return;
+  try{
+    if(fileTooBig(file, FILE_MAX_BYTES)) return;
+    const s = STAFF.find(r=>r._id===sid); if(!s) return;
+    showToast('Uploading '+file.name+'…');
+    const path='staffFiles/'+sid+'/'+fileNewId('doc_')+'/'+fileSafeName(file.name);
+    if(!(await fileUpload(path, file))){ alert('Could not upload "'+file.name+'". Please try again.'); return; }
+    if(!s['_files']) s['_files']=[];
+    s['_files'].push({ name:file.name, type:file.type||'application/octet-stream', size:file.size,
+      date:new Date().toISOString().slice(0,10), path:path, by:(typeof libWhoAmI==='function'?libWhoAmI():'') });
+    try{ await persistStaff(); }
+    catch(err){ s['_files'].pop(); fileRemove(path); alert('Could not save "'+file.name+'" to the record. Please try again.'); }
+    showToast('📎 Uploaded — '+file.name);
+    if(currentMode==='roster' && currentId===sid){ renderRosterTabs(); }
+    safeRenderEmployeeProfile(sid);
+  }catch(err){ console.error(err); alert('Upload failed — please try again.'); }
 }
 
 function deleteFile(sid, idx){
@@ -11765,6 +11782,7 @@ function deleteFile(sid, idx){
   if(!confirm('Delete "'+f.name+'"? This cannot be undone.')) return;
   s['_files'].splice(idx,1);
   persistStaff();
+  if(f.path) fileRemove(f.path);
   showToast('🗑 Deleted — '+f.name);
   if(currentMode==='roster' && currentId===sid){ renderRosterTabs(); }
   safeRenderEmployeeProfile(sid);
@@ -11785,9 +11803,7 @@ function safeRenderEmployeeProfile(sid){
 function downloadFile(sid, idx){
   const s = STAFF.find(r=>r._id===sid); if(!s||!s['_files']) return;
   const f = s['_files'][idx]; if(!f) return;
-  const a = document.createElement('a');
-  a.href = f.data; a.download = f.name;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  fileOpen(f, f.name);   // Storage path, or a legacy data: URL
 }
 
 function fileIcon(type){
@@ -11797,6 +11813,43 @@ function fileIcon(type){
   if(type.includes('word')||type.includes('document')) return '📘';
   if(type.includes('sheet')||type.includes('excel')||type.includes('csv')) return '📗';
   return '📄';
+}
+// ── Uploaded files: bytes in Firebase Storage, metadata in Firestore ──
+// Older files were saved as base64 inside Firestore docs; fileOpen() still opens those.
+var FILE_MAX_STORAGE = 20*1024*1024;   // matches storage.rules (20 MB per file)
+function fileSafeName(n){ return String(n||'file').replace(/[^\w.\- ]/g,'_').slice(0,120) || 'file'; }
+function fileNewId(prefix){ return (prefix||'f_')+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fileTooBig(f, max){ max=max||FILE_MAX_STORAGE; if(f && f.size>max){ showToast('⚠ '+f.name+' is '+fmtBytes(f.size)+' — the limit is '+fmtBytes(max)+' per file'); return true; } return false; }
+// Upload a File to Storage at `path`. Returns true/false; never throws.
+async function fileUpload(path, f){
+  try{ if(!window.fileStore) return false; return await window.fileStore.put(path, f, f.type||'application/octet-stream'); }
+  catch(e){ console.error(e); return false; }
+}
+async function fileRemove(path){ try{ if(path && window.fileStore) await window.fileStore.del(path); }catch(e){} }
+// Open a stored file in a new tab (or download it). rec: {path} for Storage, or legacy
+// {b64} (raw base64) / {data} (data: URL) — or an async function that loads that record.
+// The tab is opened BEFORE any await so pop-up blockers allow it.
+async function fileOpen(rec, name, download, typeHint){
+  let w=null;
+  try{
+    const hint=(rec&&typeof rec==='object'&&rec.type)||typeHint||'';
+    const isView=function(t){ return /^(application\/pdf|image\/|text\/|video\/|audio\/)/.test(t||''); };
+    if(!download && isView(hint)) w=window.open('','_blank');
+    if(typeof rec==='function') rec=await rec();
+    if(!rec||!(rec.path||rec.b64||rec.data)){ if(w) w.close(); showToast('⚠ Could not open the file — you may not have access to it'); return; }
+    const type=rec.type||hint||'application/octet-stream';
+    let url=null, revoke=false;
+    if(rec.path){ url=window.fileStore?await window.fileStore.url(rec.path):null; }
+    else if(rec.b64){ const bin=atob(rec.b64); const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+      url=URL.createObjectURL(new Blob([arr],{type:type})); revoke=true; }
+    else if(rec.data){ // legacy data: URL → blob URL (browsers block opening data: URLs in a tab)
+      const bl=await (await fetch(rec.data)).blob(); url=URL.createObjectURL(bl); revoke=true; }
+    if(!url){ if(w) w.close(); showToast('⚠ Could not open the file — you may not have access to it'); return; }
+    if(w){ w.location.href=url; }
+    else { // download in place (a Storage URL for a Word/Excel file downloads rather than navigating)
+      const a=document.createElement('a'); a.href=url; a.download=name||rec.name||'file'; a.rel='noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+    if(revoke) setTimeout(function(){ URL.revokeObjectURL(url); },60000);
+  }catch(e){ if(w) w.close(); console.error(e); showToast('⚠ Could not open the file'); }
 }
 function fmtBytes(n){
   if(n<1024) return n+' B';
@@ -11992,32 +12045,8 @@ const SITE_COLORS = {
   RSTI:{bg:'#fce0ec',tc:'#7a1040',accent:'#ec4899'},
   NCA: {bg:'#e7e8ec',tc:'#3f4451',accent:'#64748b'},
 };
-const WX_CODES = {
-  0:'☀️ Clear',1:'🌤 Mostly Clear',2:'⛅ Partly Cloudy',3:'☁️ Overcast',
-  45:'🌫 Foggy',51:'🌦 Light Drizzle',53:'🌦 Drizzle',61:'🌧 Light Rain',63:'🌧 Rain',
-  65:'🌧 Heavy Rain',71:'🌨 Light Snow',73:'🌨 Snow',75:'❄️ Heavy Snow',
-  80:'🌦 Showers',81:'🌧 Showers',95:'⛈ Thunderstorm',99:'⛈ Thunderstorm',
-};
-let homeWeatherCache = {};
 let homeQuoteIdx = Math.floor(Math.random()*QUOTES.length);
 
-async function fetchWeather(lat, lon) {
-  const key = lat+'_'+lon;
-  if(homeWeatherCache[key]) return homeWeatherCache[key];
-  try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=America/New_York`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const c = data.current;
-    const result = {
-      temp: Math.round(c.temperature_2m)+'°F',
-      desc: WX_CODES[c.weathercode]||'🌡 '+c.weathercode,
-      wind: Math.round(c.windspeed_10m)+' mph',
-    };
-    homeWeatherCache[key] = result;
-    return result;
-  } catch(e) { return {temp:'—',desc:'Unavailable',wind:'—'}; }
-}
 
 function renderHome() {
   const container = document.getElementById('home-content');
@@ -12208,7 +12237,8 @@ function homeCapacityHtml(){
 // ── Your Team Site: weather, your leads (CTM / CPM / clinical supervisor),
 // the site's Google Chat space, address and emergency numbers ──
 // Approximate town-centre coordinates for the weather widget (public data).
-var SITE_COORDS={AMH:[42.3732,-72.5199],HAD:[42.3418,-72.5887],NOHO:[42.3251,-72.6412],SOWK:[42.0501,-72.5823]};
+// NWS forecast gridpoints (office/x,y) for each site, from api.weather.gov/points/{lat},{lon}.
+var SITE_NWS={AMH:'BOX/22,93',HAD:'BOX/20,91',NOHO:'BOX/19,90',SOWK:'BOX/23,78'};
 function homeSiteCode(){ const me=homeMe(); const dir=CONFIG.siteDirectory||{}; const c=me&&me['Team']; return c&&dir[c]?c:null; }
 function homeRoleText(x){ return (String(x['Title']||'')+','+String(x['Service Types']||'')).toLowerCase(); }
 function homeFindLead(code,test){ return STAFF.find(function(x){ return x['Team']===code && normStatus(x['Employee Status'])!=='Terminated' && test(homeRoleText(x)); })||null; }
@@ -12218,6 +12248,17 @@ function homeLeadRow(label,person,fallbackName){
   return '<div class="ts-lead">'+(nm?avatarHtml(nm,person?person._id:'',34):'<span class="ts-noav">?</span>')
     +'<div class="ts-leadtx"><div class="r">'+label+'</div><div class="n">'+(nm?hesc(nm):'<span style="color:#aaa">Not assigned</span>')+'</div></div>'
     +(em?'<a class="ts-mail" href="mailto:'+hesc(em)+'" title="Email '+hesc(nm)+'" aria-label="Email '+hesc(nm)+'">✉</a>':'')+'</div>';
+}
+// Each team has a CTM or a CPM; each therapist has a clinical supervisor, who may be the same person.
+function homeLeadsHtml(ctm,cpm,sup,supName){
+  const rows=[];
+  if(ctm) rows.push({l:'Clinical Team Manager',p:ctm});
+  if(cpm && cpm!==ctm) rows.push({l:'Clinical Program Manager',p:cpm});
+  if(!rows.length) rows.push({l:'Team manager (CTM / CPM)',p:null});
+  const same=sup&&rows.find(function(r){ return r.p===sup; });
+  if(same) same.l+=' · your clinical supervisor';
+  else if(sup||supName) rows.push({l:'Your clinical supervisor',p:sup,n:supName});
+  return rows.map(function(r){ return homeLeadRow(r.l,r.p,r.n); }).join('');
 }
 function homeTeamSiteHtml(){
   const me=homeMe(); const dir=CONFIG.siteDirectory||{};
@@ -12233,11 +12274,9 @@ function homeTeamSiteHtml(){
     +'<div class="ts-head"><div><div class="hs-h" id="ts-h" style="margin:0"><span>🏢</span> Your Team Site</div>'
       +'<div class="ts-name"><span class="pill t-'+hesc(code)+'">'+hesc(teamLabel(code))+'</span> '+hesc(site.l||code)+'</div>'
       +(site.addr?'<a class="hs-addr" href="https://maps.google.com/?q='+encodeURIComponent(site.addr)+'" target="_blank" rel="noopener">'+hesc(site.addr)+' ↗</a>':'')+'</div>'
-      +'<div class="ts-wx" id="hm-wx" aria-live="polite">'+(SITE_COORDS[code]?'<span class="ts-wxload">Weather…</span>':'')+'</div></div>'
+      +'<div class="ts-wx" id="hm-wx" aria-live="polite">'+(SITE_NWS[code]?'<span class="ts-wxload">Weather…</span>':'')+'</div></div>'
     +'<div class="ts-sec"><div class="ts-lab">Your team leads</div>'
-      +homeLeadRow('Clinical Team Manager',ctm)
-      +homeLeadRow('Clinical Program Manager',cpm)
-      +homeLeadRow('Your clinical supervisor',sup,supName)
+      +homeLeadsHtml(ctm,cpm,sup,supName)
     +'</div>'
     +'<div class="ts-foot">'
       +(site.police?'<span>Police <a href="'+hesc(telHref(site.police))+'">'+hesc(site.police)+'</a></span>':'')
@@ -12261,23 +12300,35 @@ async function homeSetChat(code){
 function homeRefreshAsync(){ try{ loadHomePanelAvail(); loadHomeReviews(); loadHomeIpAlert(); loadHomeSignAlert(); }catch(e){} }
 // Small live weather widget (Open-Meteo: free, no key). Cached for 30 minutes.
 var HM_WX={};
-function homeWxIcon(c){ c=+c; return c===0?['☀️','Clear']:c<=2?['🌤️','Partly cloudy']:c===3?['☁️','Cloudy']:c<=48?['🌫️','Fog']:c<=57?['🌦️','Drizzle']:c<=67?['🌧️','Rain']:c<=77?['🌨️','Snow']:c<=82?['🌧️','Showers']:c<=86?['🌨️','Snow showers']:['⛈️','Storms']; }
+// Weather: National Weather Service (api.weather.gov) — free, public-domain, OK for business use, no key.
+// One call per site to its hourly forecast; cached 30 min. Gridpoints looked up once from /points/{lat},{lon}.
+function homeWxIcon(t,day){ t=String(t||'').toLowerCase();
+  return /thunder/.test(t)?'⛈️':/snow|flurr|sleet|ice/.test(t)?'🌨️':/rain|shower|drizzle/.test(t)?'🌧️':/fog|haze|smoke/.test(t)?'🌫️'
+    :/partly|mostly sunny|mostly clear/.test(t)?(day?'🌤️':'☁️'):/cloud|overcast/.test(t)?'☁️':/frost/.test(t)?'❄️':(day?'☀️':'🌙'); }
 async function homeLoadWeather(){
-  const code=homeSiteCode(); const host=document.getElementById('hm-wx'); if(!host||!code||!SITE_COORDS[code]) return;
+  const code=homeSiteCode(); const host=document.getElementById('hm-wx'); if(!host||!code||!SITE_NWS[code]) return;
   const cached=HM_WX[code];
   let w=cached&&(Date.now()-cached.t<30*60000)?cached.w:null;
   if(!w){
     try{
-      const ll=SITE_COORDS[code];
-      const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+ll[0]+'&longitude='+ll[1]+'&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1');
-      const j=await r.json();
-      w={t:Math.round(j.current.temperature_2m), c:j.current.weather_code, hi:Math.round(j.daily.temperature_2m_max[0]), lo:Math.round(j.daily.temperature_2m_min[0]), pp:j.daily.precipitation_probability_max?j.daily.precipitation_probability_max[0]:null};
+      const r=await fetch('https://api.weather.gov/gridpoints/'+SITE_NWS[code]+'/forecast/hourly');
+      if(!r.ok) throw new Error('nws '+r.status);
+      const per=((await r.json()).properties||{}).periods||[];
+      if(!per.length) throw new Error('nws empty');
+      const today=String(per[0].startTime||'').slice(0,10);
+      const td=per.filter(function(x){ return String(x.startTime||'').slice(0,10)===today; });
+      const temps=td.map(function(x){ return +x.temperature; });
+      const pops=td.map(function(x){ return x.probabilityOfPrecipitation&&x.probabilityOfPrecipitation.value||0; });
+      w={t:Math.round(per[0].temperature), s:per[0].shortForecast||'', day:!!per[0].isDaytime,
+         hi:Math.max.apply(null,temps), lo:Math.min.apply(null,temps), pp:Math.max.apply(null,pops), late:td.length<6};
       HM_WX[code]={t:Date.now(),w:w};
     }catch(e){ host.innerHTML=''; return; }
   }
   const el=document.getElementById('hm-wx'); if(!el) return;
-  const ic=homeWxIcon(w.c);
-  el.innerHTML='<span class="ts-wxic" aria-hidden="true">'+ic[0]+'</span><div><div class="ts-wxt">'+w.t+'° <small>'+ic[1]+'</small></div><div class="ts-wxs">H '+w.hi+'° · L '+w.lo+'°'+(w.pp!=null&&w.pp>=30?' · '+w.pp+'% rain':'')+'</div></div>';
+  el.title='Forecast: National Weather Service';
+  const sub=(w.late?'':'H '+w.hi+'° · L '+w.lo+'°')+(w.pp>=30?(w.late?'':' · ')+w.pp+'% rain':'');
+  el.innerHTML='<span class="ts-wxic" aria-hidden="true">'+homeWxIcon(w.s,w.day)+'</span><div><div class="ts-wxt">'+w.t+'° <small>'+hesc(w.s)+'</small></div>'
+    +(sub?'<div class="ts-wxs">'+sub+'</div>':'')+'</div>';
 }
 
 
@@ -12688,6 +12739,1134 @@ async function renderIntakeCoord() {
   <div style="position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(90deg,#e0593c,#e89b4c,#f4d06a,#2fa6ac,#5cc0d0)"></div>
 </div>
 
+<script>
+// ══ PAYROLL REVIEW — calculation engine (pure; no DOM, no storage) ═══════════
+// Valant "AppointmentDocumentationByProviderThenDay" export → three SEPARATE measures:
+//   1) appointment/service counts   2) clinical-hour attainment credit   3) FFS units + payroll $
+// Units: hours and multipliers are integer HUNDREDTHS (1.00 h = 100, 0.33 = 33, 125% = 125).
+// Money is integer CENTS; line amounts are kept in 1/100 of a cent ("c4" = cents×100) so 0.33 × a rate
+// stays exact. ROUNDING RULE: every employee × earnings-category total is rounded half-up to the cent
+// ONCE; employee and practice totals are sums of those rounded category totals.
+var PR = (function(){
+  'use strict';
+  // ── CSV ──────────────────────────────────────────────────────────────────
+  function parseCSV(text){
+    text = String(text||'');
+    if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);          // UTF-8 BOM
+    const out=[]; let row=[], f='', q=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i];
+      if(q){
+        if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; }
+        else f+=c;
+      } else if(c==='"') q=true;
+      else if(c===','){ row.push(f); f=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); out.push(row); row=[]; f=''; }
+      else f+=c;
+    }
+    if(f!==''||row.length){ row.push(f); out.push(row); }
+    return out.filter(function(r){ return r.length>1 || (r[0]||'').trim()!==''; });
+  }
+  function toRecords(text){
+    const rows=parseCSV(text); if(!rows.length) return {headers:[],records:[]};
+    const h=rows[0].map(function(x){ return String(x).trim(); });
+    const recs=rows.slice(1).map(function(r){ const o={}; h.forEach(function(k,i){ if(k) o[k]=r[i]==null?'':r[i]; }); return o; });
+    return {headers:h, records:recs};
+  }
+  const REQUIRED=['Provider','ProviderID','Date','AppointmentStartTime','AppointmentEndTime','PrimaryTransactionID','DocumentStatus','DocumentSignedDate'];
+  // Columns kept, exactly as exported. Patient name, notes, document names and charges are NOT kept.
+  const KEEP=['Provider','ProviderID','Date','AppointmentStartTime','AppointmentEndTime','Duration','FacilityID',
+    'PrimaryCPTCode','PrimaryTransactionID','DocumentStatus','DocumentSignedDate','DocumentSignedDate1',
+    'AddOnTransactionID1','AddOnTransactionID2','AddOnTransactionID4','AddOnTransactionID5'];
+  const ADDONS=['AddOnTransactionID1','AddOnTransactionID2','AddOnTransactionID4','AddOnTransactionID5'];
+
+  // ── dates / times (values are already local America/New_York wall-clock) ──
+  const MON={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+  function pad(n){ return (n<10?'0':'')+n; }
+  function isoDate(s){
+    s=String(s||'').trim(); if(!s) return null; let m;
+    if((m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[1]+'-'+m[2]+'-'+m[3];
+    if((m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return m[3]+'-'+pad(+m[1])+'-'+pad(+m[2]);
+    if((m=s.match(/([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/)) && MON[m[1].toLowerCase()]) return m[3]+'-'+pad(MON[m[1].toLowerCase()])+'-'+pad(+m[2]);
+    return null;
+  }
+  function minutes(s){                       // "02:00 PM" → 840 ; "17:30" → 1050
+    const m=String(s||'').trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/); if(!m) return null;
+    let h=+m[1]; const mi=+m[2], ap=(m[3]||'').toUpperCase();
+    if(ap==='AM'&&h===12) h=0; else if(ap==='PM'&&h<12) h+=12;
+    return h*60+mi;
+  }
+  function dow(iso){ const p=iso.split('-'); return new Date(Date.UTC(+p[0],+p[1]-1,+p[2])).getUTCDay(); } // 0=Sun
+  function dayDiff(a,b){ const pa=a.split('-'),pb=b.split('-'); return Math.round((Date.UTC(+pb[0],+pb[1]-1,+pb[2])-Date.UTC(+pa[0],+pa[1]-1,+pa[2]))/86400000); }
+  function hhmm(m){ if(m==null) return ''; const h=Math.floor(m/60), mi=m%60; return ((h+11)%12+1)+':'+pad(mi)+(h<12?' AM':' PM'); }
+
+  // ── numbers ──
+  function h100(v){ if(v===''||v==null) return null; const n=String(v).replace(/[%$,\s]/g,''); if(n==='') return null; const x=Number(n); return isFinite(x)?Math.round(x*100):null; }
+  function pct100(v){ // "100%" → 100 ; "0.33" → 33 ; "100" → 100 ; "0" → 0 ; blank → null
+    const s=String(v==null?'':v).trim(); if(s==='') return null;
+    const x=Number(s.replace(/[%,\s]/g,'')); if(!isFinite(x)) return null;
+    return /%/.test(s)||x>1.5 ? Math.round(x) : Math.round(x*100);
+  }
+  function cents(v){ const s=String(v==null?'':v).replace(/[$,\s]/g,''); if(s==='') return null; const x=Number(s); return isFinite(x)?Math.round(x*100):null; }
+  function round4(c4){ return c4>=0 ? Math.floor((c4+50)/100) : -Math.floor((-c4+50)/100); } // c4 → cents, half-up
+  function fmtH(h){ return (h/100).toFixed(2); }
+  function fmt$(c){ const neg=c<0; c=Math.abs(c); return (neg?'-':'')+'$'+Math.floor(c/100).toLocaleString('en-US')+'.'+pad(c%100); }
+
+  // ── service-code mapping ─────────────────────────────────────────────────
+  // Seeded from "Cap Hours Formula for Homebase". Columns: category, Valant service ID, description,
+  // CPT, Clinical Hours Count for Cap, % of FFS Rate Paid, flat $ column. Kept verbatim; the confirmed
+  // cancellation rules and the documented CANS rule are applied on top in DEFAULT_MAPS below.
+  const SHEET=[
+ ['Intern services','INTERN NC','Intern session — in person, no charge','',0,'0',''],
+ ['Intern services','V-INTERN','Intern session — virtual, 60 min','',0,'100%',''],
+ ['Intern services','V-INTERN NC','Intern session — virtual, MassHealth, no charge','',0,'0',''],
+ ['No-charge care','IN KIND','In-kind/pro bono session — no charge','',0,'0',''],
+ ['No-charge care','PROBONO','Pro bono session — therapist-donated time','PROBONO',0,'0',''],
+ ['No-charge care','V IN KIND','In-kind/pro bono session — virtual, no charge','',0,'0',''],
+ ['Screening','SCREENING','Screening session — in person, 60 min','',0,'100%',''],
+ ['Screening','V SCREENING','Screening session — virtual, 60 min','',0,'100%',''],
+ ['Supervision','SUP PAID','Paid supervision — independently licensed staff','',0,'0',''],
+ ['Supervision','SUP UNPAID','Unpaid supervision — staff not independently licensed','',0,'0',''],
+ ['Administrative','11112','Canceled appointment — no fee','',0,'0',''],
+ ['Administrative','BAL FWD','Patient balance carried forward','BAL FWD',0,'0',''],
+ ['Collateral contacts','COLLCONT EXT','External collateral contact — MassHealth only, 15 min','90882',0.25,'25%',''],
+ ['Collateral contacts','COLLCONT FAM','Family collateral contact — MassHealth only, 30 min','90887',0.25,'25%',''],
+ ['Group program','G PP 60','Group psychotherapy — in person, private pay','',0.33,'33%',''],
+ ['Group program','GV 90853','Group psychotherapy — virtual, 60-min appointment','90853',0.33,'33%',''],
+ ['Group program','GV PP 60','Group psychotherapy — virtual, 60 min, private pay','',0.33,'33%',''],
+ ['Individual therapy','90832','Individual psychotherapy — in person, 30 min','90832',0.5,'50%',''],
+ ['Individual therapy','V-90832','Individual psychotherapy — virtual, 30 min','90832',0.5,'50%',''],
+ ['Crisis','90840','Crisis psychotherapy — in person, additional 30 min','90840',0.5,'50%',''],
+ ['Crisis','V-90840','Crisis psychotherapy — virtual, additional 30 min','90840',0.5,'50%',''],
+ ['Group program','G 90832','Group-program catch-up — in person, 30 min','90832',0.5,'50%',''],
+ ['Group program','GV 90832','Group-program catch-up — virtual, 30 min','90832',0.5,'50%',''],
+ ['EMDR','EMDR-PP-30M','EMDR — in person, 30 min, private pay','',0.5,'50%',''],
+ ['EMDR','V-EMDR-PP-30','EMDR — virtual, 30 min, private pay','',0.5,'50%',''],
+ ['Private pay','PP-COUPFAM-30','Couples/family therapy — in person, 30-min private-pay extension','',0.5,'50%',''],
+ ['Private pay','VPP-COUPFAM-30','Couples/family therapy — virtual, 30-min private-pay extension','',0.5,'50%',''],
+ ['Administrative','11111','Canceled appointment — fee charged','',0.5,'100',''],
+ ['Diagnostic intake','90791','Diagnostic intake — in person','90791',1,'100%',''],
+ ['Diagnostic intake','90791 EXT HRS','Diagnostic intake — in person, after hours','90791',1,'100%',''],
+ ['Diagnostic intake','V-90791','Diagnostic intake — virtual, 60-min appointment','90791',1,'100%',''],
+ ['Diagnostic intake','V90791 EXT HRS','Diagnostic intake — virtual, 60 min, after hours','90791',1,'100%',''],
+ ['Individual therapy','90834','Individual psychotherapy — in person, 45 min','90834',1,'100%',''],
+ ['Individual therapy','90837','Individual psychotherapy — in person, 60 min','90837',1,'100%',''],
+ ['Individual therapy','90837 EXT HRS','Individual psychotherapy — in person, 60 min, after hours','90837',1,'100%',''],
+ ['Individual therapy','V-90834','Individual psychotherapy — virtual, 45 min','90834',1,'100%',''],
+ ['Individual therapy','V-90837','Individual psychotherapy — virtual, 60 min','90837',1,'100%',''],
+ ['Individual therapy','V90837 EXT HRS','Individual psychotherapy — virtual, 60 min, after hours','90837',1,'100%',''],
+ ['Couples/family','90846','Family psychotherapy — in person, without identified client','90846',1,'100%',''],
+ ['Couples/family','90847','Couples/family therapy — in person, client present, 60-min appointment','90847',1,'100%',''],
+ ['Couples/family','V-90846','Family psychotherapy — virtual, without identified client','90846',1,'100%',''],
+ ['Couples/family','V-90847','Couples/family therapy — virtual, client present, 60-min appointment','90847',1,'100%',''],
+ ['Crisis','90839','Crisis psychotherapy — in person, first 60 min','90839',1,'100%',''],
+ ['Crisis','V-90839','Crisis psychotherapy — virtual, first 60 min','90839',1,'100%',''],
+ ['Group program','G 90791','Group-program diagnostic intake — in person, 60 min','90791',1,'100%',''],
+ ['Group program','G 90834','Group-program catch-up — in person, 45 min','90834',1,'100%',''],
+ ['Group program','G 90837','Group-program catch-up — in person, 60 min','90837',1,'100%',''],
+ ['Group program','G 90853','Group psychotherapy — in person, 60-min appointment','90853',1,'100%',''],
+ ['Group program','GV 90791','Group-program diagnostic intake — virtual, 60 min','90791',1,'100%',''],
+ ['Group program','GV 90834','Group-program catch-up — virtual, 45 min','90834',1,'100%',''],
+ ['Group program','GV 90837','Group-program catch-up — virtual, 60 min','90837',1,'100%',''],
+ ['CANS','CANS#1','CANS #1 diagnostic intake — in person, MassHealth under 21','90791',1,'100%','$25.00'],
+ ['CANS','CANS#1 EXT','CANS #1 intake — in person, MassHealth under 21, after hours','90791',1,'100%','$25.00'],
+ ['CANS','CANS#2','CANS #2 diagnostic intake — in person, MassHealth under 21','90791',1,'100%','$25.00'],
+ ['CANS','CANS#2 EXT','CANS #2 intake — in person, MassHealth under 21, after hours','90791',1,'100%','$25.00'],
+ ['CANS','CANS-6 Mth EXT','CANS 6-month review with individual therapy — in person, after hours','90737',1,'100%','$25.00'],
+ ['CANS','CANS-6 Mth Rev','CANS 6-month review with individual therapy — in person','90737',1,'100%','$25.00'],
+ ['CANS','V - CANS#1','CANS #1 diagnostic intake — virtual, MassHealth under 21','90791',1,'100%','$25.00'],
+ ['CANS','V - CANS#2','CANS #2 diagnostic intake — virtual, MassHealth under 21','90791',1,'100%','$25.00'],
+ ['CANS','V CAN#1 EXT','CANS #1 intake — virtual, MassHealth under 21, after hours','90791',1,'100%','$25.00'],
+ ['CANS','V CANS#2 EXT','CANS #2 intake — virtual, MassHealth under 21, after hours','90791',1,'100%','$25.00'],
+ ['CANS','V-CANS 6MthRev','CANS 6-month review with individual therapy — virtual','90837',1,'100%','$25.00'],
+ ['CANS','V-CANS6MTH EXT','CANS 6-month review with individual therapy — virtual, after hours','90837',1,'100%','$25.00'],
+ ['EMDR','EMDR 90837','EMDR psychotherapy — in person, 60 min, insurance','90837',1,'100%',''],
+ ['EMDR','EMDR EXT HRS','EMDR psychotherapy — in person, 60 min, after hours','90837',1,'100%',''],
+ ['EMDR','EMDR V 90837','EMDR psychotherapy — virtual, 60 min, insurance','90837',1,'100%',''],
+ ['EMDR','EMDR V EXT HRS','EMDR psychotherapy — virtual, 60 min, after hours','90791',1,'100%',''],
+ ['EMDR','EMDR-PP-60M','EMDR — in person, 60 min, private pay','',1,'100%',''],
+ ['EMDR','V-EMDR-PP-60','EMDR — virtual, 60 min, private pay','',1,'100%',''],
+ ['Private pay','PP 45 M','Individual therapy — in person, 45 min, private pay','',1,'100%',''],
+ ['Private pay','PP 60 EXT HRS','Individual therapy — in person, 60 min, private pay, after hours','',1,'100%',''],
+ ['Private pay','PP 60 M','Individual therapy — in person, 60 min, private pay','',1,'100%',''],
+ ['Private pay','V-PP 60 MIN','Individual therapy — virtual, 60 min, private pay','',1,'100%',''],
+ ['Private pay','VPP 60 EXT HRS','Individual therapy — virtual, 60 min, private pay, after hours','',1,'100%',''],
+ ['Private pay','VPP-COUPFAM-60','Couples/family therapy — virtual, 60 min, private pay','',1,'100%',''],
+ ['Intern services','INTERN 60m','Intern session — in person, 60 min','',1,'100%',''],
+ ['No-charge care','Medicar InKind','In-kind session — Medicare transfer/discharge','',1,'100%',''],
+ ['Private pay','PP-COUPFAM-90','Couples/family therapy — in person, 90 min, private pay','',1.5,'100%','$50.00']
+  ];
+  // Differential eligibility is kept BY SERVICE CODE (never inferred from a 100% multiplier).
+  // Provisional default: full 45/60-min client sessions in these categories. Review on the Service codes tab.
+  const DIFF_CATS={'Individual therapy':1,'Couples/family':1,'Diagnostic intake':1,'Crisis':1,'EMDR':1,'CANS':1,'Private pay':1};
+  const DIFF_GROUP_CODES={'G 90791':1,'G 90834':1,'G 90837':1,'GV 90791':1,'GV 90834':1,'GV 90837':1};
+  function buildDefaults(){
+    const m={};
+    SHEET.forEach(function(r){
+      const hrs=Math.round(r[4]*100), mult=pct100(r[5]);
+      const e={code:r[1], cat:r[0], desc:r[2], cpt:r[3], hrs:hrs, mult:mult, flat:0, sheetFlat:cents(r[6])||0,
+               kind:'service', diff:false, bonus:hrs>0, src:'sheet'};
+      e.diff = mult!=null && mult>=100 && hrs>=100 && (DIFF_CATS[r[0]]===1 || DIFF_GROUP_CODES[r[1]]===1);
+      m[r[1]]=e;
+    });
+    // Confirmed cancellation / no-show rules (override the older sheet).
+    Object.assign(m['11111'],{kind:'cxl_fee', hrs:0, mult:100, diff:false, bonus:false, note:'Confirmed rule: 0 clinical hours; one hourly FFS payment when approved.'});
+    Object.assign(m['11112'],{kind:'cxl_nofee', hrs:0, mult:0, diff:false, bonus:false, note:'Confirmed rule: 0 clinical hours; $0.'});
+    // CANS: counts 1.00 clinical hour, pays 1.25 × hourly FFS rate (spec). The sheet's $25 column is not added on top.
+    Object.keys(m).forEach(function(k){ if(m[k].cat==='CANS') Object.assign(m[k],{mult:125, note:'Pays 1.25 × rate. Sheet also lists $25.00 — confirm it is the same thing, not an extra.'}); });
+    // 90-min private-pay couples: sheet says 100% + $50.00 → kept as configured.
+    Object.assign(m['PP-COUPFAM-90'],{flat:5000, note:'Sheet: 1.50 clinical hours, 100% of rate plus $50.00 — confirm.'});
+    // Paid supervision: the sheet says 0% for a PAID service → needs an explicit compensation rule.
+    Object.assign(m['SUP PAID'],{mult:null, note:'Needs a compensation rule (sheet shows 0% for a paid service).'});
+    return m;
+  }
+  const DEFAULT_MAPS=buildDefaults();
+  function effectiveMaps(over){
+    const out={}; Object.keys(DEFAULT_MAPS).forEach(function(k){ out[k]=Object.assign({},DEFAULT_MAPS[k]); });
+    Object.keys(over||{}).forEach(function(k){ const o=over[k]; if(!o) return; if(o.deleted){ delete out[k]; return; }
+      out[k]=Object.assign({kind:'service',diff:false,bonus:true,flat:0,cat:'Other',desc:'',cpt:''},out[k]||{},o,{code:k, src:out[k]&&out[k].src==='sheet'?'sheet+edit':'custom'}); });
+    return out;
+  }
+  // Payroll (earnings) category: groups services paid the same way; the service code is preserved under it.
+  function payCat(m){
+    if(m.kind==='cxl_fee') return 'cxlfee';
+    if(m.kind==='cxl_nofee') return 'cxlnofee';
+    if(m.pc) return m.pc;
+    if(m.cat==='CANS') return 'cans';
+    if(m.mult===100 && !m.flat) return 'full';
+    if(m.mult===50) return 'half';
+    if(m.mult===25) return 'coll';
+    if(m.mult===33 && m.cat==='Group program') return 'group';
+    if(m.mult===0) return 'unpaid';
+    return 'other:'+m.code;
+  }
+  const PAYCAT_LABEL={full:'Full-rate 45/60-min sessions',half:'30-minute sessions',coll:'Collateral contacts',group:'Group sessions (0.33×)',cans:'CANS (1.25×)',
+    unpaid:'Unpaid services ($0)',cxlfee:'Fee-charged cancellations/no-shows',cxlnofee:'No-fee cancellations/no-shows'};
+  function payCatLabel(k,maps){ if(PAYCAT_LABEL[k]) return PAYCAT_LABEL[k]; if(k.indexOf('other:')===0){ const m=maps&&maps[k.slice(6)]; return 'Other — '+k.slice(6)+(m&&m.mult!=null?' ('+(m.mult/100)+'×'+(m.flat?' + '+fmt$(m.flat):'')+')':''); } return k; }
+
+  // ── settings (provisional until confirmed) ──
+  const DEFAULT_SETTINGS={
+    eveStart:17*60,            // weekday evening: start time >= 5:00 PM
+    includeSunday:true,        // provisional
+    diffCents:500,             // $5 per qualifying session (provisional)
+    threshold:5000,            // 50.00 clinical hours per pay period
+    bonusCents:2000,           // $20 per eligible clinical hour above threshold (provisional)
+    bonusCats:['FULL'],        // full-time only (provisional)
+    prorate:true,              // fractional bonus hours prorated (provisional)
+    stack:true,                // after-hours sessions also count toward over-attainment (provisional)
+    docCutoffDays:3,           // signed within N days of the appointment, else "late-signed" (provisional)
+    lateAction:'flag',         // 'flag' = pay + flag ; 'hold' = needs a decision
+    unsignedAction:'hold',     // unsigned documentation needs an include/defer/exclude decision
+    confirmed:false
+  };
+  function settingsOf(s){ return Object.assign({},DEFAULT_SETTINGS,s||{}); }
+
+  // ── row identity ──
+  function fpString(r){ return [r.ProviderID,isoDate(r.Date),minutes(r.AppointmentStartTime),minutes(r.AppointmentEndTime),r.ph||'',String(r.PrimaryTransactionID||'').trim()].join('|'); }
+
+  // ── issue catalogue: blocking issues stop Close & Save until resolved or decided ──
+  const ISSUE={
+    unknown_code:{sev:'block',label:'Unknown service code'},
+    needs_rule:{sev:'block',label:'Needs a compensation rule'},
+    missing_rate:{sev:'block',label:'No hourly FFS rate for this provider'},
+    np_coded:{sev:'block',label:'Coded non-patient entry — review'},
+    unsigned:{sev:'block',label:'Documentation not signed'},
+    unsigned_warn:{sev:'warn',label:'Documentation not signed'},
+    late_hold:{sev:'block',label:'Late-signed documentation (held)'},
+    late_signed:{sev:'warn',label:'Late-signed documentation'},
+    possible_dup:{sev:'warn',label:'Possible duplicate appointment'},
+    reimport:{sev:'warn',label:'Same record already imported — excluded'},
+    prev_paid:{sev:'warn',label:'Paid in an earlier closed period — excluded'},
+    timing_conflict:{sev:'warn',label:'Code says after-hours, timing does not'},
+    timing_unlabeled:{sev:'info',label:'After-hours timing, code not labeled EXT/S/S'},
+    no_link:{sev:'warn',label:'Provider not linked to a roster employee'},
+    no_category:{sev:'warn',label:'Employment category not set'},
+    np_uncoded:{sev:'info',label:'Uncoded non-patient entry (kept, not paid)'},
+    deferred:{sev:'info',label:'Deferred to a later period'},
+    excluded:{sev:'info',label:'Excluded by reviewer'}
+  };
+
+  // ── the calculation ─────────────────────────────────────────────────────
+  // ctx: {rows:[{...exported cols, key, imp, ph, np, apn, fp}], importOrder:[ids], period:{start,end},
+  //       maps (effective), provs:{pid:{sid,payrollId,rateCents,cat,diff}}, settings,
+  //       edits:{key:{code, decision:{v,reason}, diff:true|false}}, adjustments:[{id,pid,cents,label,kind}],
+  //       paidFp:{fp:'period label'}}
+  function compute(ctx){
+    const S=settingsOf(ctx.settings), maps=ctx.maps||effectiveMaps(), provs=ctx.provs||{}, edits=ctx.edits||{};
+    const P=ctx.period||{}, order={}; (ctx.importOrder||[]).forEach(function(id,i){ order[id]=i; });
+    const rows=(ctx.rows||[]).slice().sort(function(a,b){ return ((order[a.imp]||0)-(order[b.imp]||0)) || (a.n-b.n); });
+    const firstByFp={}, perImpFp={};
+    rows.forEach(function(r){ const k=r.imp+'|'+r.fp; perImpFp[k]=(perImpFp[k]||0)+1; });
+    const seenInImp={};
+    const lines=[], outRows=[], emps={};
+    function emp(pid,prov){
+      if(!emps[pid]){ const pv=provs[pid]||{};
+        emps[pid]={pid:pid, prov:prov, sid:pv.sid||null, payrollId:pv.payrollId||'', rateCents:pv.rateCents==null?null:pv.rateCents,
+          cat:pv.cat||'', diffOk:pv.diff!==false,
+          appts:0, services:0, mappedHrs:0, approvedHrs:0, bonusHrs:0,
+          cats:{}, cxlFee:{n:0,c4:0}, cxlNoFee:{n:0}, eve:{n:0,c4:0}, wknd:{n:0,c4:0}, bonus:{hrs:0,c4:0},
+          other:0, adj:0, issues:{}, block:0, warn:0, lines:0 }; }
+      return emps[pid];
+    }
+    function addIssue(L,code){ if(L.issues.indexOf(code)<0) L.issues.push(code); }
+    rows.forEach(function(r){
+      const date=isoDate(r.Date), st=minutes(r.AppointmentStartTime), en=minutes(r.AppointmentEndTime);
+      const inP = !!date && (!P.start||date>=P.start) && (!P.end||date<=P.end);
+      const ed=edits[r.key]||{};
+      const origCode=String(r.PrimaryTransactionID||'').trim();
+      const code=(ed.code!=null&&ed.code!=='')?ed.code:origCode;
+      const L={key:r.key, n:r.n, imp:r.imp, pid:r.ProviderID, prov:r.Provider, date:date, st:st, en:en, dur:r.Duration||'',
+        fac:r.FacilityID||'', cc:r.cc||'', cpt:r.PrimaryCPTCode||'', orig:origCode, code:code, edited:code!==origCode, np:!!r.np, apn:r.apn||'',
+        ds:r.DocumentStatus||'', sd:isoDate(r.DocumentSignedDate), stime:r.DocumentSignedDate1||'',
+        pc:null, hrs:0, units:0, base4:0, cxl4:0, eve4:0, wknd4:0, approved:false, bonusElig:false, addon:false,
+        decision:ed.decision||null, issues:[], fp:r.fp};
+      if(!inP){ L.out=true; outRows.push(L); return; }
+      // duplicates
+      const k=r.imp+'|'+r.fp;
+      if(firstByFp[r.fp] && firstByFp[r.fp].imp!==r.imp){ addIssue(L,'reimport'); L.autoEx='Same record already in import '+firstByFp[r.fp].imp; }
+      else if(!firstByFp[r.fp]) firstByFp[r.fp]={imp:r.imp,key:r.key};
+      if(perImpFp[k]>1){ seenInImp[k]=(seenInImp[k]||0)+1; addIssue(L,'possible_dup'); }
+      if(ctx.paidFp && ctx.paidFp[r.fp]){ addIssue(L,'prev_paid'); L.autoEx='Paid in '+ctx.paidFp[r.fp]; }
+      const E=emp(L.pid,L.prov); E.lines++;
+      lines.push(L);
+      classify(L,maps[code],E,S,ed,true);
+      // add-on services attached to the same appointment: own credit + pay, never another differential
+      ADDONS.forEach(function(col,ix){ const ac=String(r[col]||'').trim(); if(!ac) return;
+        const A=Object.assign({},L,{key:r.key+'#a'+(ix+1), orig:ac, code:(edits[r.key+'#a'+(ix+1)]||{}).code||ac, addon:true, issues:[], decision:(edits[r.key+'#a'+(ix+1)]||{}).decision||L.decision, parent:r.key,
+          pc:null,hrs:0,units:0,base4:0,cxl4:0,eve4:0,wknd4:0,approved:false,bonusElig:false});
+        A.edited=A.code!==ac; if(L.autoEx) A.autoEx=L.autoEx;
+        lines.push(A); classify(A,maps[A.code],E,S,edits[A.key]||{},false);
+      });
+    });
+    function classify(L,m,E,S,ed,primary){
+      const pv=provs[L.pid]||{};
+      if(!L.code){ if(L.np){ L.kind='np_uncoded'; addIssue(L,'np_uncoded'); return; } addIssue(L,'unknown_code'); L.kind='unknown'; }
+      else if(!m){ addIssue(L,'unknown_code'); L.kind='unknown'; }
+      if(m){
+        L.kind=m.kind; L.pc=payCat(m); L.hrs=m.hrs||0; L.mapCat=m.cat;
+        if(m.kind==='service' && m.mult==null) addIssue(L,'needs_rule');
+        L.units = m.kind==='cxl_nofee'?0:(m.mult||0);
+      }
+      if(primary && L.kind!=='np_uncoded') E.appts++;
+      E.mappedHrs+=L.hrs;                          // ALL mapped clinical hours (before payroll approval)
+      // documentation
+      if(L.kind!=='np_uncoded'){
+        if(L.np && L.code) addIssue(L,'np_coded');
+        else if(L.ds!=='Signed') addIssue(L,S.unsignedAction==='hold'?'unsigned':'unsigned_warn');
+        else if(L.sd && L.date && dayDiff(L.date,L.sd)>S.docCutoffDays) addIssue(L,S.lateAction==='hold'?'late_hold':'late_signed');
+      }
+      // timing (local wall-clock)
+      const d=L.date?dow(L.date):-1;
+      L.weekdayEve = d>=1&&d<=5 && L.st!=null && L.st>=S.eveStart;
+      L.sat = d===6; L.sun = d===0;
+      const timed = L.weekdayEve || L.sat || (L.sun && S.includeSunday);
+      const label=/EXT|S\/S/i.test(L.code||'');
+      if(m && m.kind==='service' && !L.addon){
+        const afterAny = L.weekdayEve||L.sat||L.sun;
+        if(label && !afterAny) addIssue(L,'timing_conflict');
+        if(afterAny && !label && (ed.diff!=null?!!ed.diff:m.diff)) addIssue(L,'timing_unlabeled');
+      }
+      if(pv.rateCents==null && m && m.kind!=='cxl_nofee' && (m.mult||0)>0) addIssue(L,'missing_rate');
+      // decision / approval
+      const dec=L.decision&&L.decision.v;
+      if(dec==='exclude'){ addIssue(L,'excluded'); }
+      if(dec==='defer'){ addIssue(L,'deferred'); }
+      const blocking=L.issues.some(function(c){ return ISSUE[c].sev==='block' && c!=='missing_rate'; });
+      const resolved = !!m && !(m.kind==='service'&&m.mult==null);
+      L.approved = resolved && dec!=='exclude' && dec!=='defer' && (dec==='include' || (!blocking && !L.autoEx));
+      if(!m) return;
+      if(L.approved){
+        E.approvedHrs+=L.hrs;
+        const rate=pv.rateCents;
+        if(m.kind==='cxl_fee'){ E.cxlFee.n++; if(rate!=null) L.cxl4=rate*100; E.cxlFee.c4+=L.cxl4; }
+        else if(m.kind==='cxl_nofee'){ E.cxlNoFee.n++; }
+        else {
+          E.services++;
+          if(rate!=null) L.base4=rate*(m.mult||0)+(m.flat||0)*100;
+          const c=E.cats[L.pc]||(E.cats[L.pc]={n:0,units:0,c4:0,hrs:0,codes:{}});
+          c.n++; c.units+=L.units; c.c4+=L.base4; c.hrs+=L.hrs;
+          const cc=c.codes[L.code]||(c.codes[L.code]={n:0,units:0,c4:0,hrs:0});
+          cc.n++; cc.units+=L.units; cc.c4+=L.base4; cc.hrs+=L.hrs;
+          // after-hours / weekend differential: appointment-level, eligible code + provider, not add-ons
+          const codeOk = ed.diff!=null ? !!ed.diff : !!m.diff;
+          if(!L.addon && codeOk && E.diffOk && timed){
+            if(L.weekdayEve){ L.eve4=S.diffCents*100; E.eve.n++; E.eve.c4+=L.eve4; }
+            else { L.wknd4=S.diffCents*100; E.wknd.n++; E.wknd.c4+=L.wknd4; }
+          }
+          L.bonusElig = m.bonus!==false && L.hrs>0 && (S.stack || !(L.eve4||L.wknd4));
+          if(L.bonusElig) E.bonusHrs+=L.hrs;
+        }
+      } else if(m.kind==='cxl_nofee'){ E.cxlNoFee.n++; }
+    }
+    // adjustments / other pay
+    (ctx.adjustments||[]).forEach(function(a){ const E=emp(a.pid,a.prov||a.pid); if(a.kind==='other') E.other+=a.cents; else E.adj+=a.cents; });
+    // employee totals
+    const T={emps:0, appts:0, services:0, mappedHrs:0, approvedHrs:0, bonusHrs:0, cats:{}, cxlFee:{n:0,c:0}, cxlNoFee:{n:0}, eve:{n:0,c:0}, wknd:{n:0,c:0}, bonus:{hrs:0,c:0}, other:0, adj:0, base:0, total:0, block:0, warn:0};
+    Object.keys(emps).forEach(function(pid){ const E=emps[pid];
+      if(!E.cat) E.issues.no_category=1;
+      if(!E.sid) E.issues.no_link=1;
+      const elig = S.bonusCats.indexOf(E.cat)>=0;
+      let over=Math.max(0,E.bonusHrs-S.threshold); if(!S.prorate) over=over-over%100;
+      E.bonusEligible=elig; E.overHrs=over;
+      if(elig){ E.bonus.hrs=over; E.bonus.c4=over*S.bonusCents; }
+      E.base=0; Object.keys(E.cats).forEach(function(k){ E.cats[k].c=round4(E.cats[k].c4); E.base+=E.cats[k].c; });
+      E.cxlFee.c=round4(E.cxlFee.c4); E.eve.c=round4(E.eve.c4); E.wknd.c=round4(E.wknd.c4); E.bonus.c=round4(E.bonus.c4);
+      E.total=E.base+E.cxlFee.c+E.eve.c+E.wknd.c+E.bonus.c+E.other+E.adj;
+      T.emps++; T.appts+=E.appts; T.services+=E.services; T.mappedHrs+=E.mappedHrs; T.approvedHrs+=E.approvedHrs; T.bonusHrs+=E.bonusHrs;
+      Object.keys(E.cats).forEach(function(k){ const t=T.cats[k]||(T.cats[k]={n:0,units:0,c:0,hrs:0}); t.n+=E.cats[k].n; t.units+=E.cats[k].units; t.c+=E.cats[k].c; t.hrs+=E.cats[k].hrs; });
+      T.cxlFee.n+=E.cxlFee.n; T.cxlFee.c+=E.cxlFee.c; T.cxlNoFee.n+=E.cxlNoFee.n; T.eve.n+=E.eve.n; T.eve.c+=E.eve.c; T.wknd.n+=E.wknd.n; T.wknd.c+=E.wknd.c;
+      T.bonus.hrs+=E.bonus.hrs; T.bonus.c+=E.bonus.c; T.other+=E.other; T.adj+=E.adj; T.base+=E.base; T.total+=E.total;
+    });
+    lines.forEach(function(L){ const E=emps[L.pid]; L.issues.forEach(function(c){ E.issues[c]=(E.issues[c]||0)+1;
+      if(c==='missing_rate') return;               // counted once per employee below
+      if(ISSUE[c].sev==='block' && !(L.decision&&L.decision.v)) { E.block++; T.block++; } else if(ISSUE[c].sev==='warn'){ E.warn++; T.warn++; } }); });
+    Object.keys(emps).forEach(function(pid){ const E=emps[pid]; if(E.rateCents==null && lines.some(function(L){ return L.pid===pid && L.issues.indexOf('missing_rate')>=0 && !(L.decision&&(L.decision.v==='exclude'||L.decision.v==='defer')); })){ E.block++; T.block++; E.noRate=true; } });
+    // ledger reconciliation: line sums → employee categories → practice
+    let ok=true; Object.keys(emps).forEach(function(pid){ const E=emps[pid]; let s4=0;
+      lines.forEach(function(L){ if(L.pid===pid && L.approved) s4+=L.base4; });
+      let c4=0; Object.keys(E.cats).forEach(function(k){ c4+=E.cats[k].c4; }); if(s4!==c4) ok=false; });
+    let te=0; Object.keys(emps).forEach(function(p){ te+=emps[p].total; }); if(te!==T.total) ok=false;
+    T.reconciled=ok;
+    return {emps:emps, totals:T, lines:lines, outRows:outRows, settings:S};
+  }
+  // Blocking items that stop Close & Save.
+  function blockers(res){
+    const out=[];
+    res.lines.forEach(function(L){ L.issues.forEach(function(c){ if(ISSUE[c].sev==='block' && c!=='missing_rate' && !(L.decision&&L.decision.v)) out.push({type:c, line:L}); }); });
+    Object.keys(res.emps).forEach(function(pid){ const E=res.emps[pid];
+      const payable=res.lines.some(function(L){ return L.pid===pid && L.issues.indexOf('missing_rate')>=0 && !(L.decision&&(L.decision.v==='exclude'||L.decision.v==='defer')); });
+      if(payable && E.rateCents==null) out.push({type:'missing_rate', emp:E}); });
+    return out;
+  }
+  return {parseCSV:parseCSV, toRecords:toRecords, REQUIRED:REQUIRED, KEEP:KEEP, ADDONS:ADDONS, isoDate:isoDate, minutes:minutes, dow:dow, hhmm:hhmm,
+    h100:h100, pct100:pct100, cents:cents, round4:round4, fmtH:fmtH, fmt$:fmt$, DEFAULT_MAPS:DEFAULT_MAPS, effectiveMaps:effectiveMaps,
+    payCat:payCat, payCatLabel:payCatLabel, DEFAULT_SETTINGS:DEFAULT_SETTINGS, settingsOf:settingsOf, fpString:fpString, ISSUE:ISSUE,
+    compute:compute, blockers:blockers, dayDiff:dayDiff};
+})();
+
+// ══ PAYROLL REVIEW — page (Super Admin only) ═════════════════════════════════
+// Data (Firestore, Super Admin only — see firestore.rules):
+//   payrollConfig/main     {maps (overrides), provs {ProviderID:{sid,payrollId,rateCents,cat,diff}}, settings, audit[]}
+//   payrollPeriods/{id}    {label,start,end,status,version,importIds[],edits{},adjustments[],reviewed{},audit[],snapshots[]}
+//   payrollImports/{id}    {fileName,hash,rows,chunks,minDate,maxDate,providers,by,at,periodId}
+//   payrollRows/{id}_{k}   {imp,k,rows[]}  — exported columns kept verbatim, NO patient names / notes
+//   payrollSnapshots/{id}  closed, immutable snapshot (+ "~L{k}" ledger parts)
+//   payrollPaid/{id}       {periodId,label,version,fps[]} — fingerprints paid in a closed version
+var PRV={loaded:false,cfg:null,periods:[],imports:{},curId:null,period:null,rows:[],res:null,snap:null,tab:'pay',q:'',
+  sort:{k:'name',d:1},open:{},paidFp:{},busy:false,excFilter:''};
+function prWho(){ const me=STAFF.find(function(s){ return s._id===window.AUTH_STAFF_ID; });
+  const em=(document.getElementById('signed-in-email')||{}).textContent||''; return me?me['Clinician']:(em||'Super Admin'); }
+function prNow(){ return new Date().toISOString(); }
+function prId(p){ return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function prEsc(v){ return hesc(v==null?'':String(v)); }
+function prUsd(c){ return c==null?'—':PR.fmt$(c); }
+function prDate(iso){ if(!iso) return ''; const p=iso.split('-'); return (+p[1])+'/'+(+p[2])+'/'+p[0]; }
+function prMaps(){ return PR.effectiveMaps((PRV.cfg||{}).maps); }
+function prSettings(){ return PR.settingsOf((PRV.cfg||{}).settings); }
+function prClosed(){ return PRV.period && PRV.period.status==='closed'; }
+async function prSha(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join(''); }
+function prAudit(target,entry){ target.audit=target.audit||[]; target.audit.push(Object.assign({by:prWho(),at:prNow()},entry)); if(target.audit.length>2000) target.audit=target.audit.slice(-2000); }
+
+async function prLoadAll(){
+  if(!window.payStore){ PRV.err='Payroll storage is not available.'; return; }
+  const cfg=await payStore.getConfig(); PRV.cfg=cfg||{maps:{},provs:{},settings:{},audit:[]};
+  const ps=await payStore.periods(); PRV.periods=(ps||[]).sort(function(a,b){ return (b.start||'').localeCompare(a.start||''); });
+  const im=await payStore.imports(); PRV.imports={}; (im||[]).forEach(function(x){ PRV.imports[x.__id]=x; });
+  const paid=await payStore.paid(); PRV.paidDocs=paid||[];
+  PRV.loaded=true;
+  if(!PRV.curId && PRV.periods.length) PRV.curId=PRV.periods[0].__id;
+  if(PRV.curId) await prOpenPeriod(PRV.curId,true);
+}
+async function prOpenPeriod(id,quiet){
+  const p=PRV.periods.find(function(x){ return x.__id===id; }); if(!p) return;
+  PRV.curId=id; PRV.period=p; PRV.open={}; PRV.snap=null; PRV.rows=[];
+  if(p.status==='closed'){
+    const last=(p.snapshots||[])[ (p.snapshots||[]).length-1 ];
+    PRV.snap = last ? await payStore.getSnapshot(last.id) : null;
+    PRV.res = PRV.snap ? PRV.snap.result : null;
+  } else {
+    const all=[]; for(const iid of (p.importIds||[])){ const meta=PRV.imports[iid]; if(!meta) continue; const rs=await payStore.rows(iid,meta.chunks||1); (rs||[]).forEach(function(r){ all.push(r); }); }
+    PRV.rows=all; prRecompute();
+  }
+  if(!quiet) renderPayReview();
+}
+function prPaidFp(){ const out={}; const pid=PRV.curId;
+  // the latest closed version of every OTHER period
+  const latest={}; (PRV.paidDocs||[]).forEach(function(d){ if(d.periodId===pid) return; if(!latest[d.periodId]||latest[d.periodId].version<d.version) latest[d.periodId]=d; });
+  Object.keys(latest).forEach(function(k){ (latest[k].fps||[]).forEach(function(f){ out[f]=latest[k].label+' v'+latest[k].version; }); });
+  return out; }
+function prRecompute(){
+  const p=PRV.period; if(!p || p.status==='closed') return;
+  PRV.res=PR.compute({rows:PRV.rows, importOrder:p.importIds||[], period:{start:p.start,end:p.end}, maps:prMaps(), provs:prProvs(),
+    settings:prSettings(), edits:p.edits||{}, adjustments:p.adjustments||[], paidFp:prPaidFp()});
+}
+// provider links: saved values, else a suggestion from the roster (name before the credential comma)
+function prSuggestSid(prov){ const nm=String(prov||'').split(',')[0].trim().toLowerCase(); if(!nm) return null;
+  const s=STAFF.find(function(x){ return String(x['Clinician']||'').trim().toLowerCase()===nm; }); return s?s._id:null; }
+function prTierCat(sid){ const s=STAFF.find(function(x){ return x._id===sid; }); return s&&s['Capacity Tier']||''; }
+function prProvs(){ const saved=(PRV.cfg||{}).provs||{}, out={};
+  (PRV.rows||[]).forEach(function(r){ if(out[r.ProviderID]) return; const sv=saved[r.ProviderID]||{};
+    const sid=sv.sid||prSuggestSid(r.Provider);
+    out[r.ProviderID]=Object.assign({diff:true},sv,{sid:sid, cat:sv.cat||prTierCat(sid), suggested:!sv.sid&&!!sid}); });
+  Object.keys(saved).forEach(function(k){ if(!out[k]) out[k]=saved[k]; });
+  return out; }
+async function prSaveCfg(){ const ok=await payStore.setConfig(PRV.cfg); if(!ok) showToast('⚠ Could not save payroll settings'); return ok; }
+async function prSavePeriod(){ const p=PRV.period; const d=Object.assign({},p); delete d.__id; const ok=await payStore.setPeriod(p.__id,d); if(!ok) showToast('⚠ Could not save the pay period'); return ok; }
+
+// ── page ────────────────────────────────────────────────────────────────
+async function renderPayReview(){
+  const body=document.getElementById('payreview-body'); if(!body) return;
+  if(!isSuperAdminView()){ body.innerHTML='<div class="pr-empty">Payroll Review is for Super Admins.</div>'; return; }
+  if(!PRV.loaded){ body.innerHTML=prCss()+'<div class="pr-empty">Loading payroll…</div>'; await prLoadAll(); }
+  const p=PRV.period, S=prSettings();
+  let h=prCss()+'<div class="pr-wrap">';
+  h+='<div class="pr-top"><div class="pr-sub">Valant appointment report → clinical-hour attainment and compensation, calculated separately.</div>'
+    +'<div class="pr-topact"><span class="pr-muted">Pay period</span> '+prPeriodPicker()+'</div></div>';
+  if(!S.confirmed) h+='<div class="pr-banner warn"><b>Provisional rules.</b> After-hours, weekend, over-attainment and documentation rules are placeholders until you confirm them in <a href="#" onclick="PRV.tab=\'settings\';renderPayReview();return false">Settings</a>. Pay periods can’t be closed until then.</div>';
+  if(!p){ h+='<div class="pr-card pr-empty"><b>Start by creating a pay period.</b><br>Pick its start and end dates explicitly — the period is never guessed from the upload.<div style="margin-top:12px">'+prNewPeriodForm()+'</div></div></div>'; body.innerHTML=h; return; }
+  const R=PRV.res, T=R?R.totals:null;
+  h+='<div class="pr-pbar"><div><span class="pr-ptitle">'+prEsc(p.label)+'</span> <span class="pr-range">'+prDate(p.start)+' – '+prDate(p.end)+'</span> '
+    +(p.status==='closed'?'<span class="pr-chip closed">Closed · v'+(p.version||1)+'</span>':'<span class="pr-chip open">Open'+((p.version||1)>1?' · draft v'+p.version:'')+'</span>')+'</div><div class="pr-pact">'
+    +(p.status==='closed'
+      ? '<button class="btn btn-secondary" onclick="prExport(\'pay\')">⬇ Payroll export</button><button class="btn btn-secondary" onclick="prExport(\'detail\')">⬇ Service detail</button><button class="btn btn-secondary" onclick="prReopen()">Reopen…</button>'
+      : '<label class="btn btn-secondary pr-file">⬆ Import Valant CSV<input type="file" accept=".csv,text/csv" onchange="prImportFile(this)"></label>'
+        +(T?'<button class="btn btn-secondary" onclick="prExport(\'pay\')">⬇ Payroll export</button><button class="btn btn-secondary" onclick="prExport(\'detail\')">⬇ Service detail</button>':'')
+        +'<button class="btn" onclick="prClose()">Close and Save Pay Period</button>')
+    +'</div></div>';
+  if(p.status==='closed' && PRV.snap) h+='<div class="pr-banner ok">Closed by '+prEsc(PRV.snap.closedBy)+' on '+new Date(PRV.snap.closedAt).toLocaleString()+'. This is the saved snapshot; later rate or mapping changes do not affect it.</div>';
+  if(!T){ h+='<div class="pr-card pr-empty">No appointment report imported for this period yet. Use <b>Import Valant CSV</b> above (the <i>AppointmentDocumentationByProviderThenDay</i> export, unedited).</div>'; }
+  else {
+    h+='<div class="pr-tiles">'
+      +prTile('Employees',T.emps,'')
+      +prTile('Mapped clinical hours',PR.fmtH(T.mappedHrs),'all mapped services in period')
+      +prTile('Approved payroll hours',PR.fmtH(T.approvedHrs),PR.fmtH(T.bonusHrs)+' bonus-eligible')
+      +prTile('Total payroll',PR.fmt$(T.total),'base '+PR.fmt$(T.base))
+      +prTile('Needs a decision',T.block,T.block?'blocks closing':'nothing blocking',T.block?'bad':'good')
+      +prTile('Warnings',T.warn,'review recommended',T.warn?'warn':'good')
+      +'</div>';
+    const tabs=[['pay','Payroll'],['exc','Exceptions'+(T.block?' ('+T.block+')':'')],['out','Out of period ('+R.outRows.length+')'],['prov','Providers & rates'],['codes','Service codes'],['settings','Settings'],['hist','History']];
+    h+='<div class="pr-tabs" role="tablist">'+tabs.map(function(t){ return '<button role="tab" aria-selected="'+(PRV.tab===t[0])+'" class="pr-tab'+(PRV.tab===t[0]?' on':'')+'" onclick="PRV.tab=\''+t[0]+'\';renderPayReview()">'+t[1]+'</button>'; }).join('')+'</div>';
+    h+='<div id="pr-main">'+prTabHtml()+'</div>';
+  }
+  if(PRV.tab==='settings'&&!T) h+=prSettingsHtml();
+  h+='</div>';
+  body.innerHTML=h;
+  if(PRV.sheetPid && document.getElementById('pr-sheet-modal')) prRenderAdminSheet();
+}
+function prTile(l,v,s,tone){ return '<div class="pr-tile'+(tone?' '+tone:'')+'"><div class="pr-tl">'+l+'</div><div class="pr-tv">'+v+'</div><div class="pr-ts">'+s+'</div></div>'; }
+function prPeriodPicker(){
+  return '<select class="pr-sel" aria-label="Pay period" onchange="if(this.value===\'__new\'){PRV.newOpen=true;renderPayReview();}else prOpenPeriod(this.value)">'
+    +PRV.periods.map(function(p){ return '<option value="'+p.__id+'"'+(p.__id===PRV.curId?' selected':'')+'>'+prEsc(p.label)+' ('+prDate(p.start)+'–'+prDate(p.end)+')'+(p.status==='closed'?' · closed':'')+'</option>'; }).join('')
+    +'<option value="__new"'+(PRV.periods.length?'':' selected')+'>+ New pay period…</option></select>'
+    +(PRV.newOpen&&PRV.periods.length?'<div class="pr-pop">'+prNewPeriodForm()+'</div>':'');
+}
+function prNewPeriodForm(){
+  return '<div class="pr-newp"><label>Start<input type="date" id="pr-np-s"></label><label>End<input type="date" id="pr-np-e"></label>'
+    +'<label>Name<input type="text" id="pr-np-l" placeholder="e.g. PP 19"></label><button class="btn" onclick="prCreatePeriod()">Create period</button>'
+    +(PRV.periods.length?'<button class="btn btn-secondary" onclick="PRV.newOpen=false;renderPayReview()">Cancel</button>':'')+'</div>';
+}
+async function prCreatePeriod(){
+  const s=(document.getElementById('pr-np-s')||{}).value, e=(document.getElementById('pr-np-e')||{}).value; let l=((document.getElementById('pr-np-l')||{}).value||'').trim();
+  if(!s||!e){ showToast('⚠ Choose both a start and an end date'); return; }
+  if(e<s){ showToast('⚠ The end date is before the start date'); return; }
+  const clash=PRV.periods.find(function(p){ return !(e<p.start||s>p.end); });
+  if(clash && !confirm('These dates overlap '+clash.label+' ('+prDate(clash.start)+'–'+prDate(clash.end)+'). Create anyway?')) return;
+  if(!l) l='Pay period '+prDate(s)+'–'+prDate(e);
+  const id=prId('pp_'); const d={label:l,start:s,end:e,status:'open',version:1,importIds:[],edits:{},adjustments:[],reviewed:{},audit:[],snapshots:[],createdBy:prWho(),createdAt:prNow()};
+  prAudit(d,{act:'period.create',detail:l+' '+s+'→'+e});
+  if(!(await payStore.setPeriod(id,d))){ showToast('⚠ Could not create the period'); return; }
+  d.__id=id; PRV.periods.unshift(d); PRV.periods.sort(function(a,b){ return (b.start||'').localeCompare(a.start||''); }); PRV.newOpen=false;
+  await prOpenPeriod(id);
+}
+
+// ── import ──
+async function prImportFile(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f||!PRV.period) return;
+  if(prClosed()){ showToast('⚠ Reopen the period before importing'); return; }
+  const text=await f.text();
+  const parsed=PR.toRecords(text);
+  const miss=PR.REQUIRED.filter(function(h){ return parsed.headers.indexOf(h)<0; });
+  if(miss.length){ alert('This doesn’t look like the Valant AppointmentDocumentationByProviderThenDay export.\nMissing columns: '+miss.join(', ')); return; }
+  const hash=await prSha(text.replace(/^﻿/,''));
+  const dupe=Object.keys(PRV.imports).map(function(k){ return PRV.imports[k]; }).find(function(x){ return x.hash===hash; });
+  if(dupe){ const pp=PRV.periods.find(function(p){ return p.__id===dupe.periodId; });
+    alert('This exact file was already imported on '+new Date(dupe.at).toLocaleString()+(pp?' into '+pp.label:'')+' ('+dupe.fileName+'). It was not imported again.'); return; }
+  const imp=prId('imp_');
+  const rows=[]; let minD=null,maxD=null; const provs={};
+  for(let i=0;i<parsed.records.length;i++){ const r=parsed.records[i]; const o={};
+    PR.KEEP.forEach(function(k){ if(r[k]!=null&&r[k]!=='') o[k]=r[k]; });
+    o.n=i+2; o.imp=imp; o.key=imp+':'+o.n;                       // n = line number in the uploaded file
+    o.np=/^NON-PATIENT/i.test(String(r.Patient||'').trim());
+    o.ph=(await prSha('app-payroll|'+String(r.Patient||'').trim())).slice(0,16); // de-identified, for duplicate checks only
+    // Client CODE only — the letters in parentheses, e.g. "… (FRADON)". The name itself is never stored.
+    if(!o.np){ const cm=String(r.Patient||'').match(/\(([A-Za-z0-9]{3,12})\)\s*$/); if(cm) o.cc=cm[1].toUpperCase(); }
+    if(o.np && r.AppointmentName) o.apn=String(r.AppointmentName).slice(0,40);
+    o.fp=PR.fpString(o);
+    const d=PR.isoDate(o.Date); if(d){ if(!minD||d<minD) minD=d; if(!maxD||d>maxD) maxD=d; }
+    provs[o.ProviderID]=1; rows.push(o); }
+  const p=PRV.period, inP=rows.filter(function(r){ const d=PR.isoDate(r.Date); return d&&d>=p.start&&d<=p.end; }).length;
+  const msg='Import '+f.name+' into '+p.label+'?\n\n'+rows.length.toLocaleString()+' rows · '+Object.keys(provs).length+' providers\nAppointments dated '+prDate(minD)+' – '+prDate(maxD)
+    +'\n'+inP.toLocaleString()+' fall inside '+prDate(p.start)+'–'+prDate(p.end)+(rows.length-inP?'; '+(rows.length-inP)+' are outside and will be listed separately.':'.')
+    +'\n\nOnly the client code in parentheses is kept — client names, notes and document names are not stored.';
+  if(!confirm(msg)) return;
+  const CH=450, chunks=[]; for(let i=0;i<rows.length;i+=CH) chunks.push(rows.slice(i,i+CH));
+  const meta={fileName:f.name,hash:hash,rows:rows.length,chunks:chunks.length,minDate:minD,maxDate:maxD,providers:Object.keys(provs).length,by:prWho(),at:prNow(),periodId:p.__id};
+  showToast('Importing '+rows.length+' rows…');
+  if(!(await payStore.addImport(imp,meta,chunks))){ showToast('⚠ Import failed — nothing was saved'); return; }
+  PRV.imports[imp]=Object.assign({__id:imp},meta);
+  p.importIds=(p.importIds||[]).concat(imp); prAudit(p,{act:'import',detail:f.name+' · '+rows.length+' rows',imp:imp});
+  await prSavePeriod();
+  rows.forEach(function(r){ PRV.rows.push(r); }); prRecompute(); PRV.tab='pay'; renderPayReview();
+  showToast('✓ Imported '+rows.length+' rows');
+}
+
+// ── tab content ──
+function prTabHtml(){
+  const t=PRV.tab;
+  if(t==='exc') return prExceptionsHtml();
+  if(t==='out') return prOutHtml();
+  if(t==='prov') return prProvHtml();
+  if(t==='codes') return prCodesHtml();
+  if(t==='settings') return prSettingsHtml();
+  if(t==='hist') return prHistHtml();
+  return prPayHtml();
+}
+function prEmpName(E){ const s=E.sid&&STAFF.find(function(x){ return x._id===E.sid; }); return s?s['Clinician']:String(E.prov||E.pid).split(',')[0]; }
+const PR_COLS=[
+  ['name','Employee'],['hrs','Clinical hrs'],['base','Base sessions'],['basepay','Base pay'],['cxl','Fee-charged cxl'],['eve','Weekday evening'],
+  ['wknd','Weekend'],['bonus','Over-attainment'],['adj','Other / adj.'],['total','Total payroll'],['exc','Exceptions'],['rev','Review']];
+function prSortVal(E,k){ switch(k){ case 'name': return prEmpName(E).toLowerCase(); case 'hrs': return E.approvedHrs; case 'base': return E.services; case 'basepay': return E.base;
+  case 'cxl': return E.cxlFee.c; case 'eve': return E.eve.c; case 'wknd': return E.wknd.c; case 'bonus': return E.bonus.c; case 'adj': return E.other+E.adj; case 'total': return E.total;
+  case 'exc': return E.block*1000+E.warn; case 'rev': return PRV.period.reviewed&&PRV.period.reviewed[E.pid]?1:0; } return 0; }
+function prPayHtml(){
+  const R=PRV.res, T=R.totals, maps=prClosed()&&PRV.snap?PRV.snap.maps:prMaps();
+  const q=PRV.q.trim().toLowerCase();
+  let list=Object.keys(R.emps).map(function(k){ return R.emps[k]; });
+  if(q) list=list.filter(function(E){ return (prEmpName(E)+' '+E.pid+' '+(E.payrollId||'')).toLowerCase().indexOf(q)>=0; });
+  const k=PRV.sort.k, d=PRV.sort.d;
+  list.sort(function(a,b){ const x=prSortVal(a,k), y=prSortVal(b,k); return (x<y?-1:x>y?1:0)*d; });
+  let h='<div class="pr-tools"><input class="pr-q" type="search" placeholder="Search name, Valant ID or payroll ID" value="'+prEsc(PRV.q)+'" oninput="PRV.q=this.value;prRefreshMain()" aria-label="Search employees">'
+    +'<span class="pr-recon '+(T.reconciled?'ok':'bad')+'">'+(T.reconciled?'✓ Ledger reconciles (appointments → employees → practice)':'⚠ Ledger does not reconcile')+'</span>'
+    +'<span class="pr-hint">Rounding: each line exact to 1/100¢; each employee × category rounded half-up to the cent once.</span></div>';
+  h+='<div class="pr-tblwrap"><table class="pr-tbl"><thead><tr>'+PR_COLS.map(function(c){ return '<th><button class="pr-sort" onclick="prSort(\''+c[0]+'\')">'+c[1]+(PRV.sort.k===c[0]?(PRV.sort.d>0?' ▲':' ▼'):'')+'</button></th>'; }).join('')+'</tr></thead><tbody>';
+  h+=prTotalRow(T,'Practice total ('+T.emps+')');
+  list.forEach(function(E){
+    const op=PRV.open[E.pid], rev=PRV.period.reviewed&&PRV.period.reviewed[E.pid];
+    const catStr=Object.keys(E.cats).sort().map(function(c){ return E.cats[c].n+' '+prShortCat(c); }).join(' · ')||'—';
+    h+='<tr class="pr-emp'+(op?' open':'')+'"><td><button class="pr-exp" aria-expanded="'+!!op+'" onclick="prToggle(\''+prEsc(E.pid)+'\')">'+(op?'▾':'▸')+'</button><div class="pr-nm"><b>'+prEsc(prEmpName(E))+'</b> <button class="pr-linkbtn" onclick="prOpenAdminSheet(\''+prEsc(E.pid)+'\')">Pay sheet</button><span>'+prEsc(E.pid)+(E.payrollId?' · #'+prEsc(E.payrollId):' · <i>no payroll ID</i>')+(E.rateCents!=null?' · '+PR.fmt$(E.rateCents)+'/hr':' · <i class="bad">no rate</i>')+(E.cat?' · '+prEsc(capTierLabel(E.cat)):'')+'</span></div></td>'
+      +'<td class="num"><b>'+PR.fmtH(E.approvedHrs)+'</b><span>of '+PR.fmtH(E.mappedHrs)+' mapped'+(E.bonusHrs!==E.approvedHrs?' · '+PR.fmtH(E.bonusHrs)+' bonus-elig.':'')+'</span></td>'
+      +'<td><b>'+E.services+'</b><span>'+catStr+'</span></td>'
+      +'<td class="num">'+PR.fmt$(E.base)+'</td>'
+      +'<td class="num">'+(E.cxlFee.n?PR.fmt$(E.cxlFee.c)+'<span>'+E.cxlFee.n+' × rate</span>':'—')+(E.cxlNoFee.n?'<span>'+E.cxlNoFee.n+' no-fee</span>':'')+'</td>'
+      +'<td class="num">'+(E.eve.n?PR.fmt$(E.eve.c)+'<span>'+E.eve.n+' sessions</span>':'—')+'</td>'
+      +'<td class="num">'+(E.wknd.n?PR.fmt$(E.wknd.c)+'<span>'+E.wknd.n+' sessions</span>':'—')+'</td>'
+      +'<td class="num">'+(E.bonus.c?PR.fmt$(E.bonus.c)+'<span>'+PR.fmtH(E.bonus.hrs)+' h over</span>':(E.overHrs&&!E.bonusEligible?'<span>'+PR.fmtH(E.overHrs)+' h over · not eligible</span>':'—'))+'</td>'
+      +'<td class="num">'+((E.other||E.adj)?PR.fmt$(E.other+E.adj):'—')+'</td>'
+      +'<td class="num tot">'+PR.fmt$(E.total)+'</td>'
+      +'<td>'+(E.block?'<span class="pr-pill bad">'+E.block+' to decide</span>':'')+(E.warn?'<span class="pr-pill warn">'+E.warn+' warn</span>':'')+(!E.block&&!E.warn?'<span class="pr-pill good">Clear</span>':'')+'</td>'
+      +'<td>'+(prClosed()?(rev?'✓':''):'<label class="pr-rev"><input type="checkbox"'+(rev?' checked':'')+' onchange="prReviewed(\''+prEsc(E.pid)+'\',this.checked)"> '+(rev?'Reviewed':'Mark reviewed')+'</label>')+'</td></tr>';
+    if(op) h+='<tr class="pr-detail"><td colspan="12">'+prEmpDetail(E,maps)+'</td></tr>';
+  });
+  h+=prTotalRow(T,'Practice total')+'</tbody></table></div>';
+  if(!list.length) h+='<div class="pr-empty">No employees match.</div>';
+  return h;
+}
+function prShortCat(c){ return {full:'full',half:'30-min',coll:'collateral',group:'group',cans:'CANS',unpaid:'unpaid'}[c]||c.replace('other:',''); }
+function prTotalRow(T,label){
+  const cats=Object.keys(T.cats).sort().map(function(c){ return T.cats[c].n+' '+prShortCat(c); }).join(' · ');
+  return '<tr class="pr-totrow"><td><b>'+label+'</b></td><td class="num"><b>'+PR.fmtH(T.approvedHrs)+'</b><span>of '+PR.fmtH(T.mappedHrs)+' mapped</span></td><td><b>'+T.services+'</b><span>'+cats+'</span></td>'
+    +'<td class="num">'+PR.fmt$(T.base)+'</td><td class="num">'+PR.fmt$(T.cxlFee.c)+'<span>'+T.cxlFee.n+' · '+T.cxlNoFee.n+' no-fee</span></td><td class="num">'+PR.fmt$(T.eve.c)+'<span>'+T.eve.n+'</span></td><td class="num">'+PR.fmt$(T.wknd.c)+'<span>'+T.wknd.n+'</span></td>'
+    +'<td class="num">'+PR.fmt$(T.bonus.c)+'<span>'+PR.fmtH(T.bonus.hrs)+' h</span></td><td class="num">'+PR.fmt$(T.other+T.adj)+'</td><td class="num tot">'+PR.fmt$(T.total)+'</td><td>'+(T.block?'<span class="pr-pill bad">'+T.block+'</span>':'')+'</td><td></td></tr>';
+}
+function prRefreshMain(){ const m=document.getElementById('pr-main'); if(m) m.innerHTML=prTabHtml(); const q=m&&m.querySelector('.pr-q'); if(q){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); } }
+function prSort(k){ if(PRV.sort.k===k) PRV.sort.d*=-1; else PRV.sort={k:k,d:k==='name'?1:-1}; prRefreshMain(); }
+function prToggle(pid){ PRV.open[pid]=!PRV.open[pid]; prRefreshMain(); }
+function prToggleSub(key){ PRV.open[key]=!PRV.open[key]; prRefreshMain(); }
+async function prReviewed(pid,on){ const p=PRV.period; p.reviewed=p.reviewed||{}; if(on) p.reviewed[pid]={by:prWho(),at:prNow()}; else delete p.reviewed[pid];
+  prAudit(p,{act:on?'review.mark':'review.unmark',pid:pid}); await prSavePeriod(); prRefreshMain(); }
+
+// employee detail: earnings categories → service codes → appointments
+function prEmpDetail(E,maps){
+  const R=PRV.res, lines=R.lines.filter(function(L){ return L.pid===E.pid; });
+  const groups=[];
+  Object.keys(E.cats).sort().forEach(function(c){ groups.push({k:c,label:PR.payCatLabel(c,maps),n:E.cats[c].n,units:E.cats[c].units,c:E.cats[c].c,hrs:E.cats[c].hrs,codes:E.cats[c].codes,lines:lines.filter(function(L){ return L.approved&&L.pc===c&&L.kind==='service'; })}); });
+  if(E.cxlFee.n) groups.push({k:'cxlfee',label:'Fee-charged cancellations/no-shows · '+E.cxlFee.n+' × '+prUsd(E.rateCents),n:E.cxlFee.n,units:E.cxlFee.n*100,c:E.cxlFee.c,hrs:0,lines:lines.filter(function(L){ return L.approved&&L.kind==='cxl_fee'; })});
+  if(E.eve.n) groups.push({k:'eve',label:'Weekday evening differential (start ≥ '+PR.hhmm(R.settings.eveStart)+')',n:E.eve.n,c:E.eve.c,lines:lines.filter(function(L){ return L.eve4; })});
+  if(E.wknd.n) groups.push({k:'wknd',label:'Weekend differential (Saturday'+(R.settings.includeSunday?' + Sunday':'')+')',n:E.wknd.n,c:E.wknd.c,lines:lines.filter(function(L){ return L.wknd4; })});
+  const held=lines.filter(function(L){ return !L.approved && L.kind!=='np_uncoded' && L.kind!=='cxl_nofee'; });
+  const nofee=lines.filter(function(L){ return L.kind==='cxl_nofee'; }), npu=lines.filter(function(L){ return L.kind==='np_uncoded'; });
+  if(held.length) groups.push({k:'held',label:'Not approved for payroll (decide or correct)',n:held.length,lines:held,warn:true});
+  if(nofee.length) groups.push({k:'nofee',label:'No-fee cancellations/no-shows ($0, 0 hrs)',n:nofee.length,c:0,lines:nofee});
+  if(npu.length) groups.push({k:'npu',label:'Uncoded non-patient entries (kept for traceability, not paid)',n:npu.length,lines:npu});
+  let h='<div class="pr-det">';
+  if(E.overHrs||E.bonusEligible) h+='<div class="pr-detnote">Over-attainment: '+PR.fmtH(E.bonusHrs)+' bonus-eligible hrs − '+PR.fmtH(R.settings.threshold)+' = '+PR.fmtH(E.overHrs)+' h'+(E.bonusEligible?' × '+PR.fmt$(R.settings.bonusCents)+' = <b>'+PR.fmt$(E.bonus.c)+'</b>':' · <b>'+prEsc(capTierLabel(E.cat)||'category not set')+' — not eligible</b>')+'</div>';
+  h+=prAdjHtml(E);
+  groups.forEach(function(g){ const gk=E.pid+'|'+g.k, go=PRV.open[gk];
+    h+='<div class="pr-grp'+(g.warn?' warn':'')+'"><button class="pr-ghead" aria-expanded="'+!!go+'" onclick="prToggleSub(\''+prEsc(gk)+'\')"><span>'+(go?'▾':'▸')+' '+prEsc(g.label)+'</span><span>'+g.n+(g.units!=null?' · '+PR.fmtH(g.units)+' units':'')+(g.hrs?' · '+PR.fmtH(g.hrs)+' clin. hrs':'')+(g.c!=null?' · <b>'+PR.fmt$(g.c)+'</b>':'')+'</span></button>';
+    if(g.codes) h+='<div class="pr-codes">'+Object.keys(g.codes).sort().map(function(cd){ const x=g.codes[cd]; return '<span>'+prEsc(cd)+': '+x.n+' · '+PR.fmtH(x.hrs)+' h · '+PR.fmt$(PR.round4(x.c4))+'</span>'; }).join('')+'</div>';
+    if(go) h+=prLinesTable(g.lines,E);
+    h+='</div>'; });
+  return h+'</div>';
+}
+function prLinesTable(lines,E){
+  const closed=prClosed();
+  return '<table class="pr-ltbl"><thead><tr><th>Date</th><th>Start</th><th>Code</th><th>CPT</th><th>Clin. hrs</th><th>Units</th><th>Base</th><th>Diff.</th><th>Doc</th><th>Issues</th>'+(closed?'':'<th></th>')+'</tr></thead><tbody>'
+    +lines.slice().sort(function(a,b){ return (a.date+a.st).localeCompare(b.date+b.st)||0; }).map(function(L){
+      const iss=L.issues.map(function(c){ const I=PR.ISSUE[c]; return '<span class="pr-pill '+(I.sev==='block'?'bad':I.sev==='warn'?'warn':'info')+'" title="'+prEsc(I.label)+'">'+prEsc(I.label)+'</span>'; }).join('')
+        +(L.decision?'<span class="pr-pill dec">'+prEsc(L.decision.v)+': '+prEsc(L.decision.reason||'')+'</span>':'')+(L.autoEx&&!L.decision?'<span class="pr-pill info">'+prEsc(L.autoEx)+'</span>':'');
+      return '<tr><td>'+prDate(L.date)+' '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][L.date?PR.dow(L.date):0]+'</td><td>'+PR.hhmm(L.st)+'</td>'
+        +'<td>'+(L.edited?'<s>'+prEsc(L.orig||'(blank)')+'</s> → ':'')+'<b>'+prEsc(L.code||(L.np?'(non-patient: '+(L.apn||'entry')+')':'(blank)'))+'</b>'+(L.addon?' <i>add-on</i>':'')+'</td>'
+        +'<td>'+prEsc(L.cpt)+'</td><td class="num">'+PR.fmtH(L.hrs)+'</td><td class="num">'+PR.fmtH(L.units)+'</td><td class="num">'+(L.base4||L.cxl4?PR.fmt$(PR.round4(L.base4+L.cxl4)):'—')+'</td>'
+        +'<td class="num">'+(L.eve4||L.wknd4?PR.fmt$(PR.round4(L.eve4+L.wknd4)):'')+'</td><td>'+prEsc(L.ds||'—')+(L.sd?' '+prDate(L.sd):'')+'</td><td>'+iss+'</td>'
+        +(closed?'':'<td class="pr-act"><button onclick="prEditLine(\''+prEsc(L.key)+'\')">Correct…</button></td>')+'</tr>'; }).join('')+'</tbody></table>';
+}
+function prAdjHtml(E){
+  const adj=(PRV.period.adjustments||[]).filter(function(a){ return a.pid===E.pid; });
+  return '<div class="pr-adj"><b>Other pay &amp; adjustments</b>'+(adj.length?adj.map(function(a){ return '<span class="pr-adjrow">'+(a.kind==='other'?'Other pay':'Adjustment')+' · '+prEsc(a.label)+' · <b>'+PR.fmt$(a.cents)+'</b> <i>'+prEsc(a.reason)+' — '+prEsc(a.by)+'</i>'+(prClosed()?'':' <button onclick="prDelAdj(\''+a.id+'\')" aria-label="Remove">×</button>')+'</span>'; }).join(''):' <span class="pr-muted">none</span>')
+    +(prClosed()?'':' <button class="pr-linkbtn" onclick="prAddAdj(\''+prEsc(E.pid)+'\')">+ Add</button>')+'</div>';
+}
+async function prAddAdj(pid){
+  const kind=confirm('Is this OTHER PAY (e.g. a stipend or meeting pay)?\nOK = Other pay · Cancel = Adjustment (correction to an earlier payroll)')?'other':'adj';
+  const label=prompt('Label for payroll (e.g. "Meeting pay", "Correction PP 17")'); if(!label) return;
+  const amt=PR.cents(prompt('Amount in dollars (use a minus sign for a deduction)')); if(amt==null){ showToast('⚠ Not a valid amount'); return; }
+  const reason=prompt('Reason (required)'); if(!reason){ showToast('⚠ A reason is required'); return; }
+  const p=PRV.period; const a={id:prId('adj_'),pid:pid,kind:kind,label:label,cents:amt,reason:reason,by:prWho(),at:prNow()};
+  p.adjustments=(p.adjustments||[]).concat(a); prAudit(p,{act:'adjust.add',pid:pid,detail:label+' '+PR.fmt$(amt),reason:reason});
+  await prSavePeriod(); prRecompute(); renderPayReview(); }
+async function prDelAdj(id){ const p=PRV.period; const a=(p.adjustments||[]).find(function(x){ return x.id===id; }); if(!a) return;
+  const reason=prompt('Remove "'+a.label+'" ('+PR.fmt$(a.cents)+')? Reason:'); if(!reason) return;
+  p.adjustments=p.adjustments.filter(function(x){ return x.id!==id; }); prAudit(p,{act:'adjust.remove',pid:a.pid,detail:a.label+' '+PR.fmt$(a.cents),reason:reason});
+  await prSavePeriod(); prRecompute(); renderPayReview(); }
+
+// ── record correction dialog ──
+function prEditLine(key){
+  const L=PRV.res.lines.find(function(x){ return x.key===key; }); if(!L) return;
+  const maps=prMaps(), ed=(PRV.period.edits||{})[key]||{};
+  const codes=Object.keys(maps).sort();
+  const m=maps[L.code];
+  const dlg=document.createElement('div'); dlg.className='pr-modal'; dlg.id='pr-modal';
+  dlg.innerHTML='<div class="pr-mbox" role="dialog" aria-modal="true" aria-labelledby="pr-mt"><div class="pr-mh"><b id="pr-mt">Correct record</b><button onclick="prCloseModal()" aria-label="Close">×</button></div>'
+    +'<div class="pr-mfacts">'+prEsc(prEmpName(PRV.res.emps[L.pid]))+' · '+prDate(L.date)+' '+PR.hhmm(L.st)+' · file line '+L.n+' ('+prEsc((PRV.imports[L.imp]||{}).fileName||L.imp)+')<br>Original code: <b>'+prEsc(L.orig||'(blank)')+'</b>'+(L.cpt?' · CPT '+prEsc(L.cpt):'')+' · Doc: '+prEsc(L.ds||'—')+'</div>'
+    +'<label>Effective service code<select id="pr-e-code"><option value="">(keep original: '+prEsc(L.orig||'blank')+')</option>'+codes.map(function(c){ return '<option'+(ed.code===c?' selected':'')+'>'+prEsc(c)+'</option>'; }).join('')+'</select></label>'
+    +(L.orig&&!maps[L.orig]?'<label class="pr-chk"><input type="checkbox" id="pr-e-alias"><span>Also save as an approved mapping: future imports treat <b>'+prEsc(L.orig)+'</b> like the code chosen above</span></label>':'')
+    +'<label>Payroll decision<select id="pr-e-dec"><option value="">Automatic (rules decide)</option><option value="include"'+(ed.decision&&ed.decision.v==='include'?' selected':'')+'>Include — approve for payroll</option><option value="defer"'+(ed.decision&&ed.decision.v==='defer'?' selected':'')+'>Defer to a later period</option><option value="exclude"'+(ed.decision&&ed.decision.v==='exclude'?' selected':'')+'>Exclude from payroll</option></select></label>'
+    +'<label>Differential for this record<select id="pr-e-diff"><option value="">Automatic (code '+(m&&m.diff?'eligible':'not eligible')+')</option><option value="1"'+(ed.diff===true?' selected':'')+'>Eligible</option><option value="0"'+(ed.diff===false?' selected':'')+'>Not eligible</option></select></label>'
+    +'<label>Reason (required)<input type="text" id="pr-e-why" value=""></label>'
+    +(ed.history&&ed.history.length?'<div class="pr-mhist"><b>History</b>'+ed.history.map(function(x){ return '<div>'+new Date(x.at).toLocaleString()+' · '+prEsc(x.by)+': '+prEsc(x.field)+' '+prEsc(x.from||'—')+' → '+prEsc(x.to||'—')+' — '+prEsc(x.reason)+'</div>'; }).join('')+'</div>':'')
+    +'<div class="pr-mfoot"><button class="btn btn-secondary" onclick="prCloseModal()">Cancel</button><button class="btn" onclick="prSaveLine(\''+prEsc(key)+'\')">Save and recalculate</button></div></div>';
+  document.body.appendChild(dlg); setTimeout(function(){ const s=document.getElementById('pr-e-code'); if(s) s.focus(); },30);
+}
+function prCloseModal(){ const d=document.getElementById('pr-modal'); if(d) d.remove(); }
+async function prSaveLine(key){
+  const L=PRV.res.lines.find(function(x){ return x.key===key; }); const p=PRV.period; p.edits=p.edits||{};
+  const ed=Object.assign({history:[]},p.edits[key]||{});
+  const code=document.getElementById('pr-e-code').value, dec=document.getElementById('pr-e-dec').value, df=document.getElementById('pr-e-diff').value;
+  const why=document.getElementById('pr-e-why').value.trim(); const alias=document.getElementById('pr-e-alias');
+  if(!why){ showToast('⚠ A reason is required'); return; }
+  const ch=[], who=prWho(), at=prNow();
+  if((ed.code||'')!==code){ ch.push({field:'code',from:ed.code||L.orig,to:code||L.orig}); if(code) ed.code=code; else delete ed.code; }
+  const pd=ed.decision?ed.decision.v:''; if(pd!==dec){ ch.push({field:'decision',from:pd||'automatic',to:dec||'automatic'}); if(dec) ed.decision={v:dec,reason:why,by:who,at:at}; else delete ed.decision; }
+  else if(dec && ed.decision) ed.decision.reason=why;
+  const pdf=ed.diff===true?'1':ed.diff===false?'0':''; if(pdf!==df){ ch.push({field:'differential',from:pdf||'automatic',to:df||'automatic'}); if(df) ed.diff=df==='1'; else delete ed.diff; }
+  if(!ch.length && !(alias&&alias.checked)){ prCloseModal(); return; }
+  ch.forEach(function(c){ ed.history.push(Object.assign(c,{reason:why,by:who,at:at,line:L.n,imp:L.imp})); prAudit(p,Object.assign({act:'record.'+c.field,key:key},c,{reason:why})); });
+  p.edits[key]=ed;
+  if(alias&&alias.checked&&code){
+    const base=prMaps()[code]; PRV.cfg.maps=PRV.cfg.maps||{};
+    PRV.cfg.maps[L.orig]=Object.assign({},base,{code:L.orig,desc:base.desc+' (alias of '+code+')',aliasOf:code,src:'custom'});
+    prAudit(PRV.cfg,{act:'map.alias',code:L.orig,to:code,reason:why}); await prSaveCfg();
+    // the mapping now covers it — keep this record on its original code
+    delete ed.code; ed.history.push({field:'mapping',from:L.orig+' (unknown)',to:'approved mapping → '+code,reason:why,by:who,at:at});
+  }
+  await prSavePeriod(); prCloseModal(); prRecompute(); renderPayReview(); showToast('✓ Saved — totals recalculated');
+}
+
+// ── exceptions ──
+function prExceptionsHtml(){
+  const R=PRV.res, by={};
+  R.lines.forEach(function(L){ L.issues.forEach(function(c){ (by[c]=by[c]||[]).push(L); }); });
+  const bl=PR.blockers(R).filter(function(b){ return b.type==='missing_rate'; });
+  const order=Object.keys(PR.ISSUE).filter(function(c){ return by[c]; }).sort(function(a,b){ const s={block:0,warn:1,info:2}; return s[PR.ISSUE[a].sev]-s[PR.ISSUE[b].sev]; });
+  let h='<div class="pr-note">Blocking items must be corrected or given an explicit Include / Defer / Exclude decision (with a reason) before the period can close. Warnings are paid as calculated unless you decide otherwise.</div>';
+  if(bl.length) h+='<div class="pr-grp warn"><div class="pr-ghead static"><span>No hourly FFS rate ('+bl.length+' providers)</span><button class="pr-linkbtn" onclick="PRV.tab=\'prov\';renderPayReview()">Set rates →</button></div><div class="pr-codes">'+bl.map(function(b){ return '<span>'+prEsc(prEmpName(b.emp))+'</span>'; }).join('')+'</div></div>';
+  order.forEach(function(c){ if(c==='missing_rate') return; const I=PR.ISSUE[c], list=by[c], gk='exc|'+c, go=PRV.open[gk];
+    const open=I.sev==='block'?list.filter(function(L){ return !(L.decision&&L.decision.v); }).length:null;
+    h+='<div class="pr-grp'+(I.sev==='block'&&open?' warn':'')+'"><button class="pr-ghead" aria-expanded="'+!!go+'" onclick="prToggleSub(\''+gk+'\')"><span>'+(go?'▾':'▸')+' <span class="pr-pill '+(I.sev==='block'?'bad':I.sev==='warn'?'warn':'info')+'">'+I.sev+'</span> '+prEsc(I.label)+'</span><span>'+list.length+(open!=null?' · '+open+' undecided':'')+'</span></button>';
+    if(go) h+=prLinesTableMulti(list);
+    h+='</div>'; });
+  if(!order.length && !bl.length) h+='<div class="pr-empty">No exceptions.</div>';
+  return h;
+}
+function prLinesTableMulti(list){ const by={}; list.forEach(function(L){ (by[L.pid]=by[L.pid]||[]).push(L); });
+  return Object.keys(by).map(function(pid){ return '<div class="pr-exemp">'+prEsc(prEmpName(PRV.res.emps[pid]))+'</div>'+prLinesTable(by[pid],PRV.res.emps[pid]); }).join(''); }
+function prOutHtml(){ const R=PRV.res;
+  if(!R.outRows.length) return '<div class="pr-empty">Every imported row falls inside '+prDate(PRV.period.start)+'–'+prDate(PRV.period.end)+'.</div>';
+  return '<div class="pr-note">These rows are dated outside this pay period. They are not counted here. Import the file into the matching period to pay them.</div>'
+    +'<table class="pr-ltbl"><thead><tr><th>Provider</th><th>Date</th><th>Start</th><th>Code</th><th>File line</th></tr></thead><tbody>'
+    +R.outRows.map(function(L){ return '<tr><td>'+prEsc(String(L.prov).split(',')[0])+'</td><td>'+prDate(L.date)+'</td><td>'+PR.hhmm(L.st)+'</td><td>'+prEsc(L.code)+'</td><td>'+L.n+'</td></tr>'; }).join('')+'</tbody></table>'; }
+
+// ── providers & rates ──
+function prProvHtml(){
+  const pv=prProvs(), closed=prClosed();
+  const ids=Object.keys(pv).filter(function(k){ return PRV.res.emps[k]; }).sort(function(a,b){ return prEmpName(PRV.res.emps[a]).localeCompare(prEmpName(PRV.res.emps[b])); });
+  const staffOpts=STAFF.slice().sort(function(a,b){ return String(a['Clinician']).localeCompare(String(b['Clinician'])); });
+  let h='<div class="pr-note">Providers are identified by Valant <b>ProviderID</b>. Rates and links apply to open periods immediately; closed periods keep the values saved in their snapshot.'
+    +(closed?'':' <button class="pr-linkbtn" onclick="prFillRates()">Fill blank rates with one amount…</button>')+'</div>';
+  h+='<div class="pr-tblwrap"><table class="pr-ltbl pr-provtbl"><thead><tr><th>Valant provider</th><th>Roster employee</th><th>Payroll ID</th><th>Hourly FFS rate</th><th>Employment category</th><th>Differential eligible</th></tr></thead><tbody>';
+  ids.forEach(function(id){ const v=pv[id], comp=(typeof COMP_DATA!=='undefined'&&v.sid&&COMP_DATA[v.sid])||null;
+    const dis=closed?' disabled':'';
+    h+='<tr><td><b>'+prEsc(String(PRV.res.emps[id].prov).split(',')[0])+'</b><span class="pr-muted"> '+prEsc(id)+'</span></td>'
+      +'<td><select'+dis+' onchange="prSetProv(\''+prEsc(id)+'\',\'sid\',this.value)"><option value="">— not linked —</option>'+staffOpts.map(function(s){ return '<option value="'+s._id+'"'+(s._id===v.sid?' selected':'')+'>'+prEsc(s['Clinician'])+'</option>'; }).join('')+'</select>'+(v.suggested?' <span class="pr-pill info" title="Matched by name; choose it to confirm">suggested</span>':'')+'</td>'
+      +'<td><input'+dis+' type="text" value="'+prEsc(v.payrollId||'')+'" onchange="prSetProv(\''+prEsc(id)+'\',\'payrollId\',this.value)" style="width:110px"></td>'
+      +'<td>$<input'+dis+' type="text" inputmode="decimal" value="'+(v.rateCents!=null?(v.rateCents/100).toFixed(2):'')+'" onchange="prSetProv(\''+prEsc(id)+'\',\'rateCents\',this.value)" style="width:80px">'+(comp&&comp.rate2026?'<span class="pr-muted"> Comp &amp; Benes: '+prEsc(comp.rate2026)+'</span>':'')+'</td>'
+      +'<td><select'+dis+' onchange="prSetProv(\''+prEsc(id)+'\',\'cat\',this.value)"><option value="">— not set —</option>'+Object.keys(CONFIG.capacityTierLabels||{}).map(function(k){ return '<option value="'+k+'"'+(k===v.cat?' selected':'')+'>'+prEsc(CONFIG.capacityTierLabels[k])+'</option>'; }).join('')+'</select></td>'
+      +'<td><input'+dis+' type="checkbox"'+(v.diff!==false?' checked':'')+' onchange="prSetProv(\''+prEsc(id)+'\',\'diff\',this.checked)" aria-label="Differential eligible"></td></tr>'; });
+  return h+'</tbody></table></div>';
+}
+async function prSetProv(id,field,val){
+  PRV.cfg.provs=PRV.cfg.provs||{}; const cur=Object.assign({},prProvs()[id]); const sv=PRV.cfg.provs[id]=Object.assign({},PRV.cfg.provs[id]||{});
+  if(!sv.sid && cur.sid) sv.sid=cur.sid; if(!sv.cat && cur.cat) sv.cat=cur.cat;
+  let v=val; if(field==='rateCents'){ v=PR.cents(val); if(val!==''&&v==null){ showToast('⚠ Not a valid rate'); return; } }
+  const from=sv[field]; sv[field]=v===''?null:v; delete sv.suggested;
+  prAudit(PRV.cfg,{act:'provider.'+field,pid:id,from:from==null?'':String(from),to:v==null?'':String(v)});
+  if(PRV.period&&!prClosed()) prAudit(PRV.period,{act:'provider.'+field,pid:id,from:from==null?'':String(from),to:v==null?'':String(v)});
+  await prSaveCfg(); if(PRV.period&&!prClosed()) await prSavePeriod(); prRecompute(); renderPayReview();
+}
+async function prFillRates(){ const v=PR.cents(prompt('Hourly FFS rate to apply to every provider in this period WITHOUT a rate (e.g. 65.00):')); if(v==null) return;
+  const pv=prProvs(); PRV.cfg.provs=PRV.cfg.provs||{}; let n=0;
+  Object.keys(pv).forEach(function(id){ if(!PRV.res.emps[id] || pv[id].rateCents!=null) return; PRV.cfg.provs[id]=Object.assign({sid:pv[id].sid,cat:pv[id].cat},PRV.cfg.provs[id]||{},{rateCents:v}); n++; });
+  prAudit(PRV.cfg,{act:'provider.fillRates',detail:n+' providers → '+PR.fmt$(v)}); await prSaveCfg(); prRecompute(); renderPayReview(); showToast('✓ Rate set for '+n+' providers'); }
+
+// ── service codes ──
+function prCodesHtml(){
+  const maps=prMaps(), used={}; PRV.res.lines.forEach(function(L){ if(L.code) used[L.code]=(used[L.code]||0)+1; });
+  const closed=prClosed();
+  const ks=Object.keys(maps).sort(function(a,b){ return (used[b]||0)-(used[a]||0) || a.localeCompare(b); });
+  let h='<div class="pr-note"><b>Clinical hrs</b> (from “Clinical Hours Count for Cap”) and <b>FFS %</b> (from “% of FFS Rate Paid”) are separate. Differential eligibility is set per code. Changes apply to open periods and future imports; closed snapshots keep the version they used.'
+    +(closed?'':' <button class="pr-linkbtn" onclick="prAddCode()">+ Add a service code</button>')+'</div>';
+  h+='<div class="pr-tblwrap"><table class="pr-ltbl pr-codetbl"><thead><tr><th>Valant service ID</th><th>Used</th><th>Category</th><th>Description</th><th>Clinical hrs</th><th>FFS %</th><th>Flat $</th><th>Payroll category</th><th>Differential</th><th>Bonus hrs</th><th>Note</th></tr></thead><tbody>';
+  ks.forEach(function(k){ const m=maps[k], dis=(closed||m.kind!=='service')?' disabled':'';
+    h+='<tr'+(m.mult==null&&m.kind==='service'?' class="needs"':'')+'><td><b>'+prEsc(k)+'</b>'+(m.src!=='sheet'?' <span class="pr-pill info">'+prEsc(m.src)+'</span>':'')+'</td><td class="num">'+(used[k]||'')+'</td><td>'+prEsc(m.cat)+'</td><td>'+prEsc(m.desc)+'</td>'
+      +'<td><input'+(closed||m.kind!=='service'?' disabled':'')+' value="'+PR.fmtH(m.hrs||0)+'" style="width:56px" onchange="prSetMap(\''+prEsc(k)+'\',\'hrs\',this.value)"></td>'
+      +'<td><input'+dis+' value="'+(m.mult==null?'':m.mult)+'" placeholder="rule?" style="width:52px" onchange="prSetMap(\''+prEsc(k)+'\',\'mult\',this.value)">%</td>'
+      +'<td><input'+dis+' value="'+(m.flat?(m.flat/100).toFixed(2):'')+'" style="width:56px" onchange="prSetMap(\''+prEsc(k)+'\',\'flat\',this.value)"></td>'
+      +'<td>'+prEsc(PR.payCatLabel(PR.payCat(m),maps))+'</td>'
+      +'<td><input type="checkbox"'+(m.diff?' checked':'')+dis+' onchange="prSetMap(\''+prEsc(k)+'\',\'diff\',this.checked)" aria-label="Differential eligible"></td>'
+      +'<td><input type="checkbox"'+(m.bonus!==false&&m.hrs>0?' checked':'')+dis+' onchange="prSetMap(\''+prEsc(k)+'\',\'bonus\',this.checked)" aria-label="Counts toward over-attainment"></td>'
+      +'<td class="pr-muted">'+prEsc(m.note||'')+(m.sheetFlat&&!m.flat?' Sheet $: '+PR.fmt$(m.sheetFlat):'')+'</td></tr>'; });
+  return h+'</tbody></table></div>';
+}
+async function prSetMap(code,field,val){
+  const reason=prompt('Reason for changing '+field+' on '+code+' (required):'); if(!reason){ renderPayReview(); return; }
+  let v=val; if(field==='hrs'){ v=PR.h100(val); if(v==null){ showToast('⚠ Not a number'); return; } }
+  if(field==='mult'){ v=String(val).trim()===''?null:Math.round(Number(val)); if(v!=null&&!isFinite(v)){ showToast('⚠ Not a number'); return; } }
+  if(field==='flat'){ v=PR.cents(val)||0; }
+  PRV.cfg.maps=PRV.cfg.maps||{}; const before=prMaps()[code]; const o=PRV.cfg.maps[code]=Object.assign({},PRV.cfg.maps[code]||{});
+  o[field]=v; prAudit(PRV.cfg,{act:'map.'+field,code:code,from:String(before[field]),to:String(v),reason:reason});
+  if(PRV.period&&!prClosed()){ prAudit(PRV.period,{act:'map.'+field,code:code,from:String(before[field]),to:String(v),reason:reason}); await prSavePeriod(); }
+  await prSaveCfg(); prRecompute(); renderPayReview();
+}
+async function prAddCode(){
+  const code=(prompt('Valant service ID exactly as it appears in the report:')||'').trim(); if(!code) return;
+  if(prMaps()[code]){ showToast('That code already exists'); return; }
+  const hrs=PR.h100(prompt('Clinical hours credit for '+code+' (e.g. 1, 0.5, 0.33, 0):')); if(hrs==null) return;
+  const mult=prompt('% of FFS rate paid (e.g. 100, 50, 25; leave blank if it needs a separate rule):'); const reason=prompt('Reason (required):'); if(!reason) return;
+  PRV.cfg.maps=PRV.cfg.maps||{}; PRV.cfg.maps[code]={code:code,cat:'Other',desc:'Added '+new Date().toLocaleDateString(),hrs:hrs,mult:String(mult||'').trim()===''?null:Math.round(Number(mult)),flat:0,kind:'service',diff:false,bonus:hrs>0};
+  prAudit(PRV.cfg,{act:'map.add',code:code,reason:reason}); if(PRV.period&&!prClosed()){ prAudit(PRV.period,{act:'map.add',code:code,reason:reason}); await prSavePeriod(); }
+  await prSaveCfg(); prRecompute(); renderPayReview();
+}
+
+// ── settings ──
+function prSettingsHtml(){
+  const S=prSettings(), dis=prClosed()?' disabled':'';
+  const prov='<span class="pr-pill warn">provisional</span>';
+  const row=function(lbl,ctl,help){ return '<div class="pr-srow"><div><b>'+lbl+'</b>'+(S.confirmed?'':' '+prov)+(help?'<div class="pr-muted">'+help+'</div>':'')+'</div><div>'+ctl+'</div></div>'; };
+  let h='<div class="pr-card"><div class="pr-note">These rules are settings, not code. They must be confirmed before a pay period can be closed. The cancellation/no-show rule is already confirmed and is not editable here.</div>';
+  h+=row('Weekday evening starts at','<input'+dis+' type="time" value="'+String(Math.floor(S.eveStart/60)).padStart(2,'0')+':'+String(S.eveStart%60).padStart(2,'0')+'" onchange="prSetS(\'eveStart\',this.value)">','Appointment START time on Mon–Fri at or after this time.');
+  h+=row('Include Sundays','<input'+dis+' type="checkbox"'+(S.includeSunday?' checked':'')+' onchange="prSetS(\'includeSunday\',this.checked)">','Saturdays are always included.');
+  h+=row('After-hours / weekend differential','$<input'+dis+' value="'+(S.diffCents/100).toFixed(2)+'" style="width:70px" onchange="prSetS(\'diffCents\',this.value)"> per qualifying session','Which codes qualify: Service codes tab → Differential column.');
+  h+=row('Over-attainment threshold','<input'+dis+' value="'+PR.fmtH(S.threshold)+'" style="width:70px" onchange="prSetS(\'threshold\',this.value)"> clinical hours per pay period','Exactly the threshold earns nothing.');
+  h+=row('Over-attainment rate','$<input'+dis+' value="'+(S.bonusCents/100).toFixed(2)+'" style="width:70px" onchange="prSetS(\'bonusCents\',this.value)"> per eligible clinical hour above the threshold','');
+  h+=row('Bonus-eligible categories',Object.keys(CONFIG.capacityTierLabels||{}).map(function(k){ return '<label class="pr-inl"><input'+dis+' type="checkbox"'+(S.bonusCats.indexOf(k)>=0?' checked':'')+' onchange="prSetCat(\''+k+'\',this.checked)"> '+prEsc(CONFIG.capacityTierLabels[k])+'</label>'; }).join(''),'');
+  h+=row('Fractional bonus hours','<select'+dis+' onchange="prSetS(\'prorate\',this.value===\'1\')"><option value="1"'+(S.prorate?' selected':'')+'>Prorated (52.50 → 2.50 h)</option><option value="0"'+(!S.prorate?' selected':'')+'>Whole hours only (52.50 → 2 h)</option></select>','');
+  h+=row('Stacking','<select'+dis+' onchange="prSetS(\'stack\',this.value===\'1\')"><option value="1"'+(S.stack?' selected':'')+'>A differential session also counts toward over-attainment</option><option value="0"'+(!S.stack?' selected':'')+'>Differential sessions do not count toward over-attainment</option></select>','');
+  h+=row('Documentation cutoff','Signed within <input'+dis+' value="'+S.docCutoffDays+'" style="width:44px" onchange="prSetS(\'docCutoffDays\',this.value)"> days of the appointment','');
+  h+=row('Late-signed documentation','<select'+dis+' onchange="prSetS(\'lateAction\',this.value)"><option value="flag"'+(S.lateAction==='flag'?' selected':'')+'>Pay and flag</option><option value="hold"'+(S.lateAction==='hold'?' selected':'')+'>Hold for a decision</option></select>','');
+  h+=row('Unsigned documentation','<select'+dis+' onchange="prSetS(\'unsignedAction\',this.value)"><option value="hold"'+(S.unsignedAction==='hold'?' selected':'')+'>Hold for a decision</option><option value="flag"'+(S.unsignedAction==='flag'?' selected':'')+'>Pay and flag</option></select>','');
+  h+='<div class="pr-srow"><div><b>Cancellations / no-shows</b> <span class="pr-pill good">confirmed</span><div class="pr-muted">11111 fee charged = one hourly FFS payment, 0 clinical hours · 11112 no fee = $0, 0 clinical hours · no differentials.</div></div><div></div></div>';
+  h+='<div class="pr-srow"><div><b>Rules confirmed</b>'+(S.confirmed?'<div class="pr-muted">by '+prEsc(S.confirmedBy)+' on '+new Date(S.confirmedAt).toLocaleString()+'</div>':'')+'</div><div><label class="pr-inl"><input'+dis+' type="checkbox"'+(S.confirmed?' checked':'')+' onchange="prSetS(\'confirmed\',this.checked)"> These settings are confirmed policy</label></div></div>';
+  return h+'</div>';
+}
+async function prSetS(k,v){
+  const S=prSettings(); let val=v;
+  if(k==='eveStart'){ const m=PR.minutes(v); if(m==null) return; val=m; }
+  if(k==='diffCents'||k==='bonusCents'){ val=PR.cents(v); if(val==null){ showToast('⚠ Not a valid amount'); return; } }
+  if(k==='threshold'){ val=PR.h100(v); if(val==null) return; }
+  if(k==='docCutoffDays'){ val=parseInt(v,10); if(!(val>=0)) return; }
+  PRV.cfg.settings=Object.assign({},PRV.cfg.settings||{}); PRV.cfg.settings[k]=val;
+  if(k==='confirmed'){ PRV.cfg.settings.confirmedBy=val?prWho():null; PRV.cfg.settings.confirmedAt=val?prNow():null; }
+  else if(S.confirmed){ PRV.cfg.settings.confirmed=false; showToast('Rule changed — please re-confirm the settings'); }
+  prAudit(PRV.cfg,{act:'settings.'+k,from:String(S[k]),to:String(val)});
+  await prSaveCfg(); prRecompute(); renderPayReview();
+}
+function prSetCat(k,on){ const S=prSettings(); const a=S.bonusCats.filter(function(x){ return x!==k; }); if(on) a.push(k); prSetS('bonusCats',a); }
+
+// ── history ──
+function prHistHtml(){
+  const p=PRV.period; const snaps=(p.snapshots||[]).slice().reverse();
+  let h='<div class="pr-card"><b>Closed versions</b>'+(snaps.length?snaps.map(function(s){ return '<div class="pr-hrow">v'+s.v+' · closed by '+prEsc(s.by)+' on '+new Date(s.at).toLocaleString()+' · total '+PR.fmt$(s.total)+(s.reopenReason?' · reopened: '+prEsc(s.reopenReason):'')+'</div>'; }).join(''):'<div class="pr-muted">Not closed yet.</div>')+'</div>';
+  h+='<div class="pr-card"><b>Imports</b>'+((p.importIds||[]).map(function(id){ const m=PRV.imports[id]||{}; return '<div class="pr-hrow">'+prEsc(m.fileName||id)+' · '+(m.rows||'?')+' rows · '+prDate(m.minDate)+'–'+prDate(m.maxDate)+' · '+prEsc(m.by||'')+' '+(m.at?new Date(m.at).toLocaleString():'')+'</div>'; }).join('')||'<div class="pr-muted">None.</div>')+'</div>';
+  const aud=(p.audit||[]).slice().reverse().slice(0,400);
+  h+='<div class="pr-card"><b>Change log</b> <span class="pr-muted">(this period, newest first)</span>'+(aud.length?aud.map(function(a){ return '<div class="pr-hrow">'+new Date(a.at).toLocaleString()+' · '+prEsc(a.by)+' · '+prEsc(a.act)+(a.pid?' · '+prEsc(a.pid):'')+(a.code?' · '+prEsc(a.code):'')+(a.field?' · '+prEsc(a.field):'')+(a.from!=null||a.to!=null?' · '+prEsc(a.from==null?'':a.from)+' → '+prEsc(a.to==null?'':a.to):'')+(a.detail?' · '+prEsc(a.detail):'')+(a.reason?' — <i>'+prEsc(a.reason)+'</i>':'')+'</div>'; }).join(''):'<div class="pr-muted">No changes yet.</div>')+'</div>';
+  return h;
+}
+
+// ── close / reopen ──
+async function prClose(){
+  if(prClosed()) return; const R=PRV.res, S=prSettings(); if(!R){ showToast('⚠ Nothing to close'); return; }
+  const bl=PR.blockers(R), probs=[];
+  if(!S.confirmed) probs.push('Settings are still provisional — confirm them on the Settings tab.');
+  const byType={}; bl.forEach(function(b){ byType[b.type]=(byType[b.type]||0)+1; });
+  Object.keys(byType).forEach(function(t){ probs.push(byType[t]+' × '+PR.ISSUE[t].label); });
+  if(probs.length){ alert('This period can’t be closed yet:\n\n• '+probs.join('\n• ')+'\n\nCorrect each item, or give it an Include / Defer / Exclude decision with a reason.'); if(bl.length){ PRV.tab='exc'; renderPayReview(); } return; }
+  const p=PRV.period, unrev=Object.keys(R.emps).filter(function(k){ return !(p.reviewed&&p.reviewed[k]); }).length;
+  const pvC=prProvs(), unlinked=Object.keys(R.emps).filter(function(k){ return !(pvC[k]&&pvC[k].sid); });
+  if(!confirm('Close and save '+p.label+'?\n\n'+R.totals.emps+' employees · '+PR.fmtH(R.totals.approvedHrs)+' approved clinical hours · total payroll '+PR.fmt$(R.totals.total)+(unrev?'\n\n'+unrev+' employees are not marked reviewed.':'')
+    +(unlinked.length?'\n\n'+unlinked.length+' Valant providers are not linked to a roster employee, so they will not get a pay-period sheet: '+unlinked.slice(0,8).join(', ')+(unlinked.length>8?'…':''):'')
+    +'\n\nEach linked employee can then see their own sheet (clinical hours and FFS units only — no dollars).\nThe saved snapshot will not change if rates or mappings change later.')) return;
+  const v=p.version||1, sid=p.__id+'_v'+v, at=prNow(), by=prWho(), maps=prMaps();
+  const used={}; R.lines.forEach(function(L){ if(L.code&&maps[L.code]) used[L.code]=maps[L.code]; });
+  const provs={}, pv=prProvs(); Object.keys(R.emps).forEach(function(k){ provs[k]=pv[k]||null; });
+  const slim=R.lines.map(function(L){ return {key:L.key,n:L.n,imp:L.imp,pid:L.pid,prov:L.prov,date:L.date,st:L.st,en:L.en,cc:L.cc||'',orig:L.orig,code:L.code,edited:L.edited,cpt:L.cpt,np:L.np,apn:L.apn,ds:L.ds,sd:L.sd,
+    kind:L.kind,pc:L.pc,hrs:L.hrs,units:L.units,base4:L.base4,cxl4:L.cxl4,eve4:L.eve4,wknd4:L.wknd4,approved:L.approved,bonusElig:L.bonusElig,addon:L.addon,issues:L.issues,decision:L.decision,autoEx:L.autoEx||null,fp:L.fp}; });
+  const result={emps:R.emps,totals:R.totals,settings:R.settings,lines:slim,outRows:R.outRows.map(function(L){ return {key:L.key,n:L.n,prov:L.prov,date:L.date,st:L.st,code:L.code}; })};
+  const snap={periodId:p.__id,label:p.label,start:p.start,end:p.end,version:v,closedBy:by,closedAt:at,settings:S,maps:used,provs:provs,
+    edits:p.edits||{},adjustments:p.adjustments||[],reviewed:p.reviewed||{},imports:(p.importIds||[]).map(function(id){ const m=PRV.imports[id]||{}; return {id:id,fileName:m.fileName,hash:m.hash,rows:m.rows}; }),
+    rounding:'Each line exact to 1/100 cent; each employee x earnings category rounded half-up to the cent once; totals are sums of rounded category totals.',
+    result:result};
+  const fps=slim.filter(function(L){ return L.approved && !L.addon; }).map(function(L){ return L.fp; });
+  showToast('Saving snapshot…');
+  if(!(await payStore.createSnapshot(sid,snap))){ showToast('⚠ Could not save the snapshot — the period is still open'); return; }
+  await payStore.addPaid(sid,{periodId:p.__id,label:p.label,version:v,fps:fps,at:at});
+  // one read-only sheet per linked employee (no dollars; clients by code only)
+  const stmts=[]; Object.keys(R.emps).forEach(function(k){ const E=R.emps[k]; const sidE=pvC[k]&&pvC[k].sid; if(!sidE) return;
+    stmts.push(prBuildStatement(R,Object.assign({},E,{sid:sidE}),{name:prEmpName(E),periodId:p.__id,version:v,label:p.label,start:p.start,end:p.end,closedAt:at,maps:used})); });
+  if(!(await payStore.addStatements(sid,stmts))) showToast('⚠ Snapshot saved, but employee sheets could not be published');
+  PRV.paidDocs=(PRV.paidDocs||[]).concat({__id:sid,periodId:p.__id,label:p.label,version:v,fps:fps});
+  p.status='closed'; p.closedAt=at; p.closedBy=by; p.snapshots=(p.snapshots||[]).concat({v:v,id:sid,at:at,by:by,total:R.totals.total});
+  prAudit(p,{act:'period.close',detail:'v'+v+' · '+PR.fmt$(R.totals.total)});
+  await prSavePeriod(); await prOpenPeriod(p.__id); showToast('✓ '+p.label+' closed and saved (v'+v+')');
+}
+async function prReopen(){
+  const p=PRV.period; if(!prClosed()) return;
+  const reason=prompt('Reopen '+p.label+'? The closed snapshot (v'+(p.version||1)+') is kept unchanged; changes go into a new version.\n\nReason (required):'); if(!reason) return;
+  const last=(p.snapshots||[])[p.snapshots.length-1]; if(last) last.reopenReason=reason;
+  p.status='open'; p.version=(p.version||1)+1; prAudit(p,{act:'period.reopen',detail:'now drafting v'+p.version,reason:reason});
+  await prSavePeriod(); await prOpenPeriod(p.__id); showToast('Reopened — drafting v'+p.version);
+}
+
+// ── exports (no patient data) ──
+function prCsvCell(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function prDownload(name,rows){ const csv=rows.map(function(r){ return r.map(prCsvCell).join(','); }).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500); }
+function prExport(kind){
+  const R=PRV.res, p=PRV.period; if(!R) return; const maps=prClosed()&&PRV.snap?PRV.snap.maps:prMaps();
+  const tag=(p.label||'payroll').replace(/[^\w-]+/g,'_')+'_'+p.start+'_'+p.end+(prClosed()?'_v'+(p.version||1):'_DRAFT');
+  const emps=Object.keys(R.emps).map(function(k){ return R.emps[k]; }).sort(function(a,b){ return prEmpName(a).localeCompare(prEmpName(b)); });
+  if(kind==='pay'){
+    const rows=[['Employee','Payroll ID','Valant ProviderID','Earnings category','Units','Rate','Amount','Clinical hours (approved)']];
+    emps.forEach(function(E){ const rate=E.rateCents!=null?(E.rateCents/100).toFixed(2):'';
+      Object.keys(E.cats).sort().forEach(function(c){ const x=E.cats[c]; rows.push([prEmpName(E),E.payrollId,E.pid,PR.payCatLabel(c,maps),PR.fmtH(x.units),rate,(x.c/100).toFixed(2),PR.fmtH(x.hrs)]); });
+      if(E.cxlFee.n) rows.push([prEmpName(E),E.payrollId,E.pid,'Fee-charged cancellations/no-shows',E.cxlFee.n,rate,(E.cxlFee.c/100).toFixed(2),'0.00']);
+      if(E.eve.n) rows.push([prEmpName(E),E.payrollId,E.pid,'Weekday evening differential',E.eve.n,(R.settings.diffCents/100).toFixed(2),(E.eve.c/100).toFixed(2),'']);
+      if(E.wknd.n) rows.push([prEmpName(E),E.payrollId,E.pid,'Weekend differential',E.wknd.n,(R.settings.diffCents/100).toFixed(2),(E.wknd.c/100).toFixed(2),'']);
+      if(E.bonus.c) rows.push([prEmpName(E),E.payrollId,E.pid,'Over-attainment bonus (hours over '+PR.fmtH(R.settings.threshold)+')',PR.fmtH(E.bonus.hrs),(R.settings.bonusCents/100).toFixed(2),(E.bonus.c/100).toFixed(2),'']);
+      (p.adjustments||[]).filter(function(a){ return a.pid===E.pid; }).forEach(function(a){ rows.push([prEmpName(E),E.payrollId,E.pid,(a.kind==='other'?'Other pay — ':'Adjustment — ')+a.label,1,'',(a.cents/100).toFixed(2),'']); });
+      rows.push([prEmpName(E),E.payrollId,E.pid,'TOTAL','','',(E.total/100).toFixed(2),PR.fmtH(E.approvedHrs)]); });
+    rows.push(['PRACTICE TOTAL','','','','','',(R.totals.total/100).toFixed(2),PR.fmtH(R.totals.approvedHrs)]);
+    prDownload('payroll_'+tag+'.csv',rows);
+  } else {
+    const rows=[['Employee','Payroll ID','Valant ProviderID','Date','Start','Service code (effective)','Original code','CPT','Earnings category','Clinical hours','FFS units','Base pay','Cancellation pay','Differential','Approved','Decision','Issues','Source file line']];
+    R.lines.slice().sort(function(a,b){ return (a.pid+a.date+a.st).localeCompare(b.pid+b.date+b.st); }).forEach(function(L){ const E=R.emps[L.pid];
+      rows.push([prEmpName(E),E.payrollId,L.pid,L.date,PR.hhmm(L.st),L.code,L.orig,L.cpt,L.pc?PR.payCatLabel(L.pc,maps):'',PR.fmtH(L.hrs),PR.fmtH(L.units),(PR.round4(L.base4)/100).toFixed(2),(PR.round4(L.cxl4)/100).toFixed(2),(PR.round4(L.eve4+L.wknd4)/100).toFixed(2),L.approved?'yes':'no',L.decision?L.decision.v+': '+L.decision.reason:'',L.issues.map(function(c){ return PR.ISSUE[c].label; }).join('; '),L.n]); });
+    prDownload('payroll_detail_'+tag+'.csv',rows);
+  }
+}
+
+
+// ══ PAY-PERIOD SHEETS (one per person per pay period) ═════════════════════════
+// Super Admin: full, editable sheet built from the live period (or its closed snapshot).
+// Therapist: read-only sheet from payStatements/{snapshot}__{staffId}, written when a period is
+// closed. It carries clinical-hour credit and FFS units only — no dollars, no rates — and shows
+// each client by CODE only (never a name).
+var PRS={st:null};
+const PR_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function prTimeShort(m){ if(m==null) return ''; const h=Math.floor(m/60), mi=m%60; return ((h+11)%12+1)+(mi?':'+String(mi).padStart(2,'0'):'')+(h<12?'am':'pm'); }
+function prStatus(L){
+  const dec=L.decision&&L.decision.v;
+  if(dec==='defer') return {k:'deferred',t:'Deferred to a later period'};
+  if(dec==='exclude') return {k:'excluded',t:'Not counted'+(L.decision.reason?' — '+L.decision.reason:'')};
+  if(L.approved) return {k:'counted',t:'Counted'};
+  if(L.kind==='cxl_nofee') return {k:'counted',t:'Counted (no credit)'};
+  const iss=(L.issues||[]).filter(function(c){ return PR.ISSUE[c]&&PR.ISSUE[c].sev!=='info'; }).map(function(c){ return PR.ISSUE[c].label; });
+  return {k:'held',t:'Not counted yet'+(iss.length?' — '+iss[0]:'')};
+}
+// Build the therapist-safe statement for one employee from a computed result.
+function prBuildStatement(R,E,meta){
+  const maps=meta.maps||{};
+  const lines=R.lines.filter(function(L){ return L.pid===E.pid && L.kind!=='np_uncoded'; }).map(function(L){ const st=prStatus(L);
+    return {cc:L.cc||'',date:L.date,st:L.st,en:L.en==null?null:L.en,code:L.code,cpt:L.cpt||'',hrs:L.approved?L.hrs:0,mapHrs:L.hrs,units:(L.approved||L.kind==='cxl_nofee')?L.units:0,
+      cat:L.kind==='cxl_fee'?'Fee-charged cancellation/no-show':L.kind==='cxl_nofee'?'No-fee cancellation/no-show':(L.pc?PR.payCatLabel(L.pc,maps):'Unmapped'),
+      diff:L.eve4?'eve':L.wknd4?'wknd':'',addon:!!L.addon,status:st.k,note:st.t}; })
+    .sort(function(a,b){ return (a.date+String(a.st).padStart(4,'0')).localeCompare(b.date+String(b.st).padStart(4,'0')); });
+  const cats=Object.keys(E.cats).sort().map(function(k){ const c=E.cats[k]; return {label:PR.payCatLabel(k,maps),n:c.n,units:c.units,hrs:c.hrs}; });
+  return {sid:E.sid,pid:E.pid,name:meta.name,periodId:meta.periodId,version:meta.version,label:meta.label,start:meta.start,end:meta.end,closedAt:meta.closedAt,
+    summary:{approvedHrs:E.approvedHrs,mappedHrs:E.mappedHrs,services:E.services,appts:E.appts,cats:cats,cxlFee:E.cxlFee.n,cxlNoFee:E.cxlNoFee.n,eve:E.eve.n,wknd:E.wknd.n,
+      bonusHrs:E.bonusHrs,overHrs:E.overHrs||0,threshold:R.settings.threshold,bonusEligible:!!E.bonusEligible},
+    lines:lines};
+}
+// One line, e.g.  FRADON — Mon 9/8 · 9am–10am · 90837 · 1.00 clinical hr · 1.00 FFS
+function prSheetLine(l,money,L){
+  const p=l.date?l.date.split('-'):null; const day=p?PR_DOW[PR.dow(l.date)]+' '+(+p[1])+'/'+(+p[2]):'';
+  const time=prTimeShort(l.st)+(l.en!=null?'–'+prTimeShort(l.en):'');
+  const cls=l.status==='counted'?'':' pr-sl-'+l.status;
+  return '<tr class="'+cls+'"><td class="pr-cc">'+(l.cc?prEsc(l.cc):'<span class="pr-muted">no code</span>')+'</td><td>'+prEsc(day)+'</td><td>'+prEsc(time)+'</td>'
+    +'<td><b>'+prEsc(l.code||'—')+'</b>'+(l.addon?' <i class="pr-muted">add-on</i>':'')+'</td>'
+    +'<td class="num">'+PR.fmtH(l.hrs)+'</td><td class="num">'+PR.fmtH(l.units)+'</td>'
+    +'<td>'+(l.diff==='eve'?'<span class="pr-pill info">Evening</span>':l.diff==='wknd'?'<span class="pr-pill info">Weekend</span>':'')+'</td>'
+    +'<td class="pr-muted">'+prEsc(l.cat)+'</td>'
+    +'<td>'+(l.status==='counted'?'<span class="pr-pill good">'+prEsc(l.note)+'</span>':'<span class="pr-pill '+(l.status==='held'?'warn':'info')+'">'+prEsc(l.note)+'</span>')+'</td>'
+    +(money?'<td class="num">'+(L&&(L.base4||L.cxl4)?PR.fmt$(PR.round4(L.base4+L.cxl4)):'')+'</td><td class="num">'+(L&&(L.eve4||L.wknd4)?PR.fmt$(PR.round4(L.eve4+L.wknd4)):'')+'</td>':'')
+    +(money&&L&&!prClosed()?'<td class="pr-act"><button onclick="prEditLine(\''+prEsc(L.key)+'\')">Correct…</button></td>':(money?'<td></td>':''))+'</tr>';
+}
+function prSheetHtml(st,opt){
+  opt=opt||{}; const S=st.summary, money=!!opt.money;
+  const closed=!!st.closedAt;
+  let h='<div class="pr-sheet">';
+  h+='<div class="pr-shead"><div><div class="pr-eyebrow">Pay-period sheet'+(money?' · Super Admin':'')+'</div><div class="pr-sname">'+prEsc(st.name)+'</div>'
+    +'<div class="pr-muted">'+prEsc(st.label)+' · '+prDate(st.start)+' – '+prDate(st.end)+(closed?' · closed '+new Date(st.closedAt).toLocaleDateString()+(st.version>1?' (v'+st.version+')':''):' · <b>open — still being reviewed</b>')+'</div></div>'
+    +'<div class="pr-sact">'+(opt.actions||'')+'<button class="btn btn-secondary" onclick="window.print()">Print</button><button class="pr-x" onclick="prCloseSheet()" aria-label="Close">×</button></div></div>';
+  h+='<div class="pr-stiles">'
+    +prTile('Clinical hours credited',PR.fmtH(S.approvedHrs),S.mappedHrs!==S.approvedHrs?PR.fmtH(S.mappedHrs)+' mapped in total':'')
+    +prTile('Sessions',S.services,S.appts+' appointments')
+    +prTile('Evening / weekend',S.eve+' / '+S.wknd,'sessions with a differential')
+    +prTile('Cancellations',S.cxlFee+' fee · '+S.cxlNoFee+' no-fee','0 clinical hours')
+    +prTile('Over '+PR.fmtH(S.threshold)+' hrs',PR.fmtH(S.overHrs),S.bonusEligible?'over-attainment hours':'not bonus-eligible')
+    +(money&&opt.E?prTile('Total pay',PR.fmt$(opt.E.total),'base '+PR.fmt$(opt.E.base)):'')
+    +'</div>';
+  // what they're getting credit for, by category
+  h+='<div class="pr-card"><b>Credit by service type</b><table class="pr-ltbl" style="margin-top:6px"><thead><tr><th>Category</th><th>Sessions</th><th>Clinical hrs</th><th>FFS units</th>'+(money?'<th>Pay</th>':'')+'</tr></thead><tbody>'
+    +S.cats.map(function(c,i){ const k=opt.E?Object.keys(opt.E.cats).sort()[i]:null; return '<tr><td>'+prEsc(c.label)+'</td><td class="num">'+c.n+'</td><td class="num">'+PR.fmtH(c.hrs)+'</td><td class="num">'+PR.fmtH(c.units)+'</td>'+(money&&k?'<td class="num">'+PR.fmt$(opt.E.cats[k].c)+'</td>':'')+'</tr>'; }).join('')
+    +(S.cxlFee?'<tr><td>Fee-charged cancellations/no-shows</td><td class="num">'+S.cxlFee+'</td><td class="num">0.00</td><td class="num">'+PR.fmtH(S.cxlFee*100)+'</td>'+(money&&opt.E?'<td class="num">'+PR.fmt$(opt.E.cxlFee.c)+'</td>':'')+'</tr>':'')
+    +(S.cxlNoFee?'<tr><td>No-fee cancellations/no-shows</td><td class="num">'+S.cxlNoFee+'</td><td class="num">0.00</td><td class="num">0.00</td>'+(money?'<td class="num">$0.00</td>':'')+'</tr>':'')
+    +(money&&opt.E&&(opt.E.eve.n||opt.E.wknd.n)?'<tr><td>Evening / weekend differentials</td><td class="num">'+(opt.E.eve.n+opt.E.wknd.n)+'</td><td></td><td></td><td class="num">'+PR.fmt$(opt.E.eve.c+opt.E.wknd.c)+'</td></tr>':'')
+    +(money&&opt.E&&opt.E.bonus.c?'<tr><td>Over-attainment</td><td></td><td class="num">'+PR.fmtH(opt.E.bonus.hrs)+'</td><td></td><td class="num">'+PR.fmt$(opt.E.bonus.c)+'</td></tr>':'')
+    +(money&&opt.E&&(opt.E.other||opt.E.adj)?'<tr><td>Other pay &amp; adjustments</td><td></td><td></td><td></td><td class="num">'+PR.fmt$(opt.E.other+opt.E.adj)+'</td></tr>':'')
+    +'</tbody></table></div>';
+  if(money&&opt.E&&!prClosed()) h+=prAdjHtml(opt.E);
+  // appointment list
+  const byKey={}; (opt.lines||[]).forEach(function(L){ byKey[L.key]=L; });
+  h+='<div class="pr-card"><b>Appointments</b> <span class="pr-muted">clients shown by client code only</span><div style="overflow-x:auto"><table class="pr-ltbl pr-sltbl" style="margin-top:6px"><thead><tr><th>Client</th><th>Day</th><th>Time</th><th>Service</th><th>Clinical hrs</th><th>FFS units</th><th></th><th>Type</th><th>Status</th>'+(money?'<th>Base</th><th>Diff.</th><th></th>':'')+'</tr></thead><tbody>'
+    +st.lines.map(function(l){ return prSheetLine(l,money,l.key?byKey[l.key]:null); }).join('')+'</tbody></table></div></div>';
+  return h+'</div>';
+}
+function prShowSheet(html){
+  let d=document.getElementById('pr-sheet-modal');
+  if(!d){ d=document.createElement('div'); d.id='pr-sheet-modal'; d.className='pr-sheetmodal'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true'); document.body.appendChild(d); }
+  d.innerHTML=prCss()+prSheetCss()+'<div class="pr-sheetbox">'+html+'</div>';
+}
+function prCloseSheet(){ const d=document.getElementById('pr-sheet-modal'); if(d) d.remove(); PRV.sheetPid=null; }
+// Super Admin sheet for one employee in the period currently open in Payroll Review.
+function prOpenAdminSheet(pid){ PRV.sheetPid=pid; prRenderAdminSheet(); }
+function prRenderAdminSheet(){
+  const pid=PRV.sheetPid, R=PRV.res; if(!pid||!R||!R.emps[pid]) return;
+  const E=R.emps[pid], p=PRV.period, maps=prClosed()&&PRV.snap?PRV.snap.maps:prMaps();
+  const st=prBuildStatement(R,E,{name:prEmpName(E),periodId:p.__id,version:p.version||1,label:p.label,start:p.start,end:p.end,closedAt:prClosed()?p.closedAt:null,maps:maps});
+  st.lines.forEach(function(l,i){ l.key=null; });
+  // carry keys so Super Admin rows can open the correction dialog
+  const src=R.lines.filter(function(L){ return L.pid===pid && L.kind!=='np_uncoded'; }).sort(function(a,b){ return (a.date+String(a.st).padStart(4,'0')).localeCompare(b.date+String(b.st).padStart(4,'0')); });
+  st.lines.forEach(function(l,i){ l.key=src[i]&&src[i].key; });
+  const rev=p.reviewed&&p.reviewed[pid];
+  const acts=prClosed()?'':'<label class="pr-rev" style="margin-right:8px"><input type="checkbox"'+(rev?' checked':'')+' onchange="prReviewed(\''+prEsc(pid)+'\',this.checked).then(prRenderAdminSheet)"> Reviewed</label>';
+  prShowSheet(prSheetHtml(st,{money:true,E:E,lines:src,actions:acts}));
+}
+// From the capacity dashboard: open the sheet for staff `sid` and capacity pay period `idx`.
+async function prOpenSheetForPP(sid,idx){
+  const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null; if(!data||!data.periods||!data.periods[idx]) return;
+  const st=capParseDate(data.periods[idx]); const en=new Date(st.getTime()+13*86400000);
+  const iso=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const a=iso(st), b=iso(en);
+  const overlap=function(s,e){ const lo=s>a?s:a, hi=e<b?e:b; return hi<lo?0:PR.dayDiff(lo,hi)+1; };
+  const none=function(msg){ prShowSheet('<div class="pr-sheet"><div class="pr-shead"><div><div class="pr-eyebrow">Pay-period sheet</div><div class="pr-sname">PP '+(idx+1)+' · '+prDate(a)+' – '+prDate(b)+'</div></div><div class="pr-sact"><button class="pr-x" onclick="prCloseSheet()" aria-label="Close">×</button></div></div><div class="pr-empty">'+msg+'</div></div>'); };
+  if(!window.payStore){ none('Pay sheets are not available.'); return; }
+  if(isSuperAdminView()){
+    if(!PRV.loaded) await prLoadAll();
+    const cand=PRV.periods.map(function(p){ return {p:p,o:overlap(p.start,p.end)}; }).filter(function(x){ return x.o>0; }).sort(function(x,y){ return y.o-x.o; });
+    if(!cand.length){ none('No Payroll Review period covers these dates yet.'); return; }
+    await prOpenPeriod(cand[0].p.__id,true);
+    const pv=prProvs(); const pid=Object.keys(PRV.res?PRV.res.emps:{}).find(function(k){ return (pv[k]||{}).sid===sid; });
+    if(!pid){ none('This person isn’t linked to a Valant provider in '+prEsc(cand[0].p.label)+'. Link them on Payroll Review → Providers &amp; rates.'); return; }
+    prOpenAdminSheet(pid); return;
+  }
+  const list=await payStore.myStatements(sid);
+  // latest closed version of each period, best date overlap first
+  const latest={}; (list||[]).forEach(function(x){ if(!latest[x.periodId]||latest[x.periodId].version<x.version) latest[x.periodId]=x; });
+  const c=Object.keys(latest).map(function(k){ return {s:latest[k],o:overlap(latest[k].start,latest[k].end)}; }).filter(function(x){ return x.o>0; }).sort(function(x,y){ return y.o-x.o; });
+  if(!c.length){ none('Your sheet for this pay period isn’t ready yet. It appears here once payroll for the period is closed.'); return; }
+  prShowSheet(prSheetHtml(c[0].s,{money:false}));
+}
+function prSheetCss(){ return '<style>'
+ +'.pr-sheetmodal{position:fixed;inset:0;background:rgba(20,24,40,.42);z-index:350;display:flex;justify-content:center;align-items:flex-start;padding:22px 16px;overflow:auto}'
+ +'.pr-sheetbox{background:#f6f5f1;border-radius:16px;width:1040px;max-width:100%;padding:18px 20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25)}'
+ +'.pr-shead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap}.pr-sname{font-size:22px;font-weight:900;color:var(--ink)}'
+ +'.pr-sact{display:flex;gap:8px;align-items:center}.pr-x{font-size:24px;line-height:1;background:none;border:0;cursor:pointer;color:#666;padding:0 4px}'
+ +'.pr-stiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}'
+ +'.pr-cc{font-family:ui-monospace,Menlo,monospace;font-weight:700;letter-spacing:.03em}.pr-sltbl tr.pr-sl-held td{background:#fffbeb}.pr-sltbl tr.pr-sl-deferred td,.pr-sltbl tr.pr-sl-excluded td{color:#999}'
+ +'@media print{body>*:not(#pr-sheet-modal){display:none!important}.pr-sheetmodal{position:static;background:none;padding:0}.pr-sheetbox{box-shadow:none;width:auto}.pr-sact{display:none}}'
+ +'</style>'; }
+
+function prCss(){ return '<style>'
+ +'.pr-wrap{max-width:none;padding:20px 22px 80px}.pr-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}'
+ +'.pr-eyebrow{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8a8f9e}.pr-h{font-size:26px;font-weight:900;color:var(--ink);margin:2px 0}.pr-sub{font-size:13px;color:#666}'
+ +'.pr-topact{position:relative}.pr-sel{font:inherit;font-size:13px;padding:7px 10px;border:1px solid #d8d5cd;border-radius:9px;background:#fff;max-width:360px}'
+ +'.pr-pop{position:absolute;right:0;top:44px;z-index:20;background:#fff;border:1px solid #e2e0db;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.12);padding:12px}'
+ +'.pr-newp{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.pr-newp label{display:flex;flex-direction:column;font-size:11.5px;font-weight:700;color:#666;gap:3px}.pr-newp input{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d5cd;border-radius:8px}'
+ +'.pr-banner{border-radius:10px;padding:9px 13px;font-size:12.5px;margin:0 0 12px}.pr-banner.warn{background:#fdf4e3;border:1px solid #f0dcae;color:#7a4f06}.pr-banner.ok{background:#eaf7ef;border:1px solid #bfe5cc;color:#14532d}'
+ +'.pr-pbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid #e8e5de;border-radius:12px;padding:10px 14px;margin-bottom:12px}'
+ +'.pr-ptitle{font-size:16px;font-weight:900;color:var(--ink)}.pr-range{color:#666;font-size:13px}.pr-pact{display:flex;gap:8px;flex-wrap:wrap}.pr-file{cursor:pointer;position:relative;overflow:hidden}.pr-file input{position:absolute;opacity:0;inset:0;cursor:pointer}'
+ +'.pr-chip{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;margin-left:6px}.pr-chip.open{background:#e0ecff;color:#1e3a8a}.pr-chip.closed{background:#dcfce7;color:#166534}'
+ +'.pr-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}@media(max-width:1100px){.pr-tiles{grid-template-columns:repeat(3,1fr)}}'
+ +'.pr-tile{background:#fff;border:1px solid #e8e5de;border-radius:12px;padding:10px 12px}.pr-tl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#888}.pr-tv{font-size:20px;font-weight:900;color:var(--ink);margin:2px 0}.pr-ts{font-size:11px;color:#888}'
+ +'.pr-tile.bad .pr-tv{color:#b91c1c}.pr-tile.warn .pr-tv{color:#b45309}.pr-tile.good .pr-tv{color:#15803d}'
+ +'.pr-tabs{display:flex;gap:2px;border-bottom:1px solid #e2e0db;margin-bottom:10px;flex-wrap:wrap}.pr-tab{font:inherit;font-size:13px;font-weight:700;color:#666;background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;cursor:pointer}.pr-tab.on{color:var(--navy);border-bottom-color:var(--navy)}'
+ +'.pr-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.pr-q{font:inherit;font-size:13px;padding:7px 10px;border:1px solid #d8d5cd;border-radius:9px;width:280px;max-width:100%}'
+ +'.pr-recon{font-size:12px;font-weight:700}.pr-recon.ok{color:#15803d}.pr-recon.bad{color:#b91c1c}.pr-hint{font-size:11px;color:#999}'
+ +'.pr-tblwrap{overflow:auto;max-height:calc(100vh / 1.35 - 250px);border:1px solid #e8e5de;border-radius:12px;background:#fff}'
+ +'.pr-tbl{border-collapse:collapse;width:100%;font-size:12.5px;min-width:1180px}.pr-tbl th{position:sticky;top:0;background:#f8f7f3;z-index:2;text-align:left;border-bottom:1px solid #e8e5de;padding:0}'
+ +'.pr-sort{font:inherit;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#666;background:none;border:0;padding:9px 8px;cursor:pointer;text-align:left;width:100%}'
+ +'.pr-tbl td{padding:7px 8px;border-bottom:1px solid #f1efe9;vertical-align:top}.pr-tbl td span{display:block;font-size:11px;color:#888}.pr-tbl td.num{text-align:right;white-space:nowrap}.pr-tbl td.tot{font-weight:900;color:var(--ink)}'
+ +'.pr-emp td:first-child{display:flex;gap:6px;align-items:flex-start;min-width:230px}.pr-nm b{color:var(--ink)}.pr-exp{font:inherit;background:none;border:0;cursor:pointer;font-size:12px;color:#666;padding:2px 4px}'
+ +'.pr-totrow td{background:#f4f6fb;font-weight:700}.pr-detail>td{background:#fbfaf7;padding:8px 10px 14px 30px}.pr-detail>td>.pr-det{position:sticky;left:30px;max-width:calc(100vw / 1.35 - 330px)}.pr-det .pr-ltbl{display:block;overflow-x:auto}'
+ +'.pr-pill{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:10px;margin:1px 3px 1px 0}.pr-pill.bad{background:#fee2e2;color:#991b1b}.pr-pill.warn{background:#fef3c7;color:#92400e}.pr-pill.good{background:#dcfce7;color:#166534}.pr-pill.info{background:#eef0f5;color:#4b5563}.pr-pill.dec{background:#e0ecff;color:#1e3a8a}'
+ +'.pr-tbl td span.pr-pill{display:inline-block}.bad{color:#b91c1c}.pr-rev{font-size:11.5px;white-space:nowrap}'
+ +'.pr-det{display:flex;flex-direction:column;gap:6px}.pr-detnote,.pr-adj{font-size:12px;color:#444;background:#fff;border:1px solid #ece9e2;border-radius:9px;padding:7px 10px}.pr-adjrow{display:block;margin-top:3px}'
+ +'.pr-grp{background:#fff;border:1px solid #ece9e2;border-radius:10px;margin-bottom:6px}.pr-grp.warn{border-color:#f0c97a}.pr-ghead{font:inherit;font-size:12.5px;display:flex;justify-content:space-between;gap:10px;width:100%;background:none;border:0;padding:8px 11px;cursor:pointer;text-align:left;font-weight:700;color:var(--ink)}.pr-ghead.static{cursor:default}'
+ +'.pr-codes{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:#666;padding:0 11px 8px}'
+ +'.pr-ltbl{border-collapse:collapse;width:100%;font-size:12px;background:#fff}.pr-ltbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#888;padding:6px 7px;border-bottom:1px solid #eee;background:#faf9f6;position:sticky;top:0}.pr-ltbl td{padding:5px 7px;border-bottom:1px solid #f3f1ec;vertical-align:top}.pr-ltbl td.num{text-align:right}'
+ +'.pr-ltbl tr.needs td{background:#fff7ed}.pr-ltbl input,.pr-ltbl select{font:inherit;font-size:12px;padding:3px 6px;border:1px solid #d8d5cd;border-radius:6px}'
+ +'.pr-act button,.pr-linkbtn{font:inherit;font-size:12px;font-weight:700;color:#1a56db;background:none;border:0;cursor:pointer;padding:0}'
+ +'.pr-note{font-size:12.5px;color:#555;background:#fff;border:1px solid #ece9e2;border-radius:10px;padding:9px 12px;margin-bottom:10px}.pr-exemp{font-size:12px;font-weight:800;padding:8px 11px 4px}'
+ +'.pr-empty{padding:28px;text-align:center;color:#777;font-size:13.5px}.pr-card{background:#fff;border:1px solid #e8e5de;border-radius:12px;padding:14px 16px;margin-bottom:12px}.pr-muted{color:#999;font-size:11.5px}'
+ +'.pr-srow{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #f1efe9;font-size:13px}.pr-srow input,.pr-srow select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid #d8d5cd;border-radius:7px}.pr-inl{margin-right:12px;white-space:nowrap}'
+ +'.pr-hrow{font-size:12px;padding:5px 0;border-bottom:1px solid #f3f1ec}'
+ +'.pr-modal{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:420;display:flex;align-items:center;justify-content:center;padding:16px}.pr-mbox{background:#fff;border-radius:14px;width:520px;max-width:100%;max-height:calc(100vh / 1.35 - 40px);overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}'
+ +'.pr-mh{display:flex;justify-content:space-between;align-items:center;font-size:16px}.pr-mh button{font-size:20px;background:none;border:0;cursor:pointer}.pr-mfacts{font-size:12px;color:#555;background:#f8f7f3;border-radius:8px;padding:8px 10px}'
+ +'.pr-mbox label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#555}.pr-mbox label.pr-chk{flex-direction:row;align-items:flex-start;gap:8px;font-weight:600}.pr-mbox select,.pr-mbox input[type=text]{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d5cd;border-radius:8px}'
+ +'.pr-mhist{font-size:11.5px;color:#666;max-height:120px;overflow:auto}.pr-mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}'
+ +'.pr-tab:focus-visible,.pr-sort:focus-visible,.pr-ghead:focus-visible,.pr-exp:focus-visible{outline:2px solid var(--navy);outline-offset:2px}'
+ +'</style>'; }
+
+</script>
 <script type="module">
 // ── FIREBASE AUTH + FIRESTORE STORAGE ENGINE ──
 // All app data lives in Firestore (project: advance-intranet). This module:
@@ -12709,7 +13888,7 @@ async function renderIntakeCoord() {
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch, query, where, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-import { getStorage, ref as sRef, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
+import { getStorage, ref as sRef, getDownloadURL, uploadBytes, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAwTeYG1LLJ5SjenLrNmwOkw9B9vH40ieg", // public client identifier, not a secret
@@ -12955,7 +14134,24 @@ window.obStore = {
     catch (e) { return null; }
   }
 };
-// Uploaded onboarding documents live as Firestore docs (base64), one per file —
+// ── Firebase Storage: file BYTES for library files, CEU certificates and Employee File
+// documents (metadata stays in Firestore). Paths and access: see storage.rules.
+// Every call is wrapped — a Storage failure returns false/null, never throws.
+window.fileStore = {
+  put: async (path, file, type) => {
+    try { await uploadBytes(sRef(_sto, path), file, { contentType: type || file.type || 'application/octet-stream' }); return true; }
+    catch (e) { console.error('fileStore.put', e); return false; }
+  },
+  url: async (path) => {
+    try { return await getDownloadURL(sRef(_sto, path)); }
+    catch (e) { console.error('fileStore.url', e); return null; }
+  },
+  del: async (path) => {
+    try { await deleteObject(sRef(_sto, path)); return true; }
+    catch (e) { return false; }
+  }
+};
+// LEGACY: older onboarding documents live as Firestore docs (base64), one per file —
 // the same pattern as staff avatar photos. Admin-read only (see rules).
 window.obFiles = {
   get: async (id) => {
@@ -13053,6 +14249,57 @@ window.signStore = {
   sign: async (id, data) => {
     try { await setDoc(doc(db, 'libSignatures', id), data); return true; }
     catch (e) { return false; }
+  }
+};
+
+// ── Payroll Review storage (Super Admin only; see firestore.rules) ──
+// Values are JSON round-tripped first: Firestore rejects `undefined`.
+const prClean = (o) => JSON.parse(JSON.stringify(o));
+window.payStore = {
+  getConfig: async () => { try { const d = await getDoc(doc(db, 'payrollConfig', 'main')); return d.exists() ? d.data() : null; } catch (e) { return null; } },
+  setConfig: async (data) => { try { await setDoc(doc(db, 'payrollConfig', 'main'), prClean(data)); return true; } catch (e) { console.error(e); return false; } },
+  periods: async () => { try { const s = await getDocs(collection(db, 'payrollPeriods')); const o = []; s.forEach(d => o.push({ __id: d.id, ...d.data() })); return o; } catch (e) { return null; } },
+  setPeriod: async (id, data) => { try { await setDoc(doc(db, 'payrollPeriods', id), prClean(data)); return true; } catch (e) { console.error(e); return false; } },
+  imports: async () => { try { const s = await getDocs(collection(db, 'payrollImports')); const o = []; s.forEach(d => o.push({ __id: d.id, ...d.data() })); return o; } catch (e) { return null; } },
+  // Rows are written first; the import record last, so a failed upload leaves no import behind.
+  addImport: async (id, meta, chunks) => {
+    try {
+      for (let k = 0; k < chunks.length; k++) await setDoc(doc(db, 'payrollRows', id + '_' + k), prClean({ imp: id, k, rows: chunks[k] }));
+      await setDoc(doc(db, 'payrollImports', id), prClean(meta)); return true;
+    } catch (e) { console.error(e); return false; }
+  },
+  rows: async (id, n) => {
+    const out = [];
+    try { for (let k = 0; k < n; k++) { const d = await getDoc(doc(db, 'payrollRows', id + '_' + k)); if (d.exists()) (d.data().rows || []).forEach(r => out.push(r)); } return out; }
+    catch (e) { return null; }
+  },
+  // Snapshots are create-only (rules forbid update/delete). The ledger is split into parts under 1 MB.
+  createSnapshot: async (id, snap) => {
+    try {
+      const s = prClean(snap); const lines = s.result.lines || []; const PART = 700, parts = [];
+      for (let i = 0; i < lines.length; i += PART) parts.push(lines.slice(i, i + PART));
+      for (let k = 0; k < parts.length; k++) await setDoc(doc(db, 'payrollSnapshots', id + '~L' + k), { snapshot: id, k, lines: parts[k] });
+      s.result.lines = []; s.lineParts = parts.length;
+      await setDoc(doc(db, 'payrollSnapshots', id), s); return true;
+    } catch (e) { console.error(e); return false; }
+  },
+  getSnapshot: async (id) => {
+    try {
+      const d = await getDoc(doc(db, 'payrollSnapshots', id)); if (!d.exists()) return null; const s = d.data(); const lines = [];
+      for (let k = 0; k < (s.lineParts || 0); k++) { const p = await getDoc(doc(db, 'payrollSnapshots', id + '~L' + k)); if (p.exists()) (p.data().lines || []).forEach(l => lines.push(l)); }
+      s.result.lines = lines; return s;
+    } catch (e) { return null; }
+  },
+  paid: async () => { try { const s = await getDocs(collection(db, 'payrollPaid')); const o = []; s.forEach(d => o.push({ __id: d.id, ...d.data() })); return o; } catch (e) { return null; } },
+  addPaid: async (id, data) => { try { await setDoc(doc(db, 'payrollPaid', id), prClean(data)); return true; } catch (e) { return false; } },
+  // Per-employee read-only sheets (create-only). Each person can read only their own (sid == their staff id).
+  addStatements: async (snapId, list) => {
+    try { for (const st of list) await setDoc(doc(db, 'payStatements', snapId + '__' + st.sid), prClean(st)); return true; }
+    catch (e) { console.error(e); return false; }
+  },
+  myStatements: async (sid) => {
+    try { const s = await getDocs(query(collection(db, 'payStatements'), where('sid', '==', sid))); const o = []; s.forEach(d => o.push({ __id: d.id, ...d.data() })); return o; }
+    catch (e) { return null; }
   }
 };
 

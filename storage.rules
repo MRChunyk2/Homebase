@@ -1,20 +1,69 @@
 rules_version = '2';
 
 // ── Advance Psychotherapy Homebase — Firebase Storage rules ──
-// Only one area exists: onboarding uploads from the public portal
-// (onboard.html). The unguessable token in the path is the credential for
-// writing; reading files back requires an @advancepsychotherapy.org sign-in.
+// File BYTES live here; each file's metadata (name, size, type, uploader, date, Storage path)
+// stays in Firestore. Identity matches firestore.rules: Google sign-in restricted to
+// @advancepsychotherapy.org, roles from Firestore userRoles/{email} ({ role, staffId }),
+// read here with cross-service firestore.get(). Two bootstrap admins are hardcoded.
+//
+// Paths:
+//   onboarding/{token}/{item}/{fileName}     new-hire portal (no sign-in; token is the credential), 10 MB
+//   refLibrary/{fileId}/{fileName}           Learning & Reference / Paperwork & Templates, 20 MB
+//   staffFiles/{staffId}/{fileId}/{fileName} CEU certificates + Employee File documents, 20 MB
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function em() {
+      return request.auth != null && request.auth.token.email != null
+        ? request.auth.token.email.lower() : '';
+    }
+    function isDomain() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && em().matches('.*@advancepsychotherapy[.]org$');
+    }
+    function isBootstrap() {
+      return em() in ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
+    }
+    function hasRoleDoc() {
+      return firestore.exists(/databases/(default)/documents/userRoles/$(em()));
+    }
+    function roleDoc() {
+      return firestore.get(/databases/(default)/documents/userRoles/$(em())).data;
+    }
+    function isAdmin() {
+      return isDomain() && (isBootstrap() || (hasRoleDoc() && roleDoc().role in ['admin', 'superadmin']));
+    }
+    function isSelf(staffId) {
+      return isDomain() && hasRoleDoc() && roleDoc().staffId == staffId;
+    }
+    function under(mb) {
+      return request.resource.size < mb * 1024 * 1024;
+    }
+
+    // New hires upload via their tokenized link — no sign-in, so the cap stays modest.
     match /onboarding/{token}/{item}/{fileName} {
-      // New hires upload via their tokenized link — no sign-in, size-capped.
-      allow write: if token.size() >= 20
-        && request.resource.size < 20 * 1024 * 1024;
+      allow write: if token.size() >= 20 && under(10);
       // Staff (signed in with a practice Google account) can view.
       allow read: if request.auth != null
         && request.auth.token.email != null
         && request.auth.token.email.matches('.*@advancepsychotherapy[.]org$');
     }
+
+    // Library files: everyone signed in reads; admins add and remove.
+    match /refLibrary/{fileId}/{fileName} {
+      allow read: if isDomain();
+      allow create, update: if isAdmin() && under(20);
+      allow delete: if isAdmin();
+    }
+
+    // A person's own documents (CEU certificates, Employee File): that person and admins.
+    match /staffFiles/{staffId}/{fileId}/{fileName} {
+      allow read: if isAdmin() || isSelf(staffId);
+      allow create, update: if (isAdmin() || isSelf(staffId)) && under(20);
+      allow delete: if isAdmin() || isSelf(staffId);
+    }
+
     // Everything else: locked.
     match /{allPaths=**} {
       allow read, write: if false;

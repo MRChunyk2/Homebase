@@ -419,7 +419,8 @@ async function shrink(file){
 
 async function upload(item, file){
   if(!file) return;
-  if(file.size>20*1024*1024){ toast('That file is over 20MB — please compress it or email HR.'); return; }
+  // 10 MB cap (storage.rules): these uploads come from people who aren't signed in.
+  if(file.size>10*1024*1024){ toast('That file is over 10 MB — please compress it or email it to HR.'); return; }
   const n=document.getElementById('n-'+item);
   if(n) n.innerHTML='<span class="up">Uploading…</span>';
   try{

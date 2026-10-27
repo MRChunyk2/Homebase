@@ -94,6 +94,8 @@ service cloud.firestore {
     // so bulk uploads can't blow up the 1MB kv/app_staff blob. Admins manage
     // everyone's; each person can read, file, and delete their OWN (the
     // profile's Training & CEU tab is self-service).
+    // New uploads keep only metadata + `path` here; the bytes are in Firebase Storage
+    // (staffFiles/{staffId}/…). Older certificates carry a base64 data: URL in `data`.
     match /staffFiles/{fid} {
       allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId());
       allow create, update: if isAdmin() || (isDomain() && request.resource.data.sid == myStaffId());
@@ -190,12 +192,17 @@ service cloud.firestore {
     // Files uploaded to the Reference Library — base64, one doc per file
     // (same free-plan pattern as onboardFiles). Firestore's 1 MB doc cap
     // limits uploads to roughly 650 KB.
+    // Library file metadata. New uploads: {path, name, type, size, itemId, by, at} — the bytes
+    // are in Firebase Storage (refLibrary/…). Older uploads carry the bytes as base64 in `b64`.
     match /refLibraryFiles/{fid} {
       allow read: if isDomain();
       allow create: if isAdmin()
-        && request.resource.data.b64 is string
-        && request.resource.data.b64.size() < 900000
-        && request.resource.data.size() < 10;
+        && request.resource.data.size() < 12
+        && ((request.resource.data.path is string
+              && request.resource.data.path.matches('refLibrary/.*')
+              && !('b64' in request.resource.data))
+            || (request.resource.data.b64 is string
+              && request.resource.data.b64.size() < 900000));
       allow delete: if isAdmin();
     }
 
@@ -207,6 +214,24 @@ service cloud.firestore {
       allow create, update: if (isAdmin() || (isDomain() && sid == myStaffId()))
         && request.resource.data.size() < 30;
       allow delete: if isAdmin();
+    }
+
+    // ── Payroll Review (Valant import → attainment + compensation) — Super Admin only ──
+    // Working data: config (mappings, provider rates, rules), pay periods, imports and
+    // their de-identified rows (no patient names or notes are stored).
+    match /payrollConfig/{d}  { allow read, write: if isSuperAdmin(); }
+    match /payrollPeriods/{d} { allow read, write: if isSuperAdmin(); }
+    match /payrollImports/{d} { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    match /payrollRows/{d}    { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    // Closed pay periods: immutable once written. Reopening writes a NEW version.
+    match /payrollSnapshots/{d} { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    match /payrollPaid/{d}      { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    // Pay-period sheets: one per employee per closed version. Clinical-hour credit and FFS units
+    // only (no dollars); clients by code only. Each person reads only their own.
+    match /payStatements/{d} {
+      allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
     }
 
     // Performance reviews (annual + 6-month check-in). The therapist and

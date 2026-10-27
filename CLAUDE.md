@@ -11,7 +11,8 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   the `applications` collection).
 - **`public/avail.html`** — public interview-availability picker (tokenized link).
 - **`public/onboard.html`** — public new-hire onboarding portal (tokenized link;
-  data in the `onboarding` collection, uploaded files in `onboardFiles`).
+  data in the `onboarding` collection; uploaded files in Firebase Storage under
+  `onboarding/{token}/…`, 10 MB each. Older uploads are base64 docs in `onboardFiles`).
 - **Data lives in Firestore, never in this repo.** The app boots behind Google
   sign-in (restricted to @advancepsychotherapy.org) and loads everything through
   the `window.storage` engine in the `<script type="module">` block at the bottom
@@ -28,12 +29,26 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   `libSignoffs` + `libSignatures` (manual sign-off rounds and signatures),
   `intakeProfiles` (Clinical Profile for Intake, one per clinician),
   `refLibrary` + `refLibraryFiles` (Learning & Reference and Paperwork &
-  Templates items and their uploaded files), and `kv/*` blobs (tiered by key).
-- **`storage.rules`** — unused (Firebase Storage needs the paid Blaze plan,
-  which is not enabled). Kept in the repo for a future upgrade. Onboarding
-  uploads are stored in Firestore instead (`onboardFiles`, base64, one doc per
-  file — images auto-compress; oversized files fall back to an "email HR"
-  checkbox).
+  Templates items and their uploaded files), Payroll Review (Super Admin only:
+  `payrollConfig`, `payrollPeriods`, `payrollImports` + `payrollRows` — the
+  Valant export with patient names/notes stripped — and the create-only
+  `payrollSnapshots` + `payrollPaid` for closed periods, plus `payStatements` —
+  one read-only pay-period sheet per employee, readable by that employee: hours and
+  FFS units only, no dollars, clients by code only), and `kv/*` blobs
+  (tiered by key).
+- **`storage.rules`** — Firebase Storage access control. The project has been on
+  the Blaze plan since Sept 23, 2026; Storage is enabled (bucket
+  `advance-intranet.firebasestorage.app`). **Uploaded file bytes go to Storage;
+  their metadata (name, size, type, uploader, date, Storage path) stays in
+  Firestore.** Paths: `refLibrary/{fileId}/{name}` (library files, 20 MB; admins
+  write, all staff read), `staffFiles/{staffId}/{fileId}/{name}` (CEU certificates
+  and Employee File documents, 20 MB; that person + admins), `onboarding/{token}/…`
+  (new-hire portal, no sign-in, 10 MB). Rules read roles from Firestore
+  `userRoles` via cross-service `firestore.get()`. Never base64 a file into a
+  Firestore doc again — Firestore's 1 MB per-document limit is why the old cap
+  was ~650 KB. Older base64 files (`b64` / `data` fields in `refLibraryFiles`,
+  `staffFiles`, `onboardFiles`, staff `_files`) are still read by `fileOpen()`.
+  Avatar `photos` stay in Firestore (160 px, small).
 - **`build/`** — historical record of the June 2026 migration that split the data
   out of the original single-file app. The transform reads a source file that is
   not in this repo; do not re-run it. Reference only.
@@ -78,6 +93,8 @@ chain:
 
 ```bash
 firebase deploy --only hosting,firestore:rules --project advance-intranet
+# when storage.rules changed:
+firebase deploy --only hosting,firestore:rules,storage --project advance-intranet
 ```
 
 - There is no auto-deploy: pushing to GitHub does NOT publish by itself, and
@@ -85,7 +102,11 @@ firebase deploy --only hosting,firestore:rules --project advance-intranet
   pulls and deploys it.
 - When a change touches `firestore.rules` (new collection, permission change),
   say so in the commit message so Will knows the deploy must include
-  `firestore:rules`, not hosting alone.
+  `firestore:rules`, not hosting alone. Same for `storage.rules` → `storage`.
+- index.html is one huge file with two script blocks and sign-in wired at the
+  very end: an uncaught top-level error stops everything after it (this once
+  took the site down). New code goes in functions with try/catch — no top-level
+  work.
 - Verify changes on the deployed site after Will's deploy (sign-in works on
   localhost too, serving `public/` locally).
 
