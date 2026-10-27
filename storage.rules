@@ -44,10 +44,11 @@ service firebase.storage {
     // New hires upload via their tokenized link — no sign-in, so the cap stays modest.
     match /onboarding/{token}/{item}/{fileName} {
       allow write: if token.size() >= 20 && under(10);
-      // Staff (signed in with a practice Google account) can view.
-      allow read: if request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@advancepsychotherapy[.]org$');
+      // Admins only, matching the onboardFiles rule in firestore.rules. These are
+      // CORI checks, resumes and signed tax forms — HR material, not all-staff
+      // material. The candidate portal never reads files back (it only writes),
+      // so nothing needs wider access.
+      allow read: if isAdmin();
     }
 
     // Library files: everyone signed in reads; admins add and remove.
