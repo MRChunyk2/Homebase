@@ -10003,7 +10003,7 @@ function capPeriodAdminHtml(){
   return '<div style="max-width:1000px;width:100%;margin:18px auto 30px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">'
     +'<button onclick="CAP_PERIODS_OPEN=!CAP_PERIODS_OPEN;renderCapacity()" aria-expanded="'+CAP_PERIODS_OPEN+'" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border:0;background:#fff;font:inherit;font-weight:800;font-size:13px;cursor:pointer;color:#111827">'
     +'<span>🗓 Pay periods — delete a period and start over <span style="font-weight:600;color:#9ca3af;font-size:11.5px">Super Admin</span></span><span>'+(CAP_PERIODS_OPEN?'▾':'▸')+'</span></button>'
-    +(CAP_PERIODS_OPEN?'<div style="padding:0 16px 8px;font-size:12px;color:#6b7280">Deleting a pay period erases every clinician’s individual and group hours for it (and the Payroll Processing breakdown), so it can be re-entered or re-imported. A backup file downloads first.</div>'
+    +(CAP_PERIODS_OPEN?'<div style="padding:0 16px 8px;font-size:12px;color:#6b7280">Deleting a pay period erases every clinician’s individual and group hours for it (and the Payroll Processing breakdown), so it can be re-entered or re-imported. This cannot be undone.</div>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f9fafb;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">'
       +'<th style="padding:8px 12px;text-align:left">Period</th><th style="padding:8px 12px;text-align:left">Dates</th><th style="padding:8px 12px;text-align:right">Clinicians with hours</th><th style="padding:8px 12px;text-align:right">Individual hrs</th><th style="padding:8px 12px;text-align:right">Group hrs (raw)</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')
     +'</div>';
@@ -10012,16 +10012,12 @@ async function capDeletePeriod(i){
   try{
     if(!isSuperAdminView()){ showToast('⛔ Super Admins only'); return; }
     const S=capPeriodStats(i);
-    const typed=prompt('Delete Pay Period '+(i+1)+'?\n\nThis erases '+S.ind+' individual hours and '+S.grp+' group hours for '+S.people+' clinician(s) in this period, so you can start it over. A backup file downloads first.\n\nType DELETE to confirm.');
+    const typed=prompt('Delete Pay Period '+(i+1)+'?\n\nThis erases '+S.ind+' individual hours and '+S.grp+' group hours for '+S.people+' clinician(s) in this period, so you can start it over. This cannot be undone.\n\nType DELETE to confirm.');
     if(typed===null) return;
     if(String(typed).trim().toUpperCase()!=='DELETE'){ showToast('Not deleted — type DELETE to confirm'); return; }
-    // backup of all three stores first
-    try{
-      const payload={_type:'APP_CAPACITY_PERIOD_BACKUP',_exportedAt:new Date().toISOString(),deletedPeriod:i+1,
-        clinicalHours:CLINICAL_HOURS_DATA, groupHours:(typeof GROUP_HOURS_DATA!=='undefined'?GROUP_HOURS_DATA:null), payrollDetail:(typeof PAYROLL_DETAIL!=='undefined'?PAYROLL_DETAIL:null)};
-      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-      a.download='capacity_backup_before_deleting_PP'+(i+1)+'_'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); a.remove();
-    }catch(e){ if(!confirm('The backup could not be downloaded. Delete anyway?')) return; }
+    // No automatic backup download: the data was imported from sources that
+    // are already backed up, and clearing a year meant 26 throwaway files.
+    // The typed DELETE confirmation above is the guard.
     Object.keys(CLINICAL_HOURS_DATA.byId||{}).forEach(function(k){ const a=CLINICAL_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
     if(typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId) Object.keys(GROUP_HOURS_DATA.byId).forEach(function(k){ const a=GROUP_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
     if(typeof PAYROLL_DETAIL!=='undefined'&&PAYROLL_DETAIL) Object.keys(PAYROLL_DETAIL).forEach(function(k){ if(PAYROLL_DETAIL[k]) delete PAYROLL_DETAIL[k][i]; });
@@ -10517,6 +10513,18 @@ function capDrillHTML(s,c){
   // Each period's credited hours = individual + (group × factor).
   let cumW=0, cumH=0; const actualPts=[{w:0,h:0,label:'Start',periodHrs:null,pp:0}];
   const _chartNow = new Date(); _chartNow.setHours(0,0,0,0);
+  // The LAST period that has anything recorded. The loop below plots up to
+  // here and no further, which keeps the original intent (never plot a period
+  // that hasn't happened) while tolerating gaps: a period cleared with the
+  // delete button, or one simply skipped, no longer truncates everything after
+  // it. Before this, the loop stopped at the FIRST empty period, so deleting
+  // PP1 hid the whole year even though the totals still counted it.
+  let _lastEntered = -1;
+  for(let i=0;i<arr.length;i++){
+    if(data.periodQuarter[i] < 0) break;
+    const _v = arr[i], _g = capGroupWeighted(s._id, i);
+    if((_v!==null && _v!==undefined) || _g!==null) _lastEntered = i;
+  }
   for(let i=0;i<arr.length;i++){
     if(data.periodQuarter[i] < 0) break;        // skip trailing next-FY period
     // Only plot a period once it has fully CLOSED — never a current/future one.
@@ -10524,10 +10532,16 @@ function capDrillHTML(s,c){
     if(_pEnd >= _chartNow) break;
     const ind = arr[i];
     const gw = capGroupWeighted(s._id, i);      // weighted group hrs or null
-    // Data is entered period-by-period in order; the first period with nothing
-    // entered means we've reached "not yet recorded" — stop the actual line here
-    // so it never plots a phantom 0 for a period that hasn't happened.
-    if((ind===null||ind===undefined) && gw===null) { break; }
+    // An empty period past the last recorded one means "not yet entered" —
+    // stop, so the line never plots a phantom 0 for a period that hasn't
+    // happened. An empty period BEFORE that is a gap (cleared or skipped):
+    // let the weeks pass, credit no hours, and carry on, rather than hiding
+    // every later period.
+    if((ind===null||ind===undefined) && gw===null){
+      if(i >= _lastEntered) break;
+      cumW += periodWeeks[i]||2;
+      continue;
+    }
     cumW += periodWeeks[i]||2;
     const indV = (ind===null||ind===undefined)?0:ind;
     const gwV = gw===null?0:gw;
