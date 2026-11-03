@@ -1668,9 +1668,10 @@ const CONFIG_DEFAULTS = {
   // Role checkboxes; stored comma-separated in the 'Service Types' field.
   // Psychotherapist I — not yet independently licensed (LCSW, MA, MS…).
   // Psychotherapist II — independently licensed (LMHC, LICSW…).
-  roleOpts: ['Psychotherapist I','Psychotherapist II','Clinical Supervisor','Clinical Team Manager (CTM)','Program Manager','Senior Leadership'],
+  // "Supervisor" = non-clinical supervisor of direct reports (shows in Reports To, not in Clinical Supervisor).
+  roleOpts: ['Psychotherapist I','Psychotherapist II','Clinical Supervisor','Supervisor','Clinical Team Manager (CTM)','Program Manager','Senior Leadership','Marketing'],
   // ONE job title per person (Title field). Titles already on records are offered too; "Other" adds a new one.
-  jobTitleOpts: ['Psychotherapist','Clinical Supervisor','Clinical Team Manager','Program Manager','Clinical Director','Executive Director'],
+  jobTitleOpts: ['Psychotherapist','Clinical Supervisor','Clinical Team Manager','Program Manager','Clinical Director','Executive Director','Social Media Specialist'],
   // Legacy Role values hidden from the form and dropped on the next save.
   retiredRoleValues: ['Service Provider'],
   // Old Title values fully replaced by role data (e.g. plain "Psychotherapist"
@@ -1690,8 +1691,8 @@ const CONFIG_DEFAULTS = {
     {key:'Team',               label:'Team'},
     {key:'Title',              label:'Title'},
     {key:'Reports To',         label:'Reports To'},
-    {key:'Format',             label:'Format'},
-    {key:'Capacity Tier',      label:'Capacity Tier'},
+    {key:'Format',             label:'Format', clinical:true},
+    {key:'Capacity Tier',      label:'Capacity Tier', clinical:true},
     {key:'Supervisor',          label:'Clinical Supervisor', clinical:true},
     {key:'Weekly Capacity',    label:'Weekly Capacity', clinical:true},
     {key:'License',            label:'License', licensed:true},
@@ -1747,7 +1748,7 @@ const CONFIG_DEFAULTS = {
   },
   // A staff member whose Role or Title contains any of these appears in the
   // "Reports To" dropdown.
-  reportsToRoles: ['Clinical Supervisor','Program Manager','Senior Leadership','Clinical Team Manager'],
+  reportsToRoles: ['Clinical Supervisor','Supervisor','Program Manager','Senior Leadership','Clinical Team Manager'],
   // Who can sit on an interview panel: leadership only. Matched (case-
   // insensitive) against each person's Title and Role fields.
   panelRoles: ['Clinical Supervisor','Program Manager','Clinical Team Manager','CTM','Director','Owner','Manager','Senior Leadership','Chief','President','Founder'],
@@ -1838,12 +1839,16 @@ function cfgApply(stored){
   }
   // Site option lists: a saved list may predate a site (e.g. Longmeadow / SOWK). Keep the
   // saved order, then add back any built-in entry it is missing so every site is selectable.
-  ['teamOpts','primaryProgramOpts','programOpts','siteOrder','roleOpts'].forEach(k=>{
+  ['teamOpts','primaryProgramOpts','programOpts','siteOrder','roleOpts','jobTitleOpts','reportsToRoles'].forEach(k=>{
     if(!Array.isArray(next[k]) || next[k]===CONFIG_DEFAULTS[k]) return;
     (CONFIG_DEFAULTS[k]||[]).forEach(o=>{ if(next[k].indexOf(o)<0) next[k].push(o); });
   });
+  // Social Media Specialist is a TITLE, not a role (Nov 2026) — its role is Marketing.
+  if(Array.isArray(next.roleOpts)) next.roleOpts=next.roleOpts.filter(o=>o!=='Social Media Specialist');
   // Department allocation was removed (Nov 2026): never require it, even if a saved list still does.
   if(Array.isArray(next.requiredProfileFields)) next.requiredProfileFields=next.requiredProfileFields.filter(f=>f&&f.key!=='Department');
+  // Non-clinical admin staff need no capacity fields (Nov 2026): Format and Capacity Tier are clinical-only.
+  if(Array.isArray(next.requiredProfileFields)) next.requiredProfileFields=next.requiredProfileFields.map(f=>(f&&(f.key==='Format'||f.key==='Capacity Tier')&&!f.clinical&&!f.licensed)?Object.assign({},f,{clinical:true}):f);
   ['teamLabels'].forEach(k=>{ next[k]=Object.assign({}, CONFIG_DEFAULTS[k]||{}, next[k]||{}); });
   CONFIG = next;
 }
@@ -2098,6 +2103,7 @@ function staffRolesOf(s){
   String(s&&s['Service Types']||'').split(',').concat(String(s&&s['Title']||'').split(',')).map(function(t){return t.trim();}).filter(Boolean)
     .forEach(function(v,i,arr){ const fromTitle=i>=String(s&&s['Service Types']||'').split(',').length;
       if(retired.indexOf(v)>=0||legacy.indexOf(v)>=0) return;
+      if(v==='Social Media Specialist'){ if(out.indexOf('Marketing')<0) out.push('Marketing'); return; }   // moved to Title; role = Marketing
       if(fromTitle && ro.indexOf(v)<0) return;
       if(out.indexOf(v)<0) out.push(v); });
   return out;
@@ -2109,6 +2115,8 @@ function staffTitleNorm(t){ return /^Psychotherapist\s+I{1,2}$/i.test(String(t||
 function staffTitleOf(s){
   const ro=CONFIG.roleOpts||[];
   const vals=String(s&&s['Title']||'').split(',').map(function(t){return t.trim();}).filter(Boolean);
+  // Social Media Specialist used to be stored as a role — with no title set, it becomes the title.
+  if(!vals.length && /(^|,)\s*Social Media Specialist\s*(,|$)/.test(String(s&&s['Service Types']||''))) return 'Social Media Specialist';
   if(vals.length===1) return staffTitleNorm(vals[0]);
   return staffTitleNorm(vals.filter(function(t){ return ro.indexOf(t)<0; })[0]||vals[0]||'');
 }
@@ -6649,12 +6657,12 @@ function openRoster(id){
   document.getElementById('m-sub').textContent=displayTitle(p)||'';
   document.getElementById('m-tags').innerHTML=(s?`<span class="pill ${statusCls(s)}">${normStatus(s)}</span>`:'')+
     (t?`<span class="pill t-${t}">${teamLabel(t)}</span>`:'')+
-    (p['License']?`<span class="pill" style="background:#eeecea;color:#444">${p['License']}</span>`:'')+
-    (p['Format']?`<span class="pill" style="background:#e8f0e8;color:#2a4a2a">${p['Format']}</span>`:'')+
+    (p['License']&&isClinicianRec(p)?`<span class="pill" style="background:#eeecea;color:#444">${p['License']}</span>`:'')+
+    (p['Format']&&isClinicianRec(p)?`<span class="pill" style="background:#e8f0e8;color:#2a4a2a">${p['Format']}</span>`:'')+
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
   const demoPanel =
-    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])+capProfileRows(p)
+    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity']):'')+capProfileRows(p)
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     + (isAdminView() ? (function(){
         const role=roleOf(p);
@@ -6757,9 +6765,11 @@ function renderRosterTabs(){
     + sec('Performance Reviews')
     + '<div id="prof-reviews" style="padding:2px 0 6px"><div style="font-size:12px;color:#999">Loading…</div></div>'
     + (s['_application'] ? applicationEssaysSection(s['_application']) : '')) : '';
+  const nonClin = !!(s && !isClinicianRec(s));
+  if(nonClin && rosterDetailTab==='cred') rosterDetailTab='demo';
   const TABS = [
     {k:'demo',  l:'Demographic & Employment'},
-    {k:'cred',  l:'Credentialing'},
+    ...(nonClin ? [] : [{k:'cred',  l:'Credentialing'}]),
     {k:'ceu',   l:'Training & CEU'},
     // Employee Files are sensitive HR records: Super Admins, or your own.
     ...((isSuperAdminView() || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))
@@ -6770,7 +6780,8 @@ function renderRosterTabs(){
       class="tab-btn${rosterDetailTab===t.k?' tab-btn-active':''}">${t.l}${t.badge?`<span class="tab-badge${rosterDetailTab===t.k?' tab-badge-active':''}">${t.badge}</span>`:''}</button>`).join('');
   if(rosterDetailTab==='comp' && !isSuperAdminView()) rosterDetailTab='demo'; // never serve comp to non-super-admins
   if(rosterDetailTab==='files' && !(isSuperAdminView() || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))) rosterDetailTab='demo';
-  const content = rosterDetailTab==='files' ? filesPanel : (panels[rosterDetailTab]||'');
+  let content = rosterDetailTab==='files' ? filesPanel : (panels[rosterDetailTab]||'');
+  if(nonClin && rosterDetailTab==='demo' && s && s['_application']){ try{ content+=applicationDataSection(s['_application']); }catch(e){} }
   document.getElementById('m-body').innerHTML =
     `<div class="tab-bar">${bar}</div>`+
     `<div>${content}</div>`;
@@ -7029,7 +7040,7 @@ function buildRosterEditForm(p){
       {id:'ef-hire',     label:'Date of Hire',       html:inp('ef-hire','Date of Hire'),     key:'Date of Hire'},
       {id:'ef-dob',      label:'Date of Birth',      html:inp('ef-dob','DOB'),               key:'DOB'},
     ]},
-    {label:'Capacity & Format', fields:[
+    {label:'Capacity & Format', clinical:true, fields:[
       {id:'ef-captier',  label:'Capacity Tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
       {id:'ef-weekly',   label:'Weekly Capacity',    html:inp('ef-weekly','Weekly Capacity'),key:'Weekly Capacity'},
       {id:'ef-capfrom-x',label:'', html:capEfCapFromHtml(p), full:true, extra:true},
@@ -7045,7 +7056,7 @@ function buildRosterEditForm(p){
       {id:'ef-phone',    label:'Phone / Google #',   html:inp('ef-phone','Google Number'),   key:'Google Number'},
       {id:'ef-addr',     label:'Address',            html:inp('ef-addr','Address'),          full:true, key:'Address'},
     ]},
-    {label:'Licensure', fields:[
+    {label:'Licensure', clinical:true, fields:[
       {id:'ef-lic',      label:'License Type',       html:inp('ef-lic','License'),           key:'License'},
       {id:'ef-licnum',   label:'License #',          html:inp('ef-licnum','License #'),      key:'License #'},
       {id:'ef-liceff',   label:'Lic. Eff. Date',     html:inp('ef-liceff','Lic Eff Date'),   key:'Lic Eff Date'},
@@ -7053,7 +7064,7 @@ function buildRosterEditForm(p){
       // whichever of the two stored fields has a value; saving writes both (see saveEdit).
       {id:'ef-licexpalt',label:'Lic. Exp. Date',     html:'<input id="ef-licexpalt" data-key="Lic Exp Date" value="'+String(p['Lic Exp Date']||p['License Expiration']||'').replace(/"/g,'&quot;')+'"'+missStyle('License Expiration')+'>', key:'Lic Exp Date'},
     ]},
-    {label:'Credentialing', fields:[
+    {label:'Credentialing', clinical:true, fields:[
       {id:'ef-credname', label:'Credentialing Name', html:inp('ef-credname','Credentialing Name'), key:'Credentialing Name'},
       {id:'ef-npi',      label:'NPI',                html:inp('ef-npi','NPI'),               key:'NPI'},
       {id:'ef-creddob',  label:'Credentialing DOB',  html:inp('ef-creddob','Credentialing DOB'), key:'Credentialing DOB'},
@@ -7076,11 +7087,17 @@ function buildRosterEditForm(p){
 
   var out='';
   var allFields=[];
+  // Non-clinical admin staff: capacity, licensure and credentialing sections are hidden (kept in
+  // the form so nothing is lost; "Show clinical fields" reveals them, e.g. when someone becomes clinical).
+  var hideClin=false; try{ hideClin=!isClinicianRec(p); }catch(e){}
+  if(hideClin) out+='<div class="ef full" style="font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px" id="ef-clin-note">Non-clinical staff — capacity, licensure and credentialing fields are hidden. <a href="#" onclick="document.querySelectorAll(\'[data-clinsec]\').forEach(function(e){e.style.display=\'\';});this.parentNode.remove();return false;" style="color:#122B67;font-weight:700">Show clinical fields</a></div>';
   sections.forEach(function(sec){
-    out+='<div class="ef full" style="margin-top:8px">'
+    const cs=(sec.clinical&&hideClin)?' data-clinsec="1" style="display:none;margin-top:8px"':' style="margin-top:8px"';
+    out+='<div class="ef full"'+cs+'>'
       +'<div class="sec-label" style="margin:0">'+sec.label+'</div></div>';
     sec.fields.forEach(function(f){
-      out+='<div class="ef'+(f.full?' full':'')+'"'+(f.extra?' id="'+f.id+'" style="display:none"':'')+'>'
+      const hid=(sec.clinical&&hideClin&&!f.extra)?' data-clinsec="1" style="display:none"':'';
+      out+='<div class="ef'+(f.full?' full':'')+'"'+(f.extra?' id="'+f.id+'" style="display:none"':hid)+'>'
         +(f.label?'<label>'+f.label+'</label>':'')
         +f.html
         +'</div>';
