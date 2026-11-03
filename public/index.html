@@ -11230,9 +11230,51 @@ const PAGE_META={
   'therapist-profile':{title:'My Therapist Profile',sub:'Coming soon'},
 };
 let activeNav=document.getElementById('nav-roster');
-function showPage(id,btn){
+// ── BROWSER HISTORY / BACK BUTTON ──────────────────────────────────────────
+// Homebase is a single page: showPage() swaps which .page div is active and the
+// URL never changed, so the browser's Back button used to leave the site
+// entirely instead of returning to the previous section. These helpers record
+// each section in the browser's history as a #hash, so Back/Forward move
+// between sections — with no page reload, so navigation stays instant and
+// nothing re-fetches. A side effect is that sections become linkable and
+// bookmarkable (e.g. …/#roster).
+//
+// Deep links are safe: showPage() runs canSeePage() on whatever id arrives, so
+// typing #payroll as a therapist still bounces to their own page.
+function hbNavBtnFor(id){
+  try{ return document.querySelector('.nav-item[data-page="'+id+'"]') || null; }catch(e){ return null; }
+}
+let HB_ROUTE_STARTED = false;
+function hbPushRoute(id){
+  try{
+    if(!id) return;
+    const h = '#' + id;
+    // The first navigation REPLACES the entry the tab opened with, so history
+    // starts at a real section instead of a hash-less URL that Back would
+    // land on (same page, blank address) before finally leaving the site.
+    if(!HB_ROUTE_STARTED){ HB_ROUTE_STARTED = true; history.replaceState({ hbPage:id }, '', h); return; }
+    if(location.hash === h) return;                 // already here — don't stack duplicates
+    history.pushState({ hbPage:id }, '', h);
+  }catch(e){}
+}
+// The id in the URL right now, if it names a real page.
+function hbRouteFromUrl(){
+  try{
+    const id = (location.hash||'').replace(/^#/,'');
+    return (id && document.getElementById('page-'+id)) ? id : null;
+  }catch(e){ return null; }
+}
+window.addEventListener('popstate', function(ev){
+  try{
+    const id = (ev.state && ev.state.hbPage) || hbRouteFromUrl();
+    if(!id || !document.getElementById('page-'+id)) return;
+    showPage(id, hbNavBtnFor(id), true);            // true = came from history, don't re-push
+  }catch(e){}
+});
+
+function showPage(id,btn,_fromHistory){
   // Unsaved edits anywhere → hard stop; leaving re-runs this navigation.
-  if(typeof hbConfirmLeave==='function' && !hbConfirmLeave(function(){ showPage(id,btn); })) return;
+  if(typeof hbConfirmLeave==='function' && !hbConfirmLeave(function(){ showPage(id,btn,_fromHistory); })) return;
   // Clinical How-Tos now lives on the Clinical Manual page (How-Tos tab).
   if(id==='clin-howtos'){ id='clin-policies'; btn=document.getElementById('nav-clin-policies'); try{ LIB_CAT='howto'; LIB_OPENID=null; LIB_EDIT=false; }catch(e){} }
   // A profile/candidate overlay shouldn't trap navigation: close it and go.
@@ -11249,6 +11291,10 @@ function showPage(id,btn){
   // Role gate: if the current viewer can't see this page, bounce to roster.
   if(!canSeePage(id)){ id='roster'; btn=document.getElementById('nav-roster'); }
   if(id==='roster' && currentRole()==='therapist' && btn && btn.id==='nav-roster') btn=document.getElementById('nav-myfile');
+  // Record the section in browser history, now that `id` is final (aliases
+  // resolved, role gate applied). Skipped when Back/Forward brought us here,
+  // which would otherwise push the entry we just navigated away from.
+  if(!_fromHistory) hbPushRoute(id);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(activeNav)activeNav.classList.remove('active');
@@ -12997,8 +13043,14 @@ async function boot() { // called by the Firebase auth module once sign-in compl
   renderRoster();
   if (typeof renderCapacity === 'function') renderCapacity();
 
-  // Show roster page on load
-  showPage('roster', document.getElementById('nav-roster'));
+  // Open whatever section the URL names (a bookmark or a shared #link), else
+  // the roster. showPage() still role-gates the id, so a deep link can't reach
+  // a page this person isn't allowed to see.
+  (function(){
+    const routed = (typeof hbRouteFromUrl==='function') ? hbRouteFromUrl() : null;
+    const id = routed || 'roster';
+    showPage(id, (typeof hbNavBtnFor==='function' && hbNavBtnFor(id)) || document.getElementById('nav-roster'));
+  })();
   // After switching capacity year, come back to the page that asked for it.
   try{ const rp=sessionStorage.getItem('hb_capyear_return'); if(rp){ sessionStorage.removeItem('hb_capyear_return');
     if(document.getElementById('page-'+rp)) showPage(rp, document.querySelector('.nav-item[data-page="'+rp+'"]')); } }catch(e){}
