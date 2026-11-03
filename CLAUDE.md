@@ -32,7 +32,8 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   Templates items and their uploaded files), Payroll Review (Super Admin only:
   `payrollConfig`, `payrollPeriods`, `payrollImports` + `payrollRows` — the
   Valant export with patient names/notes stripped — and the create-only
-  `payrollSnapshots` + `payrollPaid` for closed periods, plus `payStatements` —
+  `payrollSnapshots` + `payrollPaid` for closed periods (now written by Pay Period Upload, see
+  below), plus `payStatements` —
   one read-only pay-period sheet per employee, readable by that employee: hours and
   FFS units only, no FFS dollars, clients by code only; shown on HR Hub → Pay Period
   Snapshot, where only $25/hr meeting time shows dollars), and `kv/*` blobs
@@ -88,6 +89,30 @@ the one today's pay period belongs to; admins can open an earlier year from the 
 page). Each year has its own stores: 2026 = kv/app_clinical_hours, app_group_hours,
 app_payroll_detail; later years append `_YYYY` (`capStoreKey`). firestore.rules gives
 `app_payroll_detail_YYYY` the same Super Admin–only tier as `app_payroll_detail`.
+
+## Pay Period Upload + Service Code Rules (Nov 2026)
+
+Replaces Payroll Review and Payroll Processing (their nav items are gone; old code still in
+the file, unused). Admin Logistics → **Pay Period Upload** (`renderPPU`, Super Admin): pick an
+official pay period, upload that period's Valant appointment export (rows outside the period
+are ignored; patient NAMES are never stored — only the client code in parentheses), review
+every employee, correct rows (exclude / change code / not a duplicate — reason required),
+link Valant ProviderIDs to staff, then close. All math comes from **Service Code Rules**
+(`renderCodeRules`) — the "Cap Hours Formula for Homebase" sheet, editable and versioned in
+`payrollConfig/codeRules` (seeded from the sheet with 11111 = paid no show: 1 FFS hr, 0
+clinical; 11112 = unpaid no show: 0/0; SUP PAID = "Paid Supervision": 1 FFS hr, 0 clinical;
+SUP UNPAID = "Unpaid Supervision": tracked count only). Per appointment: category hours = % of FFS; clinical
+credit = Clinical Hours Count for Cap (no-shows always 0); differential = 1 per appointment
+when the rule allows it AND it starts ≥ 5 PM Mon–Fri or any time Sat/Sun (add-ons never add
+one); additional comp from the sheet ($ per unit); bonus = clinical hrs over 50 × $20 (pay
+settings on the rules page). No FFS rates anywhere: FFS is reported as hours ("Total FFS hours
+for Paychex" = categories + paid no shows + paid supervision + FFS-rate meeting time). Meeting and Admin Time is
+included and marked PAID on close. Closing writes an immutable snapshot
+(`payrollSnapshots/ppu_<PP>_v<n>`: rules version, links, corrections, results), publishes
+`payStatements` (kind 'ppu', shown on Pay Period Snapshot — hours only, $ only for $25/hr
+meetings), and writes each employee's clinical hours into the Capacity Dashboard for that
+period (group factor no longer applied — the sheet sets each code's credit). Reopen = new
+version. Storage reuses the existing Super Admin–only payroll collections (no rules change).
 
 ## Hard rules
 
