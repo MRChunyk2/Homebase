@@ -10509,6 +10509,18 @@ function capDrillHTML(s,c){
   // Each period's credited hours = individual + (group × factor).
   let cumW=0, cumH=0; const actualPts=[{w:0,h:0,label:'Start',periodHrs:null,pp:0}];
   const _chartNow = new Date(); _chartNow.setHours(0,0,0,0);
+  // The LAST period that has anything recorded. The loop below plots up to
+  // here and no further, which keeps the original intent (never plot a period
+  // that hasn't happened) while tolerating gaps: a period cleared with the
+  // delete button, or one simply skipped, no longer truncates everything after
+  // it. Before this, the loop stopped at the FIRST empty period, so deleting
+  // PP1 hid the whole year even though the totals still counted it.
+  let _lastEntered = -1;
+  for(let i=0;i<arr.length;i++){
+    if(data.periodQuarter[i] < 0) break;
+    const _v = arr[i], _g = capGroupWeighted(s._id, i);
+    if((_v!==null && _v!==undefined) || _g!==null) _lastEntered = i;
+  }
   for(let i=0;i<arr.length;i++){
     if(data.periodQuarter[i] < 0) break;        // skip trailing next-FY period
     // Only plot a period once it has fully CLOSED — never a current/future one.
@@ -10516,10 +10528,16 @@ function capDrillHTML(s,c){
     if(_pEnd >= _chartNow) break;
     const ind = arr[i];
     const gw = capGroupWeighted(s._id, i);      // weighted group hrs or null
-    // Data is entered period-by-period in order; the first period with nothing
-    // entered means we've reached "not yet recorded" — stop the actual line here
-    // so it never plots a phantom 0 for a period that hasn't happened.
-    if((ind===null||ind===undefined) && gw===null) { break; }
+    // An empty period past the last recorded one means "not yet entered" —
+    // stop, so the line never plots a phantom 0 for a period that hasn't
+    // happened. An empty period BEFORE that is a gap (cleared or skipped):
+    // let the weeks pass, credit no hours, and carry on, rather than hiding
+    // every later period.
+    if((ind===null||ind===undefined) && gw===null){
+      if(i >= _lastEntered) break;
+      cumW += periodWeeks[i]||2;
+      continue;
+    }
     cumW += periodWeeks[i]||2;
     const indV = (ind===null||ind===undefined)?0:ind;
     const gwV = gw===null?0:gw;
