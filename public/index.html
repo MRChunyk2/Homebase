@@ -9580,7 +9580,12 @@ async function capLoadPersistedHours(){
     const r = await window.storage.get(CAP_HOURS_STORE_KEY);
     if(r && r.value){
       const parsed = JSON.parse(r.value);
-      if(parsed && parsed.byId && parsed._version === CAP_DATA_VERSION && (!parsed.periods || parsed.periods[0]===CAP_YEAR_PERIOD_ISOS[0])){
+      // The year guard stays: stored data whose first period isn't this capacity
+      // year's belongs to another year and must not be used. The _version stamp
+      // check is deliberately gone — hours live only in Firestore now (the copy
+      // embedded above is empty), so a stamp mismatch could only replace real
+      // hours with nothing and then persist that emptiness.
+      if(parsed && parsed.byId && (!parsed.periods || parsed.periods[0]===CAP_YEAR_PERIOD_ISOS[0])){
         CLINICAL_HOURS_DATA = parsed; return;
       }
     }
@@ -9603,7 +9608,8 @@ async function capLoadPersistedGroupHours(){
     const r = await window.storage.get(CAP_GROUP_STORE_KEY);
     if(r && r.value){
       const parsed = JSON.parse(r.value);
-      if(parsed && parsed.byId && parsed._version === CAP_DATA_VERSION){
+      // No _version check — same reasoning as the clinical-hours loader above.
+      if(parsed && parsed.byId){
         GROUP_HOURS_DATA = parsed; return;
       }
     }
