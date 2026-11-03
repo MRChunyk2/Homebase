@@ -6640,6 +6640,7 @@ const sec=t=>`<div class="sec-label">${t}</div>`;
 let currentId=null,currentMode=null;
 function openRoster(id){
   MY_FILE_OPEN=false;
+  try{ hbPushSub(hbCurrentPage(), id); }catch(e){}   // Back closes this record
   currentId=id;currentMode='roster';
   const p=STAFF.find(r=>r._id===id);
   const av=avC(p['Clinician']),s=p['Employee Status']||'',t=p['Team']||'';
@@ -10025,7 +10026,7 @@ async function capDeletePeriod(i){
   }catch(e){ console.error(e); showToast('⚠ Could not delete that pay period'); }
 }
 
-function capOpenDetail(id){ capDetailId=id; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
+function capOpenDetail(id){ try{ hbPushSub('capacity', id); }catch(e){} capDetailId=id; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
 function capCloseDetail(){ capDetailId=null; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
 // Jump from a capacity view straight to this clinician's full record on My Profile.
 function capViewProfile(id){
@@ -10846,7 +10847,7 @@ function tdPassesFilter(score){
   if(tdScoreFilter==='behind') return band==='behind' || band==='nodata';
   return band===tdScoreFilter;
 }
-function tdOpenSite(team){ tdSiteOpen = team; renderTeamDashboard(); try{document.getElementById('td-body').scrollTop=0;}catch(e){} }
+function tdOpenSite(team){ try{ hbPushSub('team-dashboard', team); }catch(e){} tdSiteOpen = team; renderTeamDashboard(); try{document.getElementById('td-body').scrollTop=0;}catch(e){} }
 function tdCloseSite(){ tdSiteOpen = null; renderTeamDashboard(); try{document.getElementById('td-body').scrollTop=0;}catch(e){} }
 
 // Roll capCompute() results up by Team. Returns sorted array (best avg % first).
@@ -11261,6 +11262,57 @@ let activeNav=document.getElementById('nav-roster');
 function hbNavBtnFor(id){
   try{ return document.querySelector('.nav-item[data-page="'+id+'"]') || null; }catch(e){ return null; }
 }
+// Drill-downs that should also answer to Back: opening a clinician's record,
+// a capacity detail, or a Leadership Dashboard site is a place the user went,
+// so it gets its own history entry. Each entry is {open, close, cur} for one
+// page; `cur` reports which sub-view (if any) is showing right now.
+const HB_SUBVIEWS = {
+  'roster': {
+    open:  function(id){ try{ openRoster(id); }catch(e){} },
+    close: function(){ try{ closeDetail(); }catch(e){} },
+    cur:   function(){
+      try{
+        const dm=document.getElementById('detail-modal');
+        return (dm && dm.classList.contains('open') && typeof currentId!=='undefined') ? currentId : null;
+      }catch(e){ return null; }
+    }
+  },
+  'capacity': {
+    open:  function(id){ try{ capOpenDetail(id); }catch(e){} },
+    close: function(){ try{ capCloseDetail(); }catch(e){} },
+    cur:   function(){ try{ return capDetailId||null; }catch(e){ return null; } }
+  },
+  'team-dashboard': {
+    open:  function(id){ try{ tdOpenSite(id); }catch(e){} },
+    close: function(){ try{ tdCloseSite(); }catch(e){} },
+    cur:   function(){ try{ return tdSiteOpen||null; }catch(e){ return null; } }
+  }
+};
+// Which page is showing, for pairing with a sub-view.
+function hbCurrentPage(){
+  try{ const a=document.querySelector('.page.active'); return a?a.id.replace('page-',''):null; }catch(e){ return null; }
+}
+// Record "drilled into <subId>" as its own history entry, so Back steps out of
+// the detail instead of leaving the page. Called by the open() wrappers below.
+function hbPushSub(pageId, subId){
+  try{
+    if(!pageId || !subId || !HB_SUBVIEWS[pageId]) return;
+    const st = history.state || {};
+    if(st.hbPage===pageId && String(st.hbSub)===String(subId)) return;   // already recorded
+    history.pushState({ hbPage:pageId, hbSub:subId }, '', '#'+pageId);
+  }catch(e){}
+}
+// Bring the open/closed state of the current page's drill-down into line with
+// a history entry. Returns true if it handled things without a page switch.
+function hbApplySub(pageId, subId){
+  const sv = HB_SUBVIEWS[pageId];
+  if(!sv) return false;
+  const cur = sv.cur();
+  if(subId && String(cur)!==String(subId)){ sv.open(subId); return true; }
+  if(!subId && cur){ sv.close(); return true; }
+  return false;
+}
+
 let HB_ROUTE_STARTED = false;
 function hbPushRoute(id){
   try{
@@ -11283,9 +11335,17 @@ function hbRouteFromUrl(){
 }
 window.addEventListener('popstate', function(ev){
   try{
-    const id = (ev.state && ev.state.hbPage) || hbRouteFromUrl();
+    const st  = ev.state || {};
+    const id  = st.hbPage || hbRouteFromUrl();
+    const sub = st.hbSub || null;
     if(!id || !document.getElementById('page-'+id)) return;
+    // Same page, only the drill-down differs → just open/close the detail.
+    // This is what makes Back step out of a clinician's record or a site
+    // breakdown instead of jumping to the previous section.
+    if(id === hbCurrentPage() && hbApplySub(id, sub)) return;
     showPage(id, hbNavBtnFor(id), true);            // true = came from history, don't re-push
+    // Landing on a page from history should also restore its drill-down state.
+    hbApplySub(id, sub);
   }catch(e){}
 });
 
