@@ -15077,7 +15077,8 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp){
       addRule(E,ar,L,true); });                                       // add-ons never add a differential
   });
   // provider → staff: saved link, else a suggestion by name (confirmed on close)
-  Object.keys(emps).forEach(function(k){ const E=emps[k]; if(!E.sid){ const sug=ppuSuggestSid(E.prov); if(sug){ E.sid=sug; E.suggested=true; } } });
+  Object.keys(emps).forEach(function(k){ const E=emps[k]; if(E.sid){ E.how='saved link'; return; } if(k.indexOf('staff:')===0) return;
+    const m=ppuMatchStaff(E.prov,E.pid); if(m.sid){ E.sid=m.sid; E.autoMatched=true; E.how='matched by name ('+m.how+')'; } else if(m.cands.length) E.cands=m.cands; });
   // Meeting and Admin Time: unpaid entries dated on/before period end, plus ones already paid in this period
   const bySid={}; Object.keys(emps).forEach(function(k){ if(emps[k].sid) bySid[emps[k].sid]=emps[k]; });
   (mtgs||[]).forEach(function(m){
@@ -15106,10 +15107,53 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp){
     return E; }).sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   return {emps:out, lines:lines, exc:exc, blocking:exc.filter(function(x){ return x.level==='block'; }).length, settings:S};
 }
-function ppuSuggestSid(prov){
-  try{ const nm=capImpNorm(String(prov||'').replace(/\(.*\)\s*$/,'')); if(!nm) return null;
-    const s=STAFF.find(function(x){ return capImpNorm(x['Clinician'])===nm; }); return s?s._id:null; }catch(e){ return null; }
+// ── Valant provider → Homebase staff, automatically when the match is clear ──
+// "Kathryn (Katie) Sheehan, LMHC (K.Sheehan)" → first kathryn, nick katie, last sheehan, initial k.
+// Tiers (first that finds exactly ONE person wins; former staff are included but current staff win a tie):
+//   1 same first+last (any nickname) · 2 same last + first name that's a nickname/shortening of the other
+//   3 same last + same first initial · 4 full name off by a typo or two. Anything else → linked by hand.
+var PPU_NICK=[['katherine','kathryn','catherine','kate','katie','kat','cathy','kathy'],['elizabeth','liz','beth','lizzie','eliza','betsy'],['william','will','bill','billy','liam'],['robert','rob','bob','bobby'],
+  ['michael','mike','mikey'],['jennifer','jen','jenny'],['christopher','chris'],['christina','chris','tina','christine'],['alexander','alex'],['alexandra','alex','alexa','lexi'],['samantha','sam'],['samuel','sam'],
+  ['nicholas','nick'],['matthew','matt'],['daniel','dan','danny'],['david','dave'],['thomas','tom','tommy'],['james','jim','jamie'],['joseph','joe'],['stephanie','steph'],['rebecca','becky','becca'],
+  ['margaret','maggie','meg','peggy'],['megan','meg'],['jessica','jess'],['victoria','tori','vicky'],['abigail','abby'],['allison','ali','allie'],['jacqueline','jackie'],['patricia','pat','trish'],['deborah','deb','debbie'],
+  ['susan','sue','suzy'],['jonathan','jon'],['benjamin','ben'],['anthony','tony'],['andrew','andy','drew'],['zachary','zach','zack'],['timothy','tim'],['gregory','greg'],['jeffrey','jeff'],['kimberly','kim'],['amanda','mandy'],['melissa','missy','mel'],['nathaniel','nate','nathan'],['nathalie','nath','natalie']];
+function ppuNameParts(raw,pid){
+  try{
+    let t=String(raw||'').replace(/\(([A-Za-z]\.[^)]*)\)\s*$/,'');              // trailing (K.Sheehan)
+    const nicks=[]; t=t.replace(/\(([^)]+)\)/g,function(_,n){ nicks.push(n); return ' '; });
+    t=t.split(',')[0].replace(/\b(LICSW|LCSW|LMSW|LMHC|LMFT|MSW|CMHC|PHD|PSYD|LADC-?\d*|M\.?ED|MA|MS|JR|SR|II|III)\b\.?/ig,' ');
+    const w=t.toLowerCase().replace(/[^a-z\s'-]/g,' ').split(/\s+/).filter(Boolean);
+    const out={first:w[0]||'',last:(w[w.length-1]||'').replace(/['-]/g,''),nicks:nicks.map(function(n){ return n.toLowerCase().replace(/[^a-z]/g,''); }).filter(Boolean),initial:''};
+    if(w.length<2) out.last=''; out.full=(out.first+out.last).replace(/[^a-z]/g,'');
+    const m=String(pid||'').match(/^([A-Za-z])[.\s_-]+([A-Za-z'-]+)/); if(m){ out.initial=m[1].toLowerCase(); if(!out.last) out.last=m[2].toLowerCase().replace(/['-]/g,''); }
+    if(!out.initial) out.initial=out.first.charAt(0);
+    return out;
+  }catch(e){ return {first:'',last:'',nicks:[],initial:'',full:''}; }
 }
+function ppuFirstMatch(a,b){
+  if(!a||!b) return false; if(a===b) return true;
+  if(a.length>=3&&b.length>=3&&(a.indexOf(b)===0||b.indexOf(a)===0)) return true;
+  return PPU_NICK.some(function(g){ return g.indexOf(a)>=0&&g.indexOf(b)>=0; });
+}
+function ppuMatchStaff(prov,pid){
+  try{
+    const v=ppuNameParts(prov,pid); if(!v.last) return {sid:null,how:'',cands:[]};
+    const firsts=[v.first].concat(v.nicks).filter(Boolean);
+    const ppl=(STAFF||[]).map(function(s){ return {s:s,n:ppuNameParts(s['Clinician'],''),former:normStatus(s['Employee Status'])==='Terminated'}; }).filter(function(x){ return x.n.last; });
+    const pick=function(list,how){ if(!list.length) return null; const cur=list.filter(function(x){ return !x.former; });
+      const use=list.length===1?list:(cur.length===1?cur:null); return use?{sid:use[0].s._id,how:how+(use[0].former?' · former staff':''),cands:[]}:{sid:null,how:'',cands:list.map(function(x){ return x.s._id; })}; };
+    const tiers=[
+      [function(x){ const sf=[x.n.first].concat(x.n.nicks); return x.n.last===v.last && sf.some(function(f){ return firsts.indexOf(f)>=0; }); },'same name'],
+      [function(x){ const sf=[x.n.first].concat(x.n.nicks); return x.n.last===v.last && sf.some(function(f){ return firsts.some(function(g){ return ppuFirstMatch(f,g); }); }); },'nickname'],
+      [function(x){ return x.n.last===v.last && x.n.first.charAt(0)===v.initial; },'same last name + first initial'],
+      [function(x){ return v.full.length>=8 && capImpLev(x.n.full,v.full)<=2; },'close spelling']];
+    let amb=null;
+    for(const t of tiers){ const r=pick(ppl.filter(t[0]),t[1]); if(r&&r.sid) return r; if(r&&!amb) amb=r; }
+    return amb||{sid:null,how:'',cands:[]};
+  }catch(e){ return {sid:null,how:'',cands:[]}; }
+}
+function ppuSuggestSid(prov,pid){ const m=ppuMatchStaff(prov,pid); return m.sid; }
+function ppuIsFormer(sid){ const s=(STAFF||[]).find(function(x){ return x._id===sid; }); return !!(s&&normStatus(s['Employee Status'])==='Terminated'); }
 
 // ── page ──
 function ppuCss(){ return '<style>'
@@ -15193,9 +15237,17 @@ async function renderPPU(){
     if(B.length&&!closed) h+='<div class="ppu-card ppu-exc"><b style="color:#b91c1c">Resolve before closing ('+B.length+')</b><ul style="margin:6px 0 0 18px;padding:0">'+B.slice(0,60).map(function(x){ return '<li><b>'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov)+' · '+ppuEsc(x.detail)+'</li>'; }).join('')+(B.length>60?'<li>…and '+(B.length-60)+' more</li>':'')+'</ul><div class="muted" style="font-size:12px;margin-top:6px">Open the employee to correct a row (exclude it, change its code, or mark “not a duplicate”), add a missing code on Service Code Rules, or link the provider below.</div></div>';
     if(W.length) h+='<div class="ppu-card ppu-exc w"><b style="color:#b45309">For review ('+W.length+')</b><ul style="margin:6px 0 0 18px;padding:0">'+W.slice(0,30).map(function(x){ return '<li><b>'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov)+' · '+ppuEsc(x.detail)+'</li>'; }).join('')+'</ul></div>';
     // provider links
-    if(!closed){ const un=R.emps.filter(function(E){ return !E.sid || E.suggested; });
-      if(un.length) h+='<div class="ppu-card"><b>Provider links</b> <span class="muted" style="font-size:12px">Valant ProviderID → staff record (needed for the Capacity Dashboard and Pay Period Snapshot)</span><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">'
-        +un.map(function(E){ return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="min-width:280px"><b>'+ppuEsc(E.prov||E.pid)+'</b> <span class="muted">'+ppuEsc(E.pid)+'</span></span>'+ppuStaffSelect(E)+(E.suggested?'<span class="pill info">suggested by name</span> <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px" onclick="ppuLink(\''+ppuEsc(E.pid)+'\',\''+ppuEsc(E.sid)+'\')">Confirm</button>':'')+'</div>'; }).join('')+'</div></div>'; }
+    if(!closed){
+      // remember name matches straight away, so next period they're already linked
+      const auto=R.emps.filter(function(E){ return E.autoMatched && E.sid && !PPU.links[E.pid]; });
+      if(auto.length){ auto.forEach(function(E){ PPU.links[E.pid]=E.sid; }); payStore.setCfgDoc('ppuProviders',{map:PPU.links,updatedAt:ppuNow(),updatedBy:ppuWho()}).catch(function(){}); }
+      const prov=R.emps.filter(function(E){ return E.pid.indexOf('staff:')!==0; }), un=prov.filter(function(E){ return !E.sid; });
+      const row=function(E){ return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="min-width:300px"><b>'+ppuEsc(E.prov||E.pid)+'</b> <span class="muted">'+ppuEsc(E.pid)+'</span></span>'+ppuStaffSelect(E)
+        +(E.sid?' <span class="pill '+(E.autoMatched?'info':'grey')+'">'+ppuEsc(E.how||'linked')+'</span>':(E.cands&&E.cands.length?' <span class="pill warn">'+E.cands.length+' possible matches — pick one</span>':' <span class="pill bad">no match found — pick the staff member</span>'))+'</div>'; };
+      h+='<div class="ppu-card"'+(un.length?' style="border-left:4px solid #b91c1c"':'')+'><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b>Provider links</b> <span class="muted" style="font-size:12px">Valant provider → Homebase staff record. Matched automatically by name unless the names are very different; former staff included.</span></div>'
+        +'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="PPU.showLinks=!PPU.showLinks;renderPPU()">'+(PPU.showLinks?'Hide':'Show all '+prov.length)+'</button></div>'
+        +(un.length?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">'+un.map(row).join('')+'</div>':'<div class="muted" style="font-size:12px;margin-top:4px">✓ All '+prov.length+' providers linked'+(prov.filter(function(E){ return E.autoMatched; }).length?' ('+prov.filter(function(E){ return E.autoMatched; }).length+' matched by name this upload)':'')+'.</div>')
+        +(PPU.showLinks?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed #e5e7eb">'+prov.filter(function(E){ return E.sid; }).map(row).join('')+'</div>':'')+'</div>'; }
     const nM=R.emps.reduce(function(a,E){ return a+E.mtg.items.length; },0);
     h+='<div class="ppu-tabs" style="margin-top:4px"><button class="ppu-tab'+(PPU.view==='emps'?' on':'')+'" onclick="PPU.view=\'emps\';renderPPU()">Employees ('+R.emps.length+')</button>'
       +'<button class="ppu-tab'+(PPU.view==='mtg'?' on':'')+'" onclick="PPU.view=\'mtg\';PPU.sel=null;renderPPU()">Meeting &amp; Admin Time — all entries ('+nM+')</button></div>';
@@ -15208,9 +15260,11 @@ async function renderPPU(){
   }catch(e){ console.error(e); body.innerHTML='<div class="ppu-card" style="margin:24px">⚠ Couldn’t load Pay Period Upload: '+ppuEsc(e.message||e)+'</div>'; }
 }
 function ppuStaffSelect(E){
-  const ppl=(STAFF||[]).filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated' || s._id===E.sid; }).slice().sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
-  return '<select class="ppu-sel" style="min-width:240px" onchange="ppuLink(\''+ppuEsc(E.pid)+'\',this.value)"><option value="">— choose staff member —</option>'
-    +ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===E.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select>';
+  const ppl=(STAFF||[]).slice().sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
+  const opt=function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===E.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+(normStatus(s['Employee Status'])==='Terminated'?' (former)':'')+'</option>'; };
+  const cands=(E.cands||[]).map(function(id){ return ppl.find(function(s){ return s._id===id; }); }).filter(Boolean);
+  return '<select class="ppu-sel" style="min-width:260px" onchange="ppuLink(\''+ppuEsc(E.pid)+'\',this.value)"><option value="">— choose staff member —</option>'
+    +(cands.length?'<optgroup label="Possible matches">'+cands.map(opt).join('')+'</optgroup><optgroup label="Everyone">':'')+ppl.map(opt).join('')+(cands.length?'</optgroup>':'')+'</select>';
 }
 async function ppuLink(pid,sid){
   try{ if(sid) PPU.links[pid]=sid; else delete PPU.links[pid];
@@ -15223,7 +15277,7 @@ function ppuTableHtml(R,closed){
     +PPU_HEADS.map(function(x){ return '<th style="white-space:normal;min-width:72px">'+ppuEsc(x)+(x===PPU_NOSHOW_UNPAID?' (count)':'')+'</th>'; }).join('')
     +'<th>Billable session time</th><th>Hours</th><th>Hours</th><th style="background:#eef7f8">Total FFS hours</th><th>Hours</th><th>$</th><th>Hours</th><th>$</th><th>Count</th><th>$</th><th>Hours</th><th>$</th></tr></thead><tbody>';
   R.emps.forEach(function(E){
-    h+='<tr class="emp'+(PPU.sel===E.pid?' on':'')+'" onclick="ppuPick(\''+ppuEsc(E.pid)+'\')"><td class="l stk"><b>'+ppuEsc(E.name||E.prov)+'</b>'+(E.flags&&!closed?' <span class="pill bad">'+E.flags+'</span>':'')+(!E.sid?' <span class="pill warn">not linked</span>':'')+'</td><td class="l muted">'+ppuEsc(E.pid.indexOf('staff:')===0?'(meetings only)':E.pid)+'</td>'
+    h+='<tr class="emp'+(PPU.sel===E.pid?' on':'')+'" onclick="ppuPick(\''+ppuEsc(E.pid)+'\')"><td class="l stk"><b>'+ppuEsc(E.name||E.prov)+'</b>'+(E.flags&&!closed?' <span class="pill bad">'+E.flags+'</span>':'')+(!E.sid?' <span class="pill warn">not linked</span>':(ppuIsFormer(E.sid)?' <span class="pill grey">former staff</span>':''))+'</td><td class="l muted">'+ppuEsc(E.pid.indexOf('staff:')===0?'(meetings only)':E.pid)+'</td>'
       +PPU_HEADS.map(function(x){ return x===PPU_NOSHOW_UNPAID?'<td class="'+(E.nsu?'':'z')+'">'+E.nsu+'</td>':c(E.cats[x]); }).join('')
       +'<td><b>'+ppuF(E.clin)+'</b></td>'+c(E.pns)+c(E.sup)+'<td style="background:#f3fbfc"><b>'+ppuF(E.ffsTot)+'</b></td>'
       +c(E.diff*100)+'<td>'+ppuUsd(E.diffC)+'</td>'+c(E.bonus)+'<td>'+ppuUsd(E.bonusC)+'</td><td class="'+(E.addN?'':'z')+'">'+E.addN+'</td><td>'+ppuUsd(E.addC)+'</td>'
