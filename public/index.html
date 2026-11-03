@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APP Roster & Capacity</title>
+<title>APP Homebase — Let’s Work Together</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -648,7 +648,7 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
         <img id="sidebar-logo-img" alt="APP" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0">
         <div>
           <div style="font-size:12px;font-weight:700;color:#eef0f8;line-height:1.2">Advance Psychotherapy</div>
-          <div style="font-size:9px;color:#9aa3d2;text-transform:uppercase;letter-spacing:.1em;margin-top:1px">Roster &amp; Capacity</div>
+          <div style="font-size:9px;color:#9aa3d2;text-transform:uppercase;letter-spacing:.1em;margin-top:1px">Let&rsquo;s Work Together</div>
         </div>
       </div>
     </div>
@@ -673,8 +673,9 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
       <button class="nav-item" id="nav-hr-dashboard" data-page="hr-dashboard" onclick="showPage('hr-dashboard',this)"><span class="nav-icon">🎂</span>HR Dashboard</button>
       <button class="nav-item" id="nav-onboarding-real" data-page="onboarding" onclick="showPage('onboarding',this)"><span class="nav-icon">🚪</span>Onboarding</button>
       <button class="nav-item" id="nav-ceu-upload" data-page="ceu-upload" onclick="showPage('ceu-upload',this)"><span class="nav-icon">🎓</span>CEU Uploads</button>
-      <button class="nav-item" id="nav-meetings" data-page="meetings" onclick="showPage('meetings',this)"><span class="nav-icon">🕒</span>Time &amp; Attendance</button>
-      <button class="nav-item" id="nav-meetings-hr" data-page="meetings-hr" onclick="showPage('meetings-hr',this)"><span class="nav-icon">💵</span>Time &amp; Attendance (HR)</button>
+      <button class="nav-item" id="nav-meetings" data-page="meetings" onclick="showPage('meetings',this)"><span class="nav-icon">🕒</span>Meeting and Admin Time</button>
+      <button class="nav-item" id="nav-meetings-hr" data-page="meetings-hr" onclick="showPage('meetings-hr',this)"><span class="nav-icon">💵</span>Meeting and Admin Time (HR)</button>
+      <button class="nav-item" id="nav-paysnap" data-page="paysnap" onclick="showPage('paysnap',this)"><span class="nav-icon">🧾</span>Pay Period Snapshot</button>
       <button class="nav-item" id="nav-handbook" data-page="handbook" onclick="showPage('handbook',this)"><span class="nav-icon">📘</span>Employee Handbook</button>
       <button class="nav-item" id="nav-reviews" data-page="reviews" onclick="showPage('reviews',this)"><span class="nav-icon">📝</span>Performance Reviews<span class="nav-badge nav-badge-red" id="rev-badge" style="display:none"></span></button>
       <button class="nav-item" id="nav-reviews-hr" data-page="reviews-hr" onclick="showPage('reviews-hr',this)"><span class="nav-icon">📂</span>Reviews (HR)</button>
@@ -820,6 +821,10 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
 
   <div class="page" id="page-meetings" style="overflow-y:auto;background:#f9fafb">
     <div id="meetings-body" style="max-width:1080px;margin:0 auto;padding:22px 24px 80px;width:100%"></div>
+  </div>
+
+  <div class="page" id="page-paysnap" style="overflow-y:auto;background:#f9fafb">
+    <div id="paysnap-body" style="max-width:1100px;margin:0 auto;padding:22px 24px 80px;width:100%"></div>
   </div>
 
   <div class="page" id="page-meetings-hr" style="overflow-y:auto;background:#f9fafb">
@@ -1463,7 +1468,7 @@ function fullPeriodGoal(s, start, end){ const {total}=periodDays(start,end); ret
 function goalToDate(s, start, end){ const {elapsed}=periodDays(start,end); return adjWeekly(s)*elapsed/7; }
 function ytdActual(s){ let t=0; for(let i=0;i<=capCurrentIdx();i++){const h=capGet(s._id,i);if(h!==null)t+=h;} return t; }
 function capStatus(actual, gtd){ if(actual===null)return 'nodata'; if(actual>gtd*1.02)return 'ahead'; if(actual>=gtd*0.98)return 'ontrack'; return 'behind'; }
-function currentPayPeriod(){ const idx=capCurrentIdx(); return {start:ALL_PPS[idx].start, end:ALL_PPS[idx].end}; }
+function currentPayPeriod(){ const idx=CAP_PP_OFFSET+capCurrentIdx(); return {start:ALL_PPS[idx].start, end:ALL_PPS[idx].end}; }
 function currentQuarter(){
   const now=new Date(),mo=now.getMonth(),y=now.getFullYear(),qi=mo<3?0:mo<6?1:mo<9?2:3;
   const starts=[new Date(y,0,1),new Date(y,3,1),new Date(y,6,1),new Date(y,9,1)];
@@ -1477,7 +1482,7 @@ function quarterCatchUp(s){
   const {total}=periodDays(q.start,q.end);
   const fullQGoal=adjWeekly(s)*total/7;
   let qActual=0;
-  for(let i=0;i<CAP_PPS;i++){const pp=ALL_PPS[i];if(pp.start>=q.start&&pp.end<=q.end){const h=capGet(s._id,i);if(h!==null)qActual+=h;}}
+  for(let i=0;i<CAP_PPS;i++){const pp=ALL_PPS[CAP_PP_OFFSET+i];if(pp.start>=q.start&&pp.end<=q.end){const h=capGet(s._id,i);if(h!==null)qActual+=h;}}
   const remainingDays=Math.max(0,Math.round((qEnd-today)/86400000)+1);
   const remainingWeeks=remainingDays/7;
   if(remainingWeeks<=0)return {onTrack:qActual>=fullQGoal,remainingWeeks:0,additionalPerWeek:0,atEndOfQuarter:true};
@@ -1492,8 +1497,83 @@ let STAFF   = STAFF_ORIG.map((r,i) => ({...r, _id:'S'+i, 'Employee Status':normS
 var COMP_DATA = {}; // loaded from Firestore kv/app_comp_data (admins only) during boot
 
 // ── REAL CLINICAL HOURS (imported from capacity spreadsheet 6/5/26) ──
+// ── OFFICIAL PAY PERIODS 2026–2028 (verified by HR — they never change) ──
+// [Pay Period ID, start, end]. Index in this list = the pay-period index used everywhere
+// (0–25 = 2026, 26–51 = 2027, 52–77 = 2028). The capacity year's data arrays are 0–25 within
+// that year: global index = CAP_PP_OFFSET + capacity index.
+const APP_PAY_PERIODS = [
+  ['2026-01','2026-01-05','2026-01-18'],['2026-02','2026-01-19','2026-02-01'],['2026-03','2026-02-02','2026-02-15'],
+  ['2026-04','2026-02-16','2026-03-01'],['2026-05','2026-03-02','2026-03-15'],['2026-06','2026-03-16','2026-03-29'],
+  ['2026-07','2026-03-30','2026-04-12'],['2026-08','2026-04-13','2026-04-26'],['2026-09','2026-04-27','2026-05-10'],
+  ['2026-10','2026-05-11','2026-05-24'],['2026-11','2026-05-25','2026-06-07'],['2026-12','2026-06-08','2026-06-21'],
+  ['2026-13','2026-06-22','2026-07-05'],['2026-14','2026-07-06','2026-07-19'],['2026-15','2026-07-20','2026-08-02'],
+  ['2026-16','2026-08-03','2026-08-16'],['2026-17','2026-08-17','2026-08-30'],['2026-18','2026-08-31','2026-09-13'],
+  ['2026-19','2026-09-14','2026-09-27'],['2026-20','2026-09-28','2026-10-11'],['2026-21','2026-10-12','2026-10-25'],
+  ['2026-22','2026-10-26','2026-11-08'],['2026-23','2026-11-09','2026-11-22'],['2026-24','2026-11-23','2026-12-06'],
+  ['2026-25','2026-12-07','2026-12-20'],['2026-26','2026-12-21','2027-01-03'],['2027-01','2027-01-04','2027-01-17'],
+  ['2027-02','2027-01-18','2027-01-31'],['2027-03','2027-02-01','2027-02-14'],['2027-04','2027-02-15','2027-02-28'],
+  ['2027-05','2027-03-01','2027-03-14'],['2027-06','2027-03-15','2027-03-28'],['2027-07','2027-03-29','2027-04-11'],
+  ['2027-08','2027-04-12','2027-04-25'],['2027-09','2027-04-26','2027-05-09'],['2027-10','2027-05-10','2027-05-23'],
+  ['2027-11','2027-05-24','2027-06-06'],['2027-12','2027-06-07','2027-06-20'],['2027-13','2027-06-21','2027-07-04'],
+  ['2027-14','2027-07-05','2027-07-18'],['2027-15','2027-07-19','2027-08-01'],['2027-16','2027-08-02','2027-08-15'],
+  ['2027-17','2027-08-16','2027-08-29'],['2027-18','2027-08-30','2027-09-12'],['2027-19','2027-09-13','2027-09-26'],
+  ['2027-20','2027-09-27','2027-10-10'],['2027-21','2027-10-11','2027-10-24'],['2027-22','2027-10-25','2027-11-07'],
+  ['2027-23','2027-11-08','2027-11-21'],['2027-24','2027-11-22','2027-12-05'],['2027-25','2027-12-06','2027-12-19'],
+  ['2027-26','2027-12-20','2028-01-02'],['2028-01','2028-01-03','2028-01-16'],['2028-02','2028-01-17','2028-01-30'],
+  ['2028-03','2028-01-31','2028-02-13'],['2028-04','2028-02-14','2028-02-27'],['2028-05','2028-02-28','2028-03-12'],
+  ['2028-06','2028-03-13','2028-03-26'],['2028-07','2028-03-27','2028-04-09'],['2028-08','2028-04-10','2028-04-23'],
+  ['2028-09','2028-04-24','2028-05-07'],['2028-10','2028-05-08','2028-05-21'],['2028-11','2028-05-22','2028-06-04'],
+  ['2028-12','2028-06-05','2028-06-18'],['2028-13','2028-06-19','2028-07-02'],['2028-14','2028-07-03','2028-07-16'],
+  ['2028-15','2028-07-17','2028-07-30'],['2028-16','2028-07-31','2028-08-13'],['2028-17','2028-08-14','2028-08-27'],
+  ['2028-18','2028-08-28','2028-09-10'],['2028-19','2028-09-11','2028-09-24'],['2028-20','2028-09-25','2028-10-08'],
+  ['2028-21','2028-10-09','2028-10-22'],['2028-22','2028-10-23','2028-11-05'],['2028-23','2028-11-06','2028-11-19'],
+  ['2028-24','2028-11-20','2028-12-03'],['2028-25','2028-12-04','2028-12-17'],['2028-26','2028-12-18','2028-12-31']
+];
+// Pay-period menus show past periods plus at most this far into the future.
+const APP_PP_AHEAD_MONTHS = 3;
+// ── CAPACITY YEAR ── goals reset on the first pay period of each year (PP YYYY-01).
+// The year shown is the one today's pay period belongs to (Jan 1–3, 2027 still belong to
+// PP 2026-26). Admins can switch to an earlier year (e.g. to enter the last 2026 period's
+// hours in January) — the choice lives in this browser tab only (sessionStorage) and reloads.
+// Each year has its own stores: 2026 = kv/app_clinical_hours, app_group_hours,
+// app_payroll_detail; later years add _YYYY.
+const CAP_YEARS = APP_PAY_PERIODS.map(function(r){ return +r[0].slice(0,4); }).filter(function(y,i,a){ return a.indexOf(y)===i; });
+function capYearToday(){
+  try{
+    const t=new Date(), iso=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    for(let i=0;i<APP_PAY_PERIODS.length;i++){ if(iso>=APP_PAY_PERIODS[i][1] && iso<=APP_PAY_PERIODS[i][2]) return +APP_PAY_PERIODS[i][0].slice(0,4); }
+    return iso<APP_PAY_PERIODS[0][1] ? CAP_YEARS[0] : CAP_YEARS[CAP_YEARS.length-1];
+  }catch(e){ return CAP_YEARS[0]; }
+}
+const CAP_YEAR = (function(){
+  try{ const v=parseInt(sessionStorage.getItem('hb_capyear'),10); if(CAP_YEARS.indexOf(v)>=0 && v<=capYearToday()) return v; }catch(e){}
+  return capYearToday();
+})();
+const CAP_PP_OFFSET = Math.max(0, APP_PAY_PERIODS.findIndex(function(r){ return r[0].slice(0,4)===String(CAP_YEAR); }));
+const CAP_YEAR_PERIOD_ISOS = APP_PAY_PERIODS.slice(CAP_PP_OFFSET, CAP_PP_OFFSET+26).map(function(r){ return r[1]; });
+function capStoreKey(base){ return CAP_YEAR===2026 ? base : base+'_'+CAP_YEAR; }
+function capSwitchYear(y){
+  try{ y=parseInt(y,10); if(CAP_YEARS.indexOf(y)<0||y===CAP_YEAR) return;
+    if(typeof hbConfirmLeave==='function' && !hbConfirmLeave(function(){ capSwitchYear(y); })) return;
+    if(y===capYearToday()) sessionStorage.removeItem('hb_capyear'); else sessionStorage.setItem('hb_capyear',String(y));
+    const pg=document.querySelector('.page.active'); if(pg) sessionStorage.setItem('hb_capyear_return',pg.id.replace(/^page-/,''));
+    location.reload(); }catch(e){ console.error(e); }
+}
+// Year picker (admins) + a note when an earlier year is open.
+function capYearPickerHtml(){
+  try{
+    const now=capYearToday(), past=CAP_YEAR!==now;
+    if(!isAdminView()) return '';
+    const yrs=CAP_YEARS.filter(function(y){ return y<=now; });
+    return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:'+(past?'#b45309':'#6b7280')+'">'
+      +(past?'⚠ Viewing '+CAP_YEAR+' (closed year)':'Capacity year')
+      +(yrs.length>1?' <select onchange="capSwitchYear(this.value)" style="font:inherit;font-size:11.5px;padding:3px 6px;border:1px solid #d4ddd7;border-radius:7px">'
+        +yrs.map(function(y){ return '<option value="'+y+'"'+(y===CAP_YEAR?' selected':'')+'>'+y+(y===now?' (current)':'')+'</option>'; }).join('')+'</select>':' '+CAP_YEAR)+'</span>';
+  }catch(e){ return ''; }
+}
+
 const CAP_DATA_VERSION = '2026-06-29-numbers-final';
-var CLINICAL_HOURS_DATA = {"periods": ["2026-01-05", "2026-01-19", "2026-02-02", "2026-02-16", "2026-03-02", "2026-03-16", "2026-03-30", "2026-04-13", "2026-04-27", "2026-05-11", "2026-05-25", "2026-06-08", "2026-06-22", "2026-07-06", "2026-07-20", "2026-08-03", "2026-08-17", "2026-08-31", "2026-09-14", "2026-09-28", "2026-10-12", "2026-10-26", "2026-11-09", "2026-11-23", "2026-12-07", "2026-12-21"], "periodQuarter": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3], "byId": {}, "_version": "2026-06-29-numbers-final"}; // hours live in Firestore kv/app_clinical_hours
+var CLINICAL_HOURS_DATA = {"periods": CAP_YEAR_PERIOD_ISOS.slice(), "periodQuarter": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3], "byId": {}, "_version": CAP_DATA_VERSION}; // hours live in Firestore kv/app_clinical_hours
 
 // ── GROUP CLINICAL HOURS ──
 // Raw group-session hours per pay period (same period columns/quarters as
@@ -2953,8 +3033,7 @@ function ipNeed90(sid){
   let c; try{ c=capCompute(s); }catch(e){ return null; }
   const t=new Date(); t.setHours(0,0,0,0); const fut=new Date(t.getTime()+90*864e5);
   let exp;
-  try{ if(capUsesRamp(s)) exp=capRampGoalTo(s,fut)||0;
-    else exp=c.annual*Math.max(0,Math.min(1,(fut-CAP_YEAR_START)/(CAP_YEAR_WEEKS*7*864e5))); }catch(e){ return null; }
+  try{ exp=capGoalTo(s,fut)||0; }catch(e){ return null; }
   const need=Math.max(0,Math.round(IP_PACE_TARGET*exp-(c.ytd||0)));
   return {need:need, perWeek:Math.round(need/(90/7)*10)/10, hasData:c.hasData!==false};
 }
@@ -5007,9 +5086,9 @@ function mtgSum(rows){
 
 // ══ EMPLOYEE DASHBOARD ══
 // Staff can log time only for the CURRENT pay period and the ONE right before it.
-// Anything older goes through HR (Time & Attendance (HR) / Payroll Review adjustments).
+// Anything older goes through HR (Meeting and Admin Time (HR) / Payroll Review adjustments).
 function mtgAllowedPPs(){
-  try{ const cur=payrollCurrentPP(); return [cur-1,cur].filter(function(i){ return i>=0 && ALL_PPS[i]; }); }catch(e){ return []; }
+  try{ const cur=appPPCurrentIdx(); return [cur-1,cur].filter(function(i){ return i>=0 && ALL_PPS[i]; }); }catch(e){ return []; }
 }
 function mtgHrContact(){
   const em=(CONFIG&&CONFIG.hrEmail)||'';
@@ -5019,7 +5098,7 @@ function renderMeetings(){
   const body=document.getElementById('meetings-body'); if(!body) return;
   const v=mtgWho();
   const allowed=mtgAllowedPPs();
-  if(MTG_PP===null || allowed.indexOf(MTG_PP)<0) MTG_PP=payrollCurrentPP();
+  if(MTG_PP===null || allowed.indexOf(MTG_PP)<0) MTG_PP=appPPCurrentIdx();
   const typeOpts=(CONFIG.meetingTypes||[]).map(function(t){
     return '<option value="'+hesc(t.label)+'">'+hesc(t.label)+(t.rate===25?' — $25/hr':t.rate==='FFS'?' — FFS rate':'')+'</option>';
   }).join('');
@@ -5035,7 +5114,7 @@ function renderMeetings(){
         +'<div style="font-size:12.5px;color:#666;margin-bottom:12px">Submitting as <strong>'+hesc(v['Clinician']||'')+'</strong> (from your login) — HR sees it the moment you submit.</div>'
         +'<div style="margin-bottom:12px"><label style="display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:5px">Pay period *</label>'
         +'<select id="mtg-pp" style="font-size:14px;padding:9px 11px;border:1px solid #ddd;border-radius:9px;font-family:inherit;min-width:280px" onchange="mtgPPchange()">'
-        +allowed.map(function(i){ const pp=ALL_PPS[i]; return '<option value="'+pp.i+'"'+(pp.i===MTG_PP?' selected':'')+'>'+pp.label+' · '+pp.range+(pp.i===payrollCurrentPP()?' (current)':' (previous)')+'</option>';}).join('')
+        +allowed.map(function(i){ const pp=ALL_PPS[i]; return '<option value="'+pp.i+'"'+(pp.i===MTG_PP?' selected':'')+'>'+pp.label+' · '+pp.range+(pp.i===appPPCurrentIdx()?' (current)':' (previous)')+'</option>';}).join('')
         +'</select></div>'
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 14px">'
         +'<div style="grid-column:1/-1"><label style="display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:5px">What was it? *</label>'
@@ -5184,7 +5263,7 @@ async function renderMeetingsHr(){
   if(MTG_PAYPP===null){
     // default to the most recent period that has anything in it
     const idxs=(MTG_ALL||[]).map(mtgPPidx).filter(function(i){return i>=0;});
-    MTG_PAYPP=idxs.length?Math.max.apply(null,idxs):payrollCurrentPP();
+    MTG_PAYPP=idxs.length?Math.max.apply(null,idxs):appPPCurrentIdx();
   }
   mtgRenderHr();
 }
@@ -5210,13 +5289,13 @@ function mtgHrGridHtml(){
   const all=MTG_ALL||[];
   if(!all.length) return '<div style="background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:26px;text-align:center;color:#999;font-size:13px">No submissions yet.</div>';
   const ppSet={}; all.forEach(function(r){ const i=mtgPPidx(r); if(i>=0) ppSet[i]=1; });
-  ppSet[payrollCurrentPP()]=1;
+  ppSet[appPPCurrentIdx()]=1;
   const ppIdxs=Object.keys(ppSet).map(Number).sort(function(a,b){return a-b;});
   const people={};
   all.forEach(function(r){ const k=r.name||r.sid; (people[k]=people[k]||[]).push(r); });
   const names=Object.keys(people).sort();
   const header='<tr><th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;position:sticky;left:0;background:#f9fafb;z-index:2">Clinician</th>'
-    +ppIdxs.map(function(i){const pp=ALL_PPS[i];return '<th style="padding:9px 8px;text-align:center;font-size:10px;font-weight:800;color:#999;white-space:nowrap">PP'+(i+1)+'<div style="font-weight:600;color:#bbb">'+(pp?pp.range:'')+'</div></th>';}).join('')
+    +ppIdxs.map(function(i){const pp=ALL_PPS[i];return '<th style="padding:9px 8px;text-align:center;font-size:10px;font-weight:800;color:#999;white-space:nowrap">'+(pp?pp.short:'PP'+(i+1))+'<div style="font-weight:600;color:#bbb">'+(pp?pp.range:'')+'</div></th>';}).join('')
     +'<th style="padding:9px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#999">Total</th></tr>';
   const rows=names.map(function(nm){
     const mine=people[nm];
@@ -5272,7 +5351,7 @@ function mtgHrPeriodHtml(){
     +'<div class="sec-label" style="margin:0;border-radius:0;background:#157a45">💵 Pay a period</div>'
     +'<div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid #f0efec;background:#f9fafb">'
     +'<select onchange="MTG_PAYPP=parseInt(this.value,10);mtgRenderHr()" style="font-size:13px;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">'
-    +ALL_PPS.map(function(pp){return '<option value="'+pp.i+'"'+(pp.i===MTG_PAYPP?' selected':'')+'>'+pp.label+' · '+pp.range+(pp.i===payrollCurrentPP()?' (current)':'')+'</option>';}).join('')+'</select>'
+    +ALL_PPS.filter(function(pp){ return appPPInMenu(pp)||pp.i===MTG_PAYPP; }).map(function(pp){return '<option value="'+pp.i+'"'+(pp.i===MTG_PAYPP?' selected':'')+'>'+pp.label+' · '+pp.range+(pp.i===appPPCurrentIdx()?' (current)':'')+'</option>';}).join('')+'</select>'
     +'<span style="font-size:12.5px;color:#666">'+inPP.length+' entries · '+mtgHrs(s.mins)+' hrs'+(s.unpaidMins?' · <strong style="color:#92400e">'+mtgHrs(s.unpaidMins)+' hrs unpaid ($'+s.unpaidAmt+(s.unpaidFfs?' + '+s.unpaidFfs+' FFS':'')+')</strong>':' · all paid')+'</span>'
     +'<span style="flex:1"></span>'
     +'<label style="font-size:12px;font-weight:700;color:#666">Payment date <input type="date" id="mtg-pay-date" value="'+today+'" style="font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:8px;font-family:inherit"></label>'
@@ -5324,7 +5403,7 @@ function mtgHrAllHtml(){
     +'<select onchange="mtgF.person=this.value;mtgRenderHr()" style="font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:8px;font-family:inherit;max-width:200px"><option value="">All people</option>'
     +people.map(function(p){return '<option value="'+hesc(p)+'"'+(mtgF.person===p?' selected':'')+'>'+hesc(p)+'</option>';}).join('')+'</select>'
     +'<select onchange="if(this.value===\'\'){mtgF.from=\'\';mtgF.to=\'\';}else{const pp=ALL_PPS[parseInt(this.value,10)];mtgF.from=mtgPPiso(pp.start);mtgF.to=mtgPPiso(pp.end);}mtgRenderHr()" style="font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:8px;font-family:inherit"><option value="">All pay periods</option>'
-    +ALL_PPS.map(function(pp){const sel=(mtgF.from===mtgPPiso(pp.start)&&mtgF.to===mtgPPiso(pp.end));return '<option value="'+pp.i+'"'+(sel?' selected':'')+'>'+pp.label+' · '+pp.range+'</option>';}).join('')+'</select>'
+    +ALL_PPS.filter(function(pp){ return appPPInMenu(pp)||(mtgF.from===mtgPPiso(pp.start)&&mtgF.to===mtgPPiso(pp.end)); }).map(function(pp){const sel=(mtgF.from===mtgPPiso(pp.start)&&mtgF.to===mtgPPiso(pp.end));return '<option value="'+pp.i+'"'+(sel?' selected':'')+'>'+pp.label+' · '+pp.range+'</option>';}).join('')+'</select>'
     +'<span style="flex:1"></span>'
     +'<button class="btn btn-secondary" style="font-size:12px" onclick="mtgExport()">⬇ Export CSV</button>'
     +'</div>'
@@ -6575,7 +6654,7 @@ function openRoster(id){
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
   const demoPanel =
-    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])
+    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])+capProfileRows(p)
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     + (isAdminView() ? (function(){
         const role=roleOf(p);
@@ -6941,6 +7020,7 @@ function buildRosterEditForm(p){
     {label:'Employment', fields:[
       {id:'ef-name',     label:'Name',               html:inp('ef-name','Clinician'),        full:true, key:'Clinician'},
       {id:'ef-status',   label:'Status',             html:sel('ef-status','Employee Status',STATUS_O),key:'Employee Status'},
+      {id:'ef-st-extra', label:'', html:capEfStatusHtml(p), full:true, extra:true},
       {id:'ef-team',     label:'Team',               html:sel('ef-team','Team',TEAM_O),      key:'Team'},
       {id:'ef-sup',      label:'Clinical Supervisor', html:sel('ef-sup','Supervisor',SUP_O),  key:'Supervisor'},
       {id:'ef-reports',  label:'Reports To',         html:sel('ef-reports','Reports To',reportsToOpts()), key:'Reports To'},
@@ -6952,6 +7032,7 @@ function buildRosterEditForm(p){
     {label:'Capacity & Format', fields:[
       {id:'ef-captier',  label:'Capacity Tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
       {id:'ef-weekly',   label:'Weekly Capacity',    html:inp('ef-weekly','Weekly Capacity'),key:'Weekly Capacity'},
+      {id:'ef-capfrom-x',label:'', html:capEfCapFromHtml(p), full:true, extra:true},
       {id:'ef-biweekly', label:'Biweekly Capacity',  html:inp('ef-biweekly','Biweekly Capacity'), key:'Biweekly Capacity'},
       {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
     ]},
@@ -6999,17 +7080,23 @@ function buildRosterEditForm(p){
     out+='<div class="ef full" style="margin-top:8px">'
       +'<div class="sec-label" style="margin:0">'+sec.label+'</div></div>';
     sec.fields.forEach(function(f){
-      out+='<div class="ef'+(f.full?' full':'')+'">'
-        +'<label>'+f.label+'</label>'
+      out+='<div class="ef'+(f.full?' full':'')+'"'+(f.extra?' id="'+f.id+'" style="display:none"':'')+'>'
+        +(f.label?'<label>'+f.label+'</label>':'')
         +f.html
         +'</div>';
-      allFields.push({id:f.id,key:f.key});
+      if(!f.extra) allFields.push({id:f.id,key:f.key});
     });
   });
 
   var grid=document.getElementById('m-edit-grid');
   grid.innerHTML=out;
   grid.dataset.fields=JSON.stringify(allFields);
+  try{
+    grid.dataset.origStatus=normStatus(p['Employee Status']); grid.dataset.origWeekly=String(parseFloat(p['Weekly Capacity'])||0);
+    const es=grid.querySelector('#ef-status'), ew=grid.querySelector('#ef-weekly');
+    if(es) es.addEventListener('change',capEfSync); if(ew) ew.addEventListener('input',capEfSync);
+    capEfSync();
+  }catch(e){ console.error(e); }
 }
 
 // ── OPEN RECRUIT MODAL ──
@@ -7103,11 +7190,96 @@ function toggleEdit(on){
   const topSave=document.getElementById('m-edit-save-top');
   if(topSave) topSave.style.display=on?'flex':'none';
 }
+// Profile view: capacity changes, leave and offboarding dates (when there are any).
+function capProfileRows(p){
+  try{
+    const tl=capTimeline(p); let h='';
+    if(tl.hist.length>1) h+=row('Capacity History',tl.hist.map(function(x,i){ return x.weekly+' hrs/wk'+(x.from?' from '+capUS(x.from):''); }).join(' → '));
+    if(tl.leaves.length) h+=row('Leave',tl.leaves.map(function(l){ return capUS(l.start)+' – '+(l.end?capUS(l.end):'still on leave'); }).join('; '));
+    if(tl.notice) h+=row('Notice Given',capUS(tl.notice));
+    if(tl.term) h+=row('Term Date',capUS(tl.term));
+    return h;
+  }catch(e){ return ''; }
+}
+// ── Profile edit: dates that drive the capacity goal ──
+// Status → On Leave asks for the leave dates; leaving On Leave asks for the return date;
+// Off Boarding / Terminated asks for notice + term dates; a new Weekly Capacity asks when it starts
+// (default: first day of the current pay period). None of these inputs carry data-key —
+// capEfApply() writes them into _leaves / _capHist / Notice Date / Term Date.
+function capEfStatusHtml(p){
+  const iso=function(v){ return capISO(capDateOf(v)); };
+  const today=capISO(capDateOf(new Date()));
+  const f=function(id,label,val,hint){ return '<div style="display:flex;flex-direction:column;gap:3px;min-width:180px"><span style="font-size:11px;font-weight:700;color:#6b7280">'+label+'</span><input type="date" id="'+id+'" value="'+(val||'')+'">'+(hint?'<span style="font-size:10.5px;color:#9ca3af">'+hint+'</span>':'')+'</div>'; };
+  const box='display:none;gap:14px;flex-wrap:wrap;align-items:flex-start;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px';
+  const openLeave=(Array.isArray(p._leaves)?p._leaves:[]).filter(function(l){ return l.start && !l.end; }).pop();
+  return '<div id="ef-leave-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">🗓 Leave dates — no clinical hours are expected while on leave</div>'
+      +f('ef-leavestart','First day of leave *',openLeave?openLeave.start:today)+f('ef-leaveend','Last day of leave','','Leave blank if not known yet — enter the return date when they come back')+'</div>'
+    +'<div id="ef-return-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">↩ Back from leave — the capacity clock restarts on this date</div>'
+      +f('ef-leaveret','First day back at work *',today)+'</div>'
+    +'<div id="ef-off-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">🚪 Offboarding — the capacity goal runs through the term date, then stops</div>'
+      +f('ef-notice','Date notice was given *',iso(p['Notice Date'])||today)+f('ef-term','Term date (last day) *',iso(p['Term Date']))+'</div>';
+}
+function capEfCapFromHtml(p){
+  return '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">'
+    +'<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:11px;font-weight:700;color:#6b7280">New Weekly Capacity starts *</span><input type="date" id="ef-capfrom" value="'+capISO(capPPStartFor())+'"></div>'
+    +'<div style="flex:1;min-width:200px;font-size:11.5px;color:#64748b">Earlier days keep the old capacity; the new goal starts from this date. Defaults to the first day of the current pay period.</div></div>';
+}
+function capEfSync(){
+  try{
+    const grid=document.getElementById('m-edit-grid'); if(!grid) return;
+    const es=grid.querySelector('#ef-status'), ew=grid.querySelector('#ef-weekly');
+    const os=grid.dataset.origStatus||'', ow=parseFloat(grid.dataset.origWeekly)||0;
+    const ns=es?normStatus(es.value):os, nw=ew?(parseFloat(ew.value)||0):ow;
+    const show=function(id,on,disp){ const el=document.getElementById(id); if(el) el.style.display=on?(disp||'flex'):'none'; };
+    const leaveNew=ns==='On Leave'&&os!=='On Leave', back=os==='On Leave'&&ns!=='On Leave', off=(ns==='Off Boarding'||ns==='Terminated')&&ns!==os;
+    show('ef-leave-blk',leaveNew); show('ef-return-blk',back); show('ef-off-blk',off);
+    show('ef-st-extra',leaveNew||back||off,'block');
+    show('ef-capfrom-x',ew&&String(ew.value).trim()!==''&&nw!==ow,'block');
+  }catch(e){}
+}
+function capEfCollect(grid,p){
+  const es=grid.querySelector('#ef-status'), ew=grid.querySelector('#ef-weekly');
+  if(!es&&!ew) return null;
+  const v=function(id){ const el=grid.querySelector('#'+id); return el?String(el.value||'').trim():''; };
+  const os=normStatus(p['Employee Status']), ns=es?normStatus(es.value):os;
+  const ow=parseFloat(p['Weekly Capacity'])||0, nwRaw=ew?String(ew.value).trim():'', nw=parseFloat(nwRaw);
+  const r={os:os,ns:ns,ow:ow,nw:nw};
+  if(ns==='On Leave'&&os!=='On Leave'){
+    r.leaveStart=v('ef-leavestart'); r.leaveEnd=v('ef-leaveend');
+    if(!r.leaveStart){ showToast('⚠ Enter the first day of leave'); return false; }
+    if(r.leaveEnd&&r.leaveEnd<r.leaveStart){ showToast('⚠ The leave ends before it starts'); return false; }
+  }
+  if(os==='On Leave'&&ns!=='On Leave'){ r.ret=v('ef-leaveret'); if(!r.ret){ showToast('⚠ Enter the first day back from leave'); return false; } }
+  if((ns==='Off Boarding'||ns==='Terminated')&&ns!==os){
+    r.notice=v('ef-notice'); r.term=v('ef-term');
+    if(!r.term){ showToast('⚠ Enter the term date (their last day)'); return false; }
+    if(ns==='Off Boarding'&&!r.notice){ showToast('⚠ Enter the date notice was given'); return false; }
+    if(r.notice&&r.term<r.notice){ showToast('⚠ The term date is before the notice date'); return false; }
+  }
+  if(nwRaw!==''&&!isNaN(nw)&&nw!==ow){ r.capFrom=v('ef-capfrom')||capISO(capPPStartFor()); }
+  return r;
+}
+function capEfApply(p,r){
+  if(r.leaveStart){
+    const lv=(Array.isArray(p._leaves)?p._leaves:[]).filter(function(l){ return !(l.start&&!l.end); });
+    p._leaves=lv.concat({start:r.leaveStart,end:r.leaveEnd||''});
+  }
+  if(r.ret){
+    const d=capDateOf(r.ret), last=capISO(new Date(d.getFullYear(),d.getMonth(),d.getDate()-1));
+    let done=false;
+    p._leaves=(Array.isArray(p._leaves)?p._leaves:[]).map(function(l){ if(!done&&l.start&&(!l.end||l.end>=last)&&l.start<=last){ done=true; return {start:l.start,end:last}; } return l; });
+  }
+  if(r.term){ p['Term Date']=r.term; p['Notice Date']=r.notice||p['Notice Date']||''; }
+  if(r.capFrom){ capRecordCapacityChange(p,r.ow,r.nw,r.capFrom); }
+}
 function saveEdit(){
   const grid = document.getElementById('m-edit-grid');
   const arr  = currentMode==='roster' ? STAFF : RECRUIT;
   const p    = arr.find(r=>r._id===currentId);
   if(!p){ showToast('⚠ Could not find record'); return; }
+  // Capacity timeline (leave / offboarding / capacity change dates) — checked before anything is written.
+  let capEf=null;
+  if(currentMode==='roster'){ try{ capEf=capEfCollect(grid,p); }catch(e){ console.error(e); capEf=null; } if(capEf===false) return; }
   // Read all inputs and selects inside the grid
   grid.querySelectorAll('input[id], select[id], textarea[id]').forEach(el=>{
     const key = el.dataset.key;
@@ -7169,6 +7341,7 @@ function saveEdit(){
       if(typeof persistRoles==='function') persistRoles();
     }
   });
+  if(currentMode==='roster' && capEf){ try{ capEfApply(p,capEf); }catch(e){ console.error(e); } }
   if(currentMode==='roster' && p['Weekly Capacity'])
     p['Biweekly Capacity']=String(Math.round(parseFloat(p['Weekly Capacity']||0)*2));
   const wfEl=document.getElementById('e-wf');
@@ -8187,7 +8360,7 @@ function promptGraduateToRoster(id) {
 // CAPACITY DASHBOARD — v4 (admin + clinician views)
 // ══════════════════════════════════════════════
 
-const CAP_YEAR_START   = new Date(2026, 0, 5);
+const CAP_YEAR_START   = capParseDate(CAP_YEAR_PERIOD_ISOS[0]);   // first day of PP YYYY-01
 const CAP_WEEKS_BILLED = 47;
 const CAP_TOTAL_WEEKS  = 52;
 const CAP_PPS          = 26;
@@ -8217,19 +8390,31 @@ function filterValLabel(field, v){
 }
 const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+
 function capPPs(){
   const out=[];
-  for(let i=0;i<CAP_PPS;i++){
-    const s=new Date(CAP_YEAR_START.getTime()+i*14*86400000);
-    const e=new Date(s.getTime()+13*86400000);
-    const q=CAP_QUARTERS.find(q=>i>=q.start&&i<=q.end);
-    out.push({i,label:'Pay Period '+(i+1),start:s,end:e,
-      range:(s.getMonth()+1)+'/'+s.getDate()+' – '+(e.getMonth()+1)+'/'+e.getDate(),
-      quarter:q?q.name:'?'});
-  }
+  APP_PAY_PERIODS.forEach(function(r,i){
+    const a=r[1].split('-'), b=r[2].split('-');
+    const s=new Date(+a[0],+a[1]-1,+a[2]), e=new Date(+b[0],+b[1]-1,+b[2]);
+    const n=parseInt(r[0].slice(5),10)-1; const q=CAP_QUARTERS.find(q=>n>=q.start&&n<=q.end);
+    out.push({i,id:r[0],label:'Pay Period '+r[0],short:'PP '+r[0],startISO:r[1],endISO:r[2],start:s,end:e,
+      range:(s.getMonth()+1)+'/'+s.getDate()+' – '+(e.getMonth()+1)+'/'+e.getDate()+(s.getFullYear()!==e.getFullYear()?'/'+String(e.getFullYear()).slice(2):''),
+      quarter:q?q.name:''});
+  });
   return out;
 }
 const ALL_PPS=capPPs();
+// Index of the official pay period containing `d` (default today), or -1.
+function appPPIndexFor(d){
+  const t=new Date(d||Date.now()); t.setHours(0,0,0,0);
+  for(let i=0;i<ALL_PPS.length;i++){ if(t>=ALL_PPS[i].start && t<=ALL_PPS[i].end) return i; }
+  return -1;
+}
+function appPPCurrentIdx(){ const i=appPPIndexFor(); return i>=0?i:(Date.now()<ALL_PPS[0].start?0:ALL_PPS.length-1); }
+// Last day a pay-period menu reaches: today + 3 months.
+function appPPHorizon(){ const t=new Date(); t.setHours(0,0,0,0); t.setMonth(t.getMonth()+APP_PP_AHEAD_MONTHS); return t; }
+// Is this pay period (any object with a .start Date) inside the menu window?
+function appPPInMenu(pp){ try{ return !!pp && pp.start<=appPPHorizon(); }catch(e){ return true; } }
 
 function capCurrentIdx(){
   const ms=Date.now()-CAP_YEAR_START;
@@ -8853,10 +9038,7 @@ const RAMP_STEP  = 15;                 // each ramp step is 15 days
 function capHireDate(s){
   const raw = (s && s['Date of Hire']) ? String(s['Date of Hire']).trim() : '';
   if(!raw) return null;
-  const d = new Date(raw);
-  if(isNaN(d)) return null;
-  d.setHours(0,0,0,0);
-  return d;
+  return capDateOf(raw);   // YYYY-MM-DD read as a LOCAL date (new Date('2026-09-01') is UTC → the day before in the US)
 }
 // The ramp FRACTION of normal pace on a given day after hire (step schedule):
 //   days  0–15 → 25% · 15–30 → 50% · 30–45 → 75% · 45–60 → 100% · day 61+ → 100%
@@ -8877,24 +9059,97 @@ function rampEffectiveDays(D){
   if(D <= 60) return 22.50 + 1.00*(D-45);         // +0.75×15 = 11.25
   return 37.50 + (D - 60);                         // fully ramped (22.5+15 = 37.5)
 }
-// Does this clinician get the new-hire ramp applied to their goals?
-// Only when we have a valid hire date that falls within the current capacity year
-// (i.e. they started partway through the year). Established staff are unaffected.
+// ── CAPACITY TIMELINE ────────────────────────────────────────────────────────
+// A clinician's goal is built DAY BY DAY from the start of the capacity year, so it
+// follows what actually happened to them:
+//   • Weekly Capacity changes  (staff._capHist: [{from:'YYYY-MM-DD'|'' , weekly:N}])
+//       each change applies from its start date forward; earlier days keep the old pace.
+//   • Leave                    (staff._leaves:  [{start:'YYYY-MM-DD', end:'YYYY-MM-DD'|''}])
+//       no hours are expected on leave days (end '' = still on leave).
+//   • Offboarding              (staff['Notice Date'], staff['Term Date'])
+//       full pace through the term date, nothing after it. Notice date is recorded only.
+//   • New-hire ramp            (Date of Hire) — 25/50/75/100% steps, see rampFraction().
+// Day goal = 1140 × (Weekly Capacity in effect ÷ 25) ÷ 364 × ramp fraction (0 on leave,
+// before hire, after term). Goal to a date = the sum of the day goals before it.
+const CAP_DAY_MS = 86400000;
+const CAP_TIER_MAX_EXTRA = 12;   // catch-up hrs/week above which a capacity-tier review is required
+function capDateOf(v){
+  if(!v) return null;
+  if(v instanceof Date){ const d=new Date(v); d.setHours(0,0,0,0); return d; }
+  const t=String(v).trim(); if(!t) return null;
+  const m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const d=m?new Date(+m[1],+m[2]-1,+m[3]):new Date(t);
+  if(isNaN(d)) return null; d.setHours(0,0,0,0); return d;
+}
+function capISO(d){ return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'):''; }
+function capUS(d){ return d?(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear():''; }
+// First day of the pay period that contains `d` (default: today).
+function capPPStartFor(d){
+  const t=capDateOf(d||new Date()); const n=Math.floor(Math.round((t-CAP_YEAR_START)/CAP_DAY_MS)/14);
+  return new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+n*14);
+}
+function capTimeline(s){
+  const cur=parseFloat(s&&s['Weekly Capacity'])||0;
+  let hist=[];
+  try{ hist=(Array.isArray(s._capHist)?s._capHist:[]).map(function(h){ return {from:capDateOf(h.from),weekly:parseFloat(h.weekly)}; })
+    .filter(function(h){ return !isNaN(h.weekly); }).sort(function(a,b){ return (a.from?a.from.getTime():-Infinity)-(b.from?b.from.getTime():-Infinity); }); }catch(e){ hist=[]; }
+  // the newest entry always matches the profile's current Weekly Capacity
+  // (the profile's Weekly Capacity is always the newest entry — the latest change, even if it starts later)
+  if(hist.length && hist[hist.length-1].weekly!==cur) hist[hist.length-1].weekly=cur;
+  let leaves=[];
+  try{ leaves=(Array.isArray(s._leaves)?s._leaves:[]).map(function(l){ return {start:capDateOf(l.start),end:capDateOf(l.end)}; }).filter(function(l){ return l.start; }); }catch(e){ leaves=[]; }
+  return {cur:cur,hist:hist,leaves:leaves,hire:capHireDate(s),term:capDateOf(s&&s['Term Date']),notice:capDateOf(s&&s['Notice Date'])};
+}
+function capWeeklyAt(tl,d){
+  if(!tl.hist.length) return tl.cur;
+  let w=tl.hist[0].weekly;
+  for(let i=0;i<tl.hist.length;i++){ const h=tl.hist[i]; if(!h.from||h.from<=d) w=h.weekly; }
+  return w;
+}
+function capOnLeaveAt(tl,d){ return tl.leaves.some(function(l){ return d>=l.start && (!l.end||d<=l.end); }); }
+function capDayGoal(tl,d){
+  if(tl.hire && d<tl.hire) return 0;
+  if(tl.term && d>tl.term) return 0;
+  if(capOnLeaveAt(tl,d)) return 0;
+  const w=capWeeklyAt(tl,d); if(!(w>0)) return 0;
+  let f=1; if(tl.hire){ f=rampFraction(Math.round((d-tl.hire)/CAP_DAY_MS)+1); }
+  return CAP_FT_ANNUAL*(w/CAP_FT_WEEKLY)/(CAP_YEAR_WEEKS*7)*f;
+}
+// cumulative day-goal table per clinician, cached until anything it depends on changes
+const CAP_GOAL_CACHE={};
+const CAP_GOAL_DAYS=364+460;
+function capGoalTable(s){
+  const key=JSON.stringify([s['Weekly Capacity'],s['Date of Hire'],s._capHist||null,s._leaves||null,s['Term Date']||'',capISO(capDateOf(new Date()))]);
+  const hit=CAP_GOAL_CACHE[s._id]; if(hit&&hit.key===key) return hit.cum;
+  const tl=capTimeline(s); const cum=new Float64Array(CAP_GOAL_DAYS+1);
+  const y=CAP_YEAR_START.getFullYear(), m=CAP_YEAR_START.getMonth(), d0=CAP_YEAR_START.getDate();
+  for(let i=0;i<CAP_GOAL_DAYS;i++) cum[i+1]=cum[i]+capDayGoal(tl,new Date(y,m,d0+i));
+  CAP_GOAL_CACHE[s._id]={key:key,cum:cum}; return cum;
+}
+// Goal hours from the start of the capacity year up to (not including) date t.
+function capGoalTo(s,t){
+  const td=capDateOf(t); if(!td) return 0;
+  const i=Math.round((td-CAP_YEAR_START)/CAP_DAY_MS); if(i<=0) return 0;
+  const cum=capGoalTable(s); return cum[Math.min(i,CAP_GOAL_DAYS)];
+}
+function capGoalBetween(s,a,b){ return Math.max(0,capGoalTo(s,b)-capGoalTo(s,a)); }
+// Does the new-hire ramp touch this capacity year? (hired within 45 days before it, or during it)
 function capUsesRamp(s){
   const h = capHireDate(s);
   if(!h) return false;
-  return h > CAP_YEAR_START;   // hired after the year began
+  return h.getTime()+45*CAP_DAY_MS > CAP_YEAR_START.getTime();
 }
-// Ramp-adjusted cumulative goal HOURS from hire date up to target date `t`,
-// using the clinician's normal adjusted weekly pace. The ramp integral already
-// pro-rates to time worked, so no separate pro-ration is needed.
-function capRampGoalTo(s, t){
-  const h = capHireDate(s);
-  if(!h) return null;
-  const adjWeekly = capAdjWeekly(s);          // normal hrs/week
-  const dailyPace = adjWeekly / 7;            // normal hrs/day
-  const D = Math.floor((t - h) / 86400000);   // days from hire to target
-  return rampEffectiveDays(D) * dailyPace;
+// Legacy name, same meaning: cumulative goal up to target date t.
+function capRampGoalTo(s, t){ return capGoalTo(s,t); }
+// Plain-language list of what has adjusted this person's goal (for the dashboard note).
+function capAdjustNotes(s){
+  const tl=capTimeline(s), out=[]; const today=capDateOf(new Date());
+  if(capUsesRamp(s)) out.push('New-hire ramp from '+capUS(tl.hire)+': 25% of normal pace for days 1–15, 50% for 16–30, 75% for 31–45, then 100%.');
+  if(tl.hist.length>1) out.push('Weekly Capacity: '+tl.hist.map(function(h,i){ return h.weekly+' hrs/wk'+(i===0?(h.from?' from '+capUS(h.from):' to start'):' from '+capUS(h.from)); }).join(' → ')+' — each part of the year is measured at the capacity in effect then.');
+  tl.leaves.forEach(function(l){ out.push('Leave '+capUS(l.start)+(l.end?' – '+capUS(l.end):' – (still on leave)')+': no hours expected.'); });
+  if(tl.term) out.push('Offboarding'+(tl.notice?' (notice given '+capUS(tl.notice)+')':'')+': goal runs through the term date, '+capUS(tl.term)+', then stops.');
+  if(normStatus(s['Employee Status'])==='On Leave' && !tl.leaves.some(function(l){ return !l.end||l.end>=today; })) out.push('⚠ Status is On Leave but no leave dates are entered — hours are still expected until HR adds them.');
+  return out;
 }
 // Quarter-END dates for the capacity year (cumulative work-weeks from year start).
 function capQuarterEndDates(){
@@ -9112,7 +9367,7 @@ function capClinicians(){
     // 60+ days ago counts as Active; those still in their window count too (they
     // carry capacity goals and are flagged as ramping in the dashboard).
     const es = effectiveStatus(s);
-    if(es !== 'Active' && es !== 'Onboarding') return false;
+    if(es !== 'Active' && es !== 'Onboarding' && es !== 'On Leave' && es !== 'Off Boarding') return false;
     const wc=parseFloat(s['Weekly Capacity']||0);
     if(wc<5) return false;
     const ec=(s['Employee Category']||'').toUpperCase();
@@ -9186,8 +9441,11 @@ const CAP_FT_ANNUAL = 1140;                 // full-time adjusted annual clinica
 const CAP_FT_WEEKLY = 25;                   // full-time Weekly Capacity (the 100% load)
 const CAP_QUARTER_WEEKS = [12, 14, 12, 14]; // Q1..Q4 working weeks (sum = 52)
 // Calendar date ranges of each pay-period quarter (these are NOT calendar quarters).
-const CAP_QUARTER_RANGES = ['Jan 5 – Mar 29', 'Mar 30 – Jul 5', 'Jul 6 – Sep 27', 'Sep 28 – Jan 3'];
-const CAP_QUARTER_RANGES_SHORT = ['1/5–3/29', '3/30–7/5', '7/6–9/27', '9/28–1/3'];
+// (built from the capacity year's official pay periods: Q1 = PP 1–6, Q2 = 7–13, Q3 = 14–19, Q4 = 20–26)
+const CAP_QUARTER_RANGES = [[0,5],[6,12],[13,18],[19,25]].map(function(q){ const a=ALL_PPS[CAP_PP_OFFSET+q[0]], b=ALL_PPS[CAP_PP_OFFSET+q[1]];
+  return a.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+b.end.toLocaleDateString('en-US',{month:'short',day:'numeric'}); });
+const CAP_QUARTER_RANGES_SHORT = [[0,5],[6,12],[13,18],[19,25]].map(function(q){ const a=ALL_PPS[CAP_PP_OFFSET+q[0]], b=ALL_PPS[CAP_PP_OFFSET+q[1]];
+  return (a.start.getMonth()+1)+'/'+a.start.getDate()+'–'+(b.end.getMonth()+1)+'/'+b.end.getDate(); });
 const CAP_YEAR_WEEKS = CAP_QUARTER_WEEKS.reduce((a,b)=>a+b,0); // 52
 const CAP_PERIODS = 26;                     // biweekly pay periods in the year
 // Cumulative weeks at the END of each quarter (benchmark ladder rungs):
@@ -9226,7 +9484,7 @@ function capParseDate(iso){
 
 function capPeriodInfo(){
   const now = new Date();
-  const y = now.getFullYear();
+  const y = CAP_YEAR;
   const data = (typeof CLINICAL_HOURS_DATA!=='undefined') ? CLINICAL_HOURS_DATA : null;
   let quarter = 0, periodsInQ = 0, periodsElapsedInQ = 0;
   if(data && data.periods){
@@ -9307,7 +9565,7 @@ function capRealHours(s){
 // The data is embedded in the file (CLINICAL_HOURS_DATA) AND mirrored to
 // browser storage on load, so it survives and can be re-exported. Backups are
 // downloadable JSON files that can be re-imported here at any time.
-const CAP_HOURS_STORE_KEY = 'app_clinical_hours';
+const CAP_HOURS_STORE_KEY = capStoreKey('app_clinical_hours');
 
 async function capPersistHours(){
   try { await window.storage.set(CAP_HOURS_STORE_KEY, JSON.stringify(CLINICAL_HOURS_DATA)); } catch(e){}
@@ -9322,7 +9580,7 @@ async function capLoadPersistedHours(){
     const r = await window.storage.get(CAP_HOURS_STORE_KEY);
     if(r && r.value){
       const parsed = JSON.parse(r.value);
-      if(parsed && parsed.byId && parsed._version === CAP_DATA_VERSION){
+      if(parsed && parsed.byId && parsed._version === CAP_DATA_VERSION && (!parsed.periods || parsed.periods[0]===CAP_YEAR_PERIOD_ISOS[0])){
         CLINICAL_HOURS_DATA = parsed; return;
       }
     }
@@ -9334,7 +9592,7 @@ async function capLoadPersistedHours(){
 // Group hours live in a separate store (GROUP_HOURS_DATA), credited at the
 // reduced GROUP_HOUR_FACTOR. The Payroll page writes to it, so it needs its own
 // persistence path mirroring the clinical-hours one above.
-const CAP_GROUP_STORE_KEY = 'app_group_hours';
+const CAP_GROUP_STORE_KEY = capStoreKey('app_group_hours');
 
 async function capPersistGroupHours(){
   try { await window.storage.set(CAP_GROUP_STORE_KEY, JSON.stringify(GROUP_HOURS_DATA)); } catch(e){}
@@ -9415,12 +9673,16 @@ function capCompute(s){
   // benchmarks with ramp-integrated cumulative goals measured from the hire date.
   // Goal at each quarter-end = cumulative ramp-adjusted hours from hire→that date;
   // each quarter's own share = the difference between consecutive quarter-ends.
-  if(capUsesRamp(s)){
-    ramping = true;
-    const qEnds = capQuarterEndDates();         // [Q1end..Q4end] dates
-    const cum = qEnds.map(t => capRampGoalTo(s, t));   // cumulative goal hrs by quarter-end
+  // Every goal now comes from the day-by-day timeline (ramp, capacity changes, leave, offboarding).
+  // With none of those it equals the even quarters above.
+  ramping = capUsesRamp(s);
+  const _tl = capTimeline(s);
+  const adjusted = ramping || _tl.hist.length>1 || _tl.leaves.length>0 || !!_tl.term;
+  if(adjusted){
+    const qEnds = capQuarterEndDates();         // [Q1end..Q4end] dates (exclusive)
+    const cum = qEnds.map(t => capGoalTo(s, t)); // cumulative goal hrs by quarter-end
     benchGoals = cum.slice();
-    annual = cum[3];                            // year-end cumulative = pro-rated annual
+    annual = cum[3];                            // year-end cumulative goal
     qGoals = cum.map((v,i)=> Math.max(0, v - (i>0?cum[i-1]:0)));
   }
 
@@ -9464,14 +9726,8 @@ function capCompute(s){
   // has elapsed (a smooth daily pace line). Attainment = actual ÷ that expected.
   // 100% attainment means she is exactly on pace for the year.
   const today = new Date(); today.setHours(0,0,0,0);
-  let expectedToDate;
-  if(capUsesRamp(s)){
-    // Ramp-aware: cumulative ramp goal from hire date through today.
-    expectedToDate = capRampGoalTo(s, today) || 0;
-  } else {
-    const fracElapsed = Math.max(0, Math.min(1, (today - CAP_YEAR_START) / (CAP_YEAR_WEEKS*7*86400000)));
-    expectedToDate = annual * fracElapsed;
-  }
+  const yearEnd = new Date(CAP_YEAR_START.getFullYear(), CAP_YEAR_START.getMonth(), CAP_YEAR_START.getDate()+CAP_YEAR_WEEKS*7);
+  const expectedToDate = capGoalTo(s, today<yearEnd?today:yearEnd);   // timeline-aware; stops at year-end
   const attainPct = expectedToDate>0 ? Math.round(ytd/expectedToDate*100) : null;
   // Deficit = hours short of where she should be right now. Adding exactly this
   // many clinical hours brings attainment to 100%.
@@ -9479,17 +9735,21 @@ function capCompute(s){
   // Normal expected load for the NEXT 90 days (so she stays at 100%, not slipping).
   const PLAN_DAYS = CATCHUP_DAYS;
   const future = new Date(today.getTime() + PLAN_DAYS*86400000);
-  let normalNext;
-  if(capUsesRamp(s)){
-    normalNext = Math.max(0, (capRampGoalTo(s, future)||0) - (capRampGoalTo(s, today)||0));
-  } else {
-    normalNext = adjWeekly * (PLAN_DAYS/7);
-  }
+  const normalNext = capGoalBetween(s, today, future);
   // All-in load over 90 days = deficit (to reach 100%) + normal load (to hold it).
   const catchUpTotal   = Math.round((deficit + normalNext)*10)/10;
   const catchUpPerWeek = Math.round((catchUpTotal / (PLAN_DAYS/7))*10)/10;
   const normalPerWeek  = Math.round((normalNext   / (PLAN_DAYS/7))*10)/10;
   const deficitPerWeek = Math.round((deficit      / (PLAN_DAYS/7))*10)/10;
+  // Capacity-tier review: catching up would take more than 12 extra clinical hrs/week (after
+  // ramp, leave and capacity changes). Full-time → talk about stepping down a tier;
+  // part-time → seek supervision to review their tier. Not shown while on leave or offboarding.
+  let tierReview = null;
+  try{
+    const tl = capTimeline(s);
+    if(hasData && deficitPerWeek > CAP_TIER_MAX_EXTRA && !tl.term && !capOnLeaveAt(tl, today))
+      tierReview = capWeeklyAt(tl, today) >= CAP_FT_WEEKLY ? 'ft' : 'pt';
+  }catch(e){}
 
   return {
     P, weekly, adjWeekly, annual, benchmarks, qGoals, ramping,
@@ -9498,6 +9758,7 @@ function capCompute(s){
     indYtd, indQtd, grpRawYtd, grpRawQtd, grpWtdYtd, grpWtdQtd,
     nextBenchmark, hoursToNext, weeksLeft, periodsLeft, perWeekNeeded,
     expectedToDate, attainPct, deficit, catchUpTotal, catchUpPerWeek, normalPerWeek, deficitPerWeek,
+    tierReview,
   };
 }
 
@@ -9550,7 +9811,8 @@ function renderCapacity(){
         (currentRole()==='therapist'
           ? `<span style="font-size:15px;font-weight:800;color:#1f2937">My Capacity Dashboard</span>`
           : `<button onclick="capCloseDetail()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid #d4ddd7;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:#1f2937">← Back to all therapists</button>`)
-        + `<span style="font-size:13px;color:#888;margin-left:6px">${P.year} · clinical-hours attainment</span>`;
+        + `<span style="font-size:13px;color:#888;margin-left:6px">${P.year} · clinical-hours attainment</span>`
+        + `<span style="margin-left:auto"><button onclick="paySnapGo()" title="See what was paid for each pay period" style="padding:5px 12px;border-radius:7px;border:1px solid #d4ddd7;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#122B67">🧾 Pay Period Snapshot</button></span>`;
       document.getElementById('cap-summary').innerHTML = '';
       document.getElementById('cap-body').innerHTML =
         `<div style="max-width:1000px;width:100%;margin:0 auto">
@@ -9567,10 +9829,8 @@ function renderCapacity(){
             <button onclick="capViewProfile('${s._id}')" title="Open this person's full record"
               style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:9px 16px;border-radius:24px;border:none;background:var(--navy);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(17,24,39,.25)">👤 View Profile</button>
           </div>
-          ${c.ramping ? `<div style="display:flex;align-items:flex-start;gap:10px;background:#fef3c7;border:1px solid #fcd97a;border-radius:12px;padding:12px 16px;margin-bottom:16px">
-              <span style="font-size:18px;line-height:1">🌱</span>
-              <div style="font-size:12.5px;color:#92610f;line-height:1.5"><strong>New-hire ramp applied.</strong> Goals start on the hire date${capHireDate(s)?` (${s['Date of Hire']})`:''} and step up over the first 60 days — <strong>25%</strong> of normal pace for days 1–15, <strong>50%</strong> for days 16–30, <strong>75%</strong> for days 31–45, then <strong>100%</strong> from day 46 on (fully ramped/Active by day 60). Goals are pro-rated to the time worked, so this person isn't measured against a full load yet.</div>
-            </div>` : ''}
+          ${capAdjustBannerHtml(s)}
+          ${isAdminView()?capAdjustAdminHtml(s):''}
           <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">
             ${capDrillHTML(s,c)}
           </div>
@@ -9585,6 +9845,8 @@ function renderCapacity(){
     `<span style="font-size:14px;font-weight:700">📈 Capacity Attainment</span>
      <span style="font-size:12px;color:#888;margin-left:4px">Clinical hours vs. annual goal · ${P.year}</span>
      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+       ${capYearPickerHtml()}
+       <button onclick="paySnapGo()" title="See what was paid for each pay period" style="padding:5px 12px;border-radius:7px;border:1px solid #d4ddd7;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#122B67">🧾 Pay Period Snapshot</button>
        <button onclick="capExportBackup()" title="Download a backup of all clinical-hours data"
          style="padding:5px 12px;border-radius:7px;border:1px solid #d4ddd7;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#1f2937">⬇ Backup data</button>
        <button onclick="capImportBackup()" title="Restore clinical-hours data from a backup file"
@@ -9617,7 +9879,7 @@ function renderCapacity(){
         onmouseover="this.style.background='#f5f4ef'" onmouseout="this.style.background='#fff'">
       ${avatarHtml(s['Clinician'], s._id, 34)}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13.5px;font-weight:600">${s['Clinician']||''}${grpBadge}</div>
+        <div style="font-size:13.5px;font-weight:600">${s['Clinician']||''}${grpBadge}${c.tierReview?`<span title="Catching up would take more than ${CAP_TIER_MAX_EXTRA} extra clinical hrs/week — capacity tier review needed" style="font-size:9px;font-weight:700;color:#b91c1c;background:#fee2e2;border-radius:8px;padding:1px 6px;margin-left:6px">TIER REVIEW</span>`:''}${(function(){ const st=normStatus(s['Employee Status']); return st==='On Leave'||st==='Off Boarding'?`<span style="font-size:9px;font-weight:700;color:#475569;background:#e2e8f0;border-radius:8px;padding:1px 6px;margin-left:6px">${st.toUpperCase()}</span>`:''; })()}</div>
         <div style="font-size:11px;color:#999">${teamLabel(s['Team'])||'—'} · ${capTierLabel(s['Capacity Tier'])||''} · ${c.weekly} hrs/wk · goal ${Math.round(c.annual)} hrs/yr</div>
       </div>
       <div style="text-align:right;min-width:96px">
@@ -9678,7 +9940,66 @@ function renderCapacity(){
      </div>`;
 
   document.getElementById('cap-body').innerHTML =
-    `${breakdownPW}<div style="max-width:1000px;width:100%;margin:0 auto;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">${sortBar}${rows}</div>`;
+    `${breakdownPW}<div style="max-width:1000px;width:100%;margin:0 auto;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">${sortBar}${rows}</div>`
+    + (isSuperAdminView()?capPeriodAdminHtml():'');
+}
+
+// ── Pay periods (Super Admin): see what's entered per period and wipe a period to start over ──
+// A period's data lives in three stores: CLINICAL_HOURS_DATA (individual hours),
+// GROUP_HOURS_DATA (raw group hours) and PAYROLL_DETAIL (Payroll Processing's column split).
+var CAP_PERIODS_OPEN=false;
+function capPeriodStats(i){
+  let people=0, ind=0, grp=0;
+  try{
+    const ids={};
+    Object.keys((CLINICAL_HOURS_DATA&&CLINICAL_HOURS_DATA.byId)||{}).forEach(function(k){ const v=CLINICAL_HOURS_DATA.byId[k][i]; if(v!==null&&v!==undefined&&v!==''){ ids[k]=1; ind+=+v||0; } });
+    Object.keys((typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId)||{}).forEach(function(k){ const a=GROUP_HOURS_DATA.byId[k]; const v=a&&a[i]; if(v!==null&&v!==undefined&&v!==''){ ids[k]=1; grp+=+v||0; } });
+    Object.keys((typeof PAYROLL_DETAIL!=='undefined'&&PAYROLL_DETAIL)||{}).forEach(function(k){ if(PAYROLL_DETAIL[k]&&PAYROLL_DETAIL[k][i]!==undefined) ids[k]=1; });
+    people=Object.keys(ids).length;
+  }catch(e){}
+  return {people:people, ind:Math.round(ind*10)/10, grp:Math.round(grp*10)/10};
+}
+function capPeriodAdminHtml(){
+  const data=CLINICAL_HOURS_DATA; if(!data||!data.periods) return '';
+  const rows=data.periods.map(function(iso,i){
+    const st=capParseDate(iso), en=new Date(st.getTime()+13*86400000), f=function(d){ return (d.getMonth()+1)+'/'+d.getDate(); };
+    if(!appPPInMenu({start:st})) return '';
+    const S=capPeriodStats(i);
+    return '<tr style="border-top:1px solid #f1f2f4'+(S.people?'':';color:#aaa')+'"><td style="padding:8px 12px;font-weight:700">PP '+(i+1)+'</td><td style="padding:8px 12px">'+f(st)+'–'+f(en)+'</td>'
+      +'<td style="padding:8px 12px;text-align:right">'+(S.people||'—')+'</td><td style="padding:8px 12px;text-align:right">'+(S.people?S.ind:'—')+'</td><td style="padding:8px 12px;text-align:right">'+(S.people?S.grp:'—')+'</td>'
+      +'<td style="padding:6px 12px;text-align:right">'+(S.people?'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;color:#b91c1c" onclick="capDeletePeriod('+i+')">Delete period…</button>':'<span style="font-size:11.5px">no data</span>')+'</td></tr>';
+  }).join('');
+  return '<div style="max-width:1000px;width:100%;margin:18px auto 30px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">'
+    +'<button onclick="CAP_PERIODS_OPEN=!CAP_PERIODS_OPEN;renderCapacity()" aria-expanded="'+CAP_PERIODS_OPEN+'" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border:0;background:#fff;font:inherit;font-weight:800;font-size:13px;cursor:pointer;color:#111827">'
+    +'<span>🗓 Pay periods — delete a period and start over <span style="font-weight:600;color:#9ca3af;font-size:11.5px">Super Admin</span></span><span>'+(CAP_PERIODS_OPEN?'▾':'▸')+'</span></button>'
+    +(CAP_PERIODS_OPEN?'<div style="padding:0 16px 8px;font-size:12px;color:#6b7280">Deleting a pay period erases every clinician’s individual and group hours for it (and the Payroll Processing breakdown), so it can be re-entered or re-imported. A backup file downloads first.</div>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f9fafb;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">'
+      +'<th style="padding:8px 12px;text-align:left">Period</th><th style="padding:8px 12px;text-align:left">Dates</th><th style="padding:8px 12px;text-align:right">Clinicians with hours</th><th style="padding:8px 12px;text-align:right">Individual hrs</th><th style="padding:8px 12px;text-align:right">Group hrs (raw)</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')
+    +'</div>';
+}
+async function capDeletePeriod(i){
+  try{
+    if(!isSuperAdminView()){ showToast('⛔ Super Admins only'); return; }
+    const S=capPeriodStats(i);
+    const typed=prompt('Delete Pay Period '+(i+1)+'?\n\nThis erases '+S.ind+' individual hours and '+S.grp+' group hours for '+S.people+' clinician(s) in this period, so you can start it over. A backup file downloads first.\n\nType DELETE to confirm.');
+    if(typed===null) return;
+    if(String(typed).trim().toUpperCase()!=='DELETE'){ showToast('Not deleted — type DELETE to confirm'); return; }
+    // backup of all three stores first
+    try{
+      const payload={_type:'APP_CAPACITY_PERIOD_BACKUP',_exportedAt:new Date().toISOString(),deletedPeriod:i+1,
+        clinicalHours:CLINICAL_HOURS_DATA, groupHours:(typeof GROUP_HOURS_DATA!=='undefined'?GROUP_HOURS_DATA:null), payrollDetail:(typeof PAYROLL_DETAIL!=='undefined'?PAYROLL_DETAIL:null)};
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+      a.download='capacity_backup_before_deleting_PP'+(i+1)+'_'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); a.remove();
+    }catch(e){ if(!confirm('The backup could not be downloaded. Delete anyway?')) return; }
+    Object.keys(CLINICAL_HOURS_DATA.byId||{}).forEach(function(k){ const a=CLINICAL_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
+    if(typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId) Object.keys(GROUP_HOURS_DATA.byId).forEach(function(k){ const a=GROUP_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
+    if(typeof PAYROLL_DETAIL!=='undefined'&&PAYROLL_DETAIL) Object.keys(PAYROLL_DETAIL).forEach(function(k){ if(PAYROLL_DETAIL[k]) delete PAYROLL_DETAIL[k][i]; });
+    CLINICAL_HOURS_DATA._version=CAP_DATA_VERSION;
+    if(typeof GROUP_HOURS_DATA!=='undefined') GROUP_HOURS_DATA._version=CAP_DATA_VERSION;
+    await capPersistHours(); await capPersistGroupHours(); if(typeof persistPayrollDetail==='function') await persistPayrollDetail();
+    showToast('🗑 Pay Period '+(i+1)+' cleared — ready to re-enter');
+    renderCapacity();
+  }catch(e){ console.error(e); showToast('⚠ Could not delete that pay period'); }
 }
 
 function capOpenDetail(id){ capDetailId=id; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
@@ -9979,6 +10300,115 @@ function capChartHide(uid){
 // the year through the latest period with data. Expected is ramp-aware: for a
 // new hire it's the difference in their ramp-adjusted cumulative goal across the
 // period; for established staff it's their adjusted biweekly pace.
+// ── Capacity adjustments: what the person sees, and the admin editor ──
+function capAdjustBannerHtml(s){
+  try{
+    const notes=capAdjustNotes(s); if(!notes.length) return '';
+    return '<div style="display:flex;align-items:flex-start;gap:10px;background:#fef3c7;border:1px solid #fcd97a;border-radius:12px;padding:12px 16px;margin-bottom:16px">'
+      +'<span style="font-size:18px;line-height:1">🗓</span><div style="font-size:12.5px;color:#92610f;line-height:1.55"><strong>This goal is adjusted to your time.</strong> '
+      +'Goals and attainment are measured only against the time you were expected to work:<ul style="margin:4px 0 0 18px;padding:0">'
+      +notes.map(function(n){ return '<li>'+hesc(n)+'</li>'; }).join('')+'</ul></div></div>';
+  }catch(e){ return ''; }
+}
+function capTierReviewHtml(c,fname){
+  try{
+    if(!c||!c.tierReview) return '';
+    const ft=c.tierReview==='ft';
+    return '<div style="display:flex;align-items:flex-start;gap:12px;background:#fff;border:2px solid #b91c1c;border-radius:12px;padding:14px 18px;margin:-6px 0 18px">'
+      +'<span style="font-size:20px;line-height:1">⚠️</span><div style="flex:1">'
+      +'<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#b91c1c">Capacity tier review needed</div>'
+      +'<div style="font-size:12.5px;color:#7f1d1d;line-height:1.55;margin-top:3px">'
+      +(ft
+        ?'Closing this gap would take about <strong>'+c.deficitPerWeek+' extra clinical hours per week</strong> for the next 90 days — more than the '+CAP_TIER_MAX_EXTRA+'-hour weekly maximum we can plan around. '
+          +'Please meet with your clinical supervisor or manager to discuss <strong>stepping down to a lower capacity tier</strong>.'
+        :'Closing this gap would take about <strong>'+c.deficitPerWeek+' extra clinical hours per week</strong> for the next 90 days — more than the '+CAP_TIER_MAX_EXTRA+'-hour weekly maximum we can plan around. '
+          +'Please <strong>seek supervision to review the status of your capacity tier</strong>.')
+      +' This already accounts for any ramp-up, leave, and capacity changes.</div></div></div>';
+  }catch(e){ return ''; }
+}
+function capAdjustAdminHtml(s){
+  try{
+    const tl=capTimeline(s), id=hesc(s._id);
+    const b=function(lbl,fn){ return '<button onclick="'+fn+'" style="font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;border:1px solid #d4ddd7;background:#fff;cursor:pointer;color:#122B67">'+lbl+'</button>'; };
+    const x=function(fn){ return ' <button onclick="'+fn+'" title="Remove" style="font:inherit;font-size:13px;border:0;background:none;color:#b91c1c;cursor:pointer;padding:0 4px">×</button>'; };
+    const row=function(label,body){ return '<div style="display:flex;gap:12px;padding:8px 0;border-top:1px solid #f1f2f4;align-items:flex-start;flex-wrap:wrap"><div style="width:150px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;padding-top:3px">'+label+'</div><div style="flex:1;min-width:220px;font-size:12.5px;color:#1f2937;line-height:1.8">'+body+'</div></div>'; };
+    const hist=tl.hist.length?tl.hist.map(function(h,i){ return '<div>'+h.weekly+' hrs/wk '+(h.from?'from '+capUS(h.from):'(before first change)')+(i>0?x("capAdjDelChange('"+id+"',"+i+")"):'')+'</div>'; }).join('')
+      :'<div>'+tl.cur+' hrs/wk all year <span style="color:#9ca3af">(no changes recorded)</span></div>';
+    const lv=tl.leaves.length?(s._leaves||[]).map(function(l,i){ const st=capDateOf(l.start), en=capDateOf(l.end);
+      return '<div>'+capUS(st)+' – '+(en?capUS(en):'<b>still on leave</b>')+' '+b(en?'Change return…':'Set return…',"capAdjSetReturn('"+id+"',"+i+")")+x("capAdjDelLeave('"+id+"',"+i+")")+'</div>'; }).join('')
+      :'<div style="color:#9ca3af">None</div>';
+    const off=(tl.notice||tl.term)?'<div>Notice given '+(tl.notice?capUS(tl.notice):'—')+' · Term date '+(tl.term?capUS(tl.term):'—')+' '+b('Edit…',"capAdjSetOffboard('"+id+"')")+x("capAdjClearOffboard('"+id+"')")+'</div>':'<div style="color:#9ca3af">None</div>';
+    return '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:12px 18px 8px;margin-bottom:16px">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><div style="font-size:13px;font-weight:800;flex:1">⚙ Capacity adjustments <span style="font-size:11px;font-weight:600;color:#9ca3af">Admin · usually set from the profile when Status or Weekly Capacity changes</span></div>'
+      +b('+ Capacity change',"capAdjAddChange('"+id+"')")+b('+ Leave',"capAdjAddLeave('"+id+"')")+b('Offboarding dates…',"capAdjSetOffboard('"+id+"')")+'</div>'
+      +row('Weekly Capacity',hist)+row('Leave',lv)+row('Offboarding',off)+'</div>';
+  }catch(e){ console.error(e); return ''; }
+}
+function capAdjStaff(id){ return STAFF.find(function(x){ return x._id===id; }); }
+function capAskDate(msg,def){
+  const v=prompt(msg+'\n(M/D/YYYY)',def?capUS(capDateOf(def)):''); if(v===null) return undefined;
+  if(!String(v).trim()) return '';
+  const d=capDateOf(v); if(!d){ showToast('⚠ Not a valid date'); return undefined; } return capISO(d);
+}
+async function capAdjSave(s){ try{ await persistStaff(); }catch(e){} renderCapacity(); showToast('✅ Capacity goal updated'); }
+// Record a Weekly Capacity change effective `from` (ISO). Keeps the old value for earlier days.
+function capRecordCapacityChange(s,oldW,newW,from){
+  const hist=Array.isArray(s._capHist)?s._capHist.slice():[];
+  if(!hist.length) hist.push({from:'',weekly:oldW});
+  const k=hist.findIndex(function(h){ return h.from===from; });
+  if(k>=0) hist[k]={from:from,weekly:newW}; else hist.push({from:from,weekly:newW});
+  hist.sort(function(a,b){ return String(a.from).localeCompare(String(b.from)); });
+  s._capHist=hist;
+  // the profile's Weekly Capacity = the newest entry (the timeline knows when it starts)
+  const last=parseFloat(hist[hist.length-1].weekly)||0;
+  s['Weekly Capacity']=String(last); s['Biweekly Capacity']=String(Math.round(last*2));
+}
+async function capAdjAddChange(id){
+  const s=capAdjStaff(id); if(!s) return;
+  const from=capAskDate('New Weekly Capacity starts on (defaults to the first day of the current pay period):',capPPStartFor()); if(!from) return;
+  const w=parseFloat(prompt('New Weekly Capacity (hrs/week):',s['Weekly Capacity']||'')); if(isNaN(w)||w<0){ showToast('⚠ Not a valid number'); return; }
+  capRecordCapacityChange(s,parseFloat(s['Weekly Capacity'])||0,w,from); await capAdjSave(s);
+}
+async function capAdjDelChange(id,i){
+  const s=capAdjStaff(id); if(!s||!Array.isArray(s._capHist)) return;
+  const tl=capTimeline(s), h=tl.hist[i]; if(!h||!confirm('Remove the change to '+h.weekly+' hrs/wk from '+capUS(h.from)+'?')) return;
+  const iso=capISO(h.from); const rest=s._capHist.filter(function(x){ return x.from!==iso; });
+  // the newest remaining entry becomes the profile value (raw entries, not normalized)
+  const srt=rest.slice().sort(function(a,b){ return String(a.from).localeCompare(String(b.from)); });
+  const now=srt.length?(parseFloat(srt[srt.length-1].weekly)||0):(parseFloat(s['Weekly Capacity'])||0);
+  s._capHist=rest.length<=1?[]:rest; s['Weekly Capacity']=String(now); s['Biweekly Capacity']=String(Math.round(now*2));
+  await capAdjSave(s);
+}
+async function capAdjAddLeave(id){
+  const s=capAdjStaff(id); if(!s) return;
+  const st=capAskDate('First day of leave:',new Date()); if(!st) return;
+  const en=capAskDate('Last day of leave (leave blank if they haven’t returned yet):',''); if(en===undefined) return;
+  if(en && en<st){ showToast('⚠ The leave ends before it starts'); return; }
+  s._leaves=(Array.isArray(s._leaves)?s._leaves:[]).concat({start:st,end:en||''}); await capAdjSave(s);
+}
+async function capAdjSetReturn(id,i){
+  const s=capAdjStaff(id); if(!s||!s._leaves||!s._leaves[i]) return;
+  const ret=capAskDate('First day back at work:',''); if(!ret) return;
+  const r=capDateOf(ret); const last=capISO(new Date(r.getFullYear(),r.getMonth(),r.getDate()-1));
+  if(last<s._leaves[i].start){ showToast('⚠ Return is before the leave started'); return; }
+  s._leaves=s._leaves.map(function(l,k){ return k===i?{start:l.start,end:last}:l; }); await capAdjSave(s);
+}
+async function capAdjDelLeave(id,i){
+  const s=capAdjStaff(id); if(!s||!s._leaves||!s._leaves[i]||!confirm('Remove this leave? Those days will count toward the goal again.')) return;
+  s._leaves=s._leaves.filter(function(l,k){ return k!==i; }); await capAdjSave(s);
+}
+async function capAdjSetOffboard(id){
+  const s=capAdjStaff(id); if(!s) return;
+  const n=capAskDate('Date they gave notice:',s['Notice Date']||new Date()); if(n===undefined) return;
+  const t=capAskDate('Term date (last day — the goal stops after this):',s['Term Date']||''); if(!t) return;
+  if(n && t<n){ showToast('⚠ The term date is before the notice date'); return; }
+  s['Notice Date']=n; s['Term Date']=t; await capAdjSave(s);
+}
+async function capAdjClearOffboard(id){
+  const s=capAdjStaff(id); if(!s||!confirm('Clear the notice and term dates? Their goal will run to year-end again.')) return;
+  s['Notice Date']=''; s['Term Date']=''; await capAdjSave(s);
+}
+
 function capPeriodRows(s, c){
   const data = (typeof CLINICAL_HOURS_DATA!=='undefined') ? CLINICAL_HOURS_DATA : null;
   if(!data || !data.periods) return [];
@@ -10000,15 +10430,9 @@ function capPeriodRows(s, c){
     const v = arr ? arr[i] : null;
     if(v === null || v === undefined) continue;   // no data entered yet → skip
     // expected for THIS period
-    let expected;
-    if(ramp){
-      const pEnd = capParseDate(data.periods[i]);
-      const cumGoal = capRampGoalTo(s, pEnd) || 0;
-      expected = Math.max(0, cumGoal - cumPrevGoal);
-      cumPrevGoal = cumGoal;
-    } else {
-      expected = adjBiweekly;
-    }
+    // (timeline-aware: ramp, capacity changes, leave days and the term date all count)
+    const pS = capParseDate(data.periods[i]);
+    const expected = capGoalBetween(s, pS, new Date(pS.getFullYear(), pS.getMonth(), pS.getDate()+14));
     const actual = v;
     const diff = actual - expected;
     // Is this pay period inside the clinician's onboarding ramp? Use the period's
@@ -10108,7 +10532,9 @@ function capDrillHTML(s,c){
   }).join('');
 
   // Goal pace line
-  const paceLine=`<line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(c.annual)}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5"/>`;
+  // Goal pace follows the person's timeline (flat during leave, steeper/flatter after a capacity change).
+  const pacePts=[]; for(let wk=0; wk<=CAP_YEAR_WEEKS; wk++){ const dt=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+wk*7); pacePts.push(x(wk/CAP_YEAR_WEEKS)+','+y(capGoalTo(s,dt))); }
+  const paceLine=`<polyline points="${pacePts.join(' ')}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5"/>`;
   // Benchmark dots (interactive)
   const qLabelsFull=['End of Q1','Mid-Year','End of Q3','Year-End'];
   const bench=CAP_CUM_WEEKS.map((cw,i)=>{
@@ -10341,6 +10767,7 @@ function capDrillHTML(s,c){
       </div>`;
   }
 
+  catchUp += capTierReviewHtml(c, fname);
   return `<div style="padding:18px 20px;background:#fafafa">
     <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
       ${stat('Year to Date', c.ytd+' hrs', `of ${Math.round(c.annual)} hr annual goal`, '#1a1a1a')}
@@ -10770,7 +11197,7 @@ const PAGE_META={
   'capacity-data':{title:'Capacity Data',sub:'Raw session data by pay period'},
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'CEU Bulk Upload',sub:'File training certificates to staff records'},
-  'meetings':{title:'Time & Attendance',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
+  'meetings':{title:'Meeting and Admin Time',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
   'clin-policies':{title:'Clinical Manual & How-Tos',sub:'APP’s clinical manual and practical how-to guides'},
   'clin-howtos':{title:'Clinical How-Tos',sub:'Practical guides for clinical systems and workflows'},
   'handbook':{title:'Employee Handbook',sub:'Policies and expectations for everyone at APP — always the current version'},
@@ -10783,7 +11210,8 @@ const PAGE_META={
   'report-center':{title:'Report Center',sub:'Coming soon'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
-  'meetings-hr':{title:'Time & Attendance (HR)',sub:'Everyone\'s submissions, every pay period — review and pay'},
+  'paysnap':{title:'Pay Period Snapshot',sub:'Your results for each pay period — clinical hours credited and meeting & admin time paid'},
+  'meetings-hr':{title:'Meeting and Admin Time (HR)',sub:'Everyone\'s submissions, every pay period — review and pay'},
   'team-dashboard':{title:'Leadership Dashboard',sub:'Site leaderboard — clinical-hours attainment'},
   'admin':{title:'Roles & Permissions',sub:'Assign roles and manage access'},
   'hr-dashboard':{title:'HR Dashboard',sub:'Birthdays, anniversaries, and raise eligibility'},
@@ -10827,6 +11255,7 @@ function showPage(id,btn){
   if(id==='admin'){renderAdmin();return;}
   if(id==='ceu-upload'){renderCeuUpload();return;}
   if(id==='meetings'){renderMeetings();return;}
+  if(id==='paysnap'){renderPaySnap();return;}
   if(LIB_PAGES[id]){LIB_CUR=id;renderLibrary();return;}
   if(id==='reflib'){renderRefLib();return;}
   if(id==='paperwork'){renderPaperwork();return;}
@@ -11071,7 +11500,7 @@ let payrollPP = null;
 // Per-column breakdown of the individual (full-credit) columns:
 //   { [staffId]: { [periodIndex]: [col1, col2, col3] } }   (hours, null = blank)
 let PAYROLL_DETAIL = {};
-const PAYROLL_DETAIL_KEY = 'app_payroll_detail';
+const PAYROLL_DETAIL_KEY = capStoreKey('app_payroll_detail');
 
 async function loadPayrollDetail(){
   try{
@@ -11092,7 +11521,7 @@ function payrollPeriods(){
     const en = new Date(st.getTime()+13*86400000);
     const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
     return { i, iso, start:st, end:en,
-      label:'Pay Period '+(i+1),
+      label:(ALL_PPS[CAP_PP_OFFSET+i]?ALL_PPS[CAP_PP_OFFSET+i].label:'Pay Period '+(i+1)),
       range: fmt(st)+' – '+fmt(en) };
   });
 }
@@ -11218,15 +11647,15 @@ function capImpPeriodIdx(h){
   if(m){ const n=parseInt(m[1],10); if(n>=1&&n<=CAP_PPS) return n-1; }
   let d=null;
   m=h.match(/^([A-Za-z]+)\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?$/);
-  if(m){ const mo=MONTH_NAMES.findIndex(x=>x.toLowerCase().slice(0,3)===m[1].toLowerCase().slice(0,3)); if(mo>=0) d=new Date(m[3]?parseInt(m[3],10):CAP_YEAR_START.getFullYear(),mo,parseInt(m[2],10)); }
-  if(!d){ m=h.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if(m){ let y=m[3]?parseInt(m[3],10):CAP_YEAR_START.getFullYear(); if(y<100)y+=2000; d=new Date(y,parseInt(m[1],10)-1,parseInt(m[2],10)); } }
+  if(m){ const mo=MONTH_NAMES.findIndex(x=>x.toLowerCase().slice(0,3)===m[1].toLowerCase().slice(0,3)); if(mo>=0) d=new Date(m[3]?parseInt(m[3],10):CAP_YEAR,mo,parseInt(m[2],10)); }
+  if(!d){ m=h.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if(m){ let y=m[3]?parseInt(m[3],10):CAP_YEAR; if(y<100)y+=2000; d=new Date(y,parseInt(m[1],10)-1,parseInt(m[2],10)); } }
   if(!d){ m=h.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) d=new Date(parseInt(m[1],10),parseInt(m[2],10)-1,parseInt(m[3],10)); }
   if(!d||isNaN(d)) return -1;
   d.setHours(0,0,0,0);
-  for(const pp of ALL_PPS){
+  for(const pp of ALL_PPS.slice(CAP_PP_OFFSET,CAP_PP_OFFSET+CAP_PPS)){
     const s=new Date(pp.start); s.setHours(0,0,0,0);
     const e=new Date(pp.end);   e.setHours(0,0,0,0);
-    if(d>=s&&d<=e) return pp.i;
+    if(d>=s&&d<=e) return pp.i-CAP_PP_OFFSET;
   }
   return -1;
 }
@@ -11302,7 +11731,7 @@ function capImportRenderPreview(){
   const nNone=rows.filter(r=>r.quality==='none').length;
   const colHead=cols.map(function(c){
     return '<th style="text-align:center;font-size:10.5px;'+(c.idx<0?'color:#dc2626':'color:#666')+'">'
-      +hesc(c.header)+'<br>'+(c.idx<0?'⚠ no period':'PP'+(c.idx+1)+'<br><span style="font-weight:400;color:#999">'+ALL_PPS[c.idx].range+'</span>')+'</th>';
+      +hesc(c.header)+'<br>'+(c.idx<0?'⚠ no period':'PP'+(c.idx+1)+'<br><span style="font-weight:400;color:#999">'+ALL_PPS[CAP_PP_OFFSET+c.idx].range+'</span>')+'</th>';
   }).join('');
   const q={exact:['#157a45','matched'],fuzzy:['#b45309','fuzzy match — check'],manual:['#1d4ed8','manually set'],none:['#dc2626','NO MATCH — pick or skip']};
   const rowsHtml=rows.map(function(r,i){
@@ -11442,8 +11871,9 @@ function renderPayroll(){
   });
 
   // Period dropdown options.
-  const opts = pps.map(p=>{
-    const tag = p.i===curIdx ? ' (current)' : '';
+  const opts = pps.filter(p=>appPPInMenu(p)||p.i===payrollPP).map(p=>{
+    const _t=new Date(); _t.setHours(0,0,0,0);
+    const tag = (p.i===curIdx && _t>=p.start && _t<=p.end) ? ' (current)' : '';
     return '<option value="'+p.i+'"'+(p.i===payrollPP?' selected':'')+'>'+p.label+' · '+p.range+tag+'</option>';
   }).join('');
 
@@ -11487,6 +11917,7 @@ function renderPayroll(){
         '<select onchange="payrollSelectPP(this.value)" style="padding:8px 12px;border:1px solid #d8d5ce;border-radius:9px;font-size:13px;font-family:inherit;font-weight:600;background:#f9fafb;min-width:320px">'+opts+'</select>'+
       '</div>'+
       '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8a49c">Period Dates</div><div style="font-weight:600;margin-top:2px;font-size:12.5px;color:#5e6480">'+pp.range+'</div></div>'+
+      '<div>'+capYearPickerHtml()+'</div>'+
       '<div id="pr-summary" style="margin-left:auto;font-size:12.5px;color:#5e6480"></div>'+
     '</div>'+
 
@@ -12562,6 +12993,9 @@ async function boot() { // called by the Firebase auth module once sign-in compl
 
   // Show roster page on load
   showPage('roster', document.getElementById('nav-roster'));
+  // After switching capacity year, come back to the page that asked for it.
+  try{ const rp=sessionStorage.getItem('hb_capyear_return'); if(rp){ sessionStorage.removeItem('hb_capyear_return');
+    if(document.getElementById('page-'+rp)) showPage(rp, document.querySelector('.nav-item[data-page="'+rp+'"]')); } }catch(e){}
 }
 
 
@@ -12897,7 +13331,7 @@ async function renderIntakeCoord() {
 <div id="auth-overlay" style="position:fixed;inset:0;z-index:99999;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-family:'Open Sans',-apple-system,sans-serif">
   <div style="background:#fff;border-radius:18px;padding:40px 44px 34px;max-width:430px;width:90%;text-align:center;border:1px solid #e5e7eb;box-shadow:0 10px 30px rgba(17,24,39,.08)">
     <div style="font-size:21px;font-weight:800;color:#122b67;letter-spacing:.02em;font-family:'Montserrat',sans-serif;text-transform:uppercase">Advance Psychotherapy</div>
-    <div style="font-size:10.5px;color:#8a8784;text-transform:uppercase;letter-spacing:.13em;margin:3px 0 24px">Homebase · Roster &amp; Capacity</div>
+    <div style="font-size:10.5px;color:#8a8784;text-transform:uppercase;letter-spacing:.13em;margin:3px 0 24px">Homebase · Let&rsquo;s Work Together</div>
     <div id="auth-msg" style="font-size:13.5px;color:#555;line-height:1.5;margin-bottom:20px">Sign in with your work Google account to continue.</div>
     <button id="auth-signin-btn" style="display:inline-flex;align-items:center;gap:10px;padding:11px 22px;border:1px solid #e0ddd6;border-radius:11px;background:#fff;font-size:14px;font-weight:600;font-family:inherit;color:#1b1f3a;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41.4 34.9 44 29.9 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
@@ -13272,7 +13706,7 @@ var PR = (function(){
         }
       } else if(m.kind==='cxl_nofee'){ E.cxlNoFee.n++; }
     }
-    // Meeting & admin time (Time & Attendance entries): $25/hr items, or hours × the person's
+    // Meeting & admin time (Meeting and Admin Time entries): $25/hr items, or hours × the person's
     // hourly FFS rate for FFS items. Unrated ("Other") entries are listed but not paid.
     (ctx.meetings||[]).forEach(function(m){ const E=emp(m.pid,m.prov); if(!E.sid&&m.sid) E.sid=m.sid;
       const pv=provs[m.pid]||{}, mins=+m.mins||0; let c4=0, kind='';
@@ -13387,7 +13821,7 @@ function prRecompute(){
   PRV.res=PR.compute({rows:PRV.rows, importOrder:p.importIds||[], period:{start:p.start,end:p.end}, maps:prMaps(), provs:prProvs(),
     settings:prSettings(), edits:p.edits||{}, adjustments:p.adjustments||[], paidFp:prPaidFp(), meetings:prPeriodMeetings()});
 }
-// Time & Attendance entries that belong in this payroll: everything UNPAID dated on or before the
+// Meeting and Admin Time entries that belong in this payroll: everything UNPAID dated on or before the
 // period's end (earlier unpaid entries are caught up and flagged), plus entries this period already paid.
 function prMtgRate(m){ if(typeof m.rate==='number') return m.rate; if(m.rate==='25') return 25; if(m.rate==='FFS') return 'FFS';
   try{ const r=mtgRateFor(m.type||''); return r===25||r==='FFS'?r:''; }catch(e){ return ''; } }
@@ -13410,7 +13844,7 @@ function prProvs(){ const saved=(PRV.cfg||{}).provs||{}, out={};
     const sid=sv.sid||prSuggestSid(r.Provider);
     out[r.ProviderID]=Object.assign({diff:true},sv,{sid:sid, cat:sv.cat||prTierCat(sid), suggested:!sv.sid&&!!sid}); });
   Object.keys(saved).forEach(function(k){ if(!out[k]) out[k]=saved[k]; });
-  // people with Time & Attendance entries but no Valant provider link
+  // people with Meeting and Admin Time entries but no Valant provider link
   const linked={}; Object.keys(out).forEach(function(k){ if(out[k]&&out[k].sid) linked[out[k].sid]=1; });
   (PRV.meetings||[]).forEach(function(m){ if(!m||!m.sid||linked[m.sid]) return; const k='staff:'+m.sid; const sv=saved[k]||{};
     out[k]=Object.assign({diff:false},sv,{sid:m.sid, cat:sv.cat||prTierCat(m.sid)}); linked[m.sid]=1; });
@@ -13428,7 +13862,7 @@ async function renderPayReview(){
   h+='<div class="pr-top"><div class="pr-sub">Valant appointment report → clinical-hour attainment and compensation, calculated separately.</div>'
     +'<div class="pr-topact"><span class="pr-muted">Pay period</span> '+prPeriodPicker()+'</div></div>';
   if(!S.confirmed) h+='<div class="pr-banner warn"><b>Provisional rules.</b> After-hours, weekend, over-attainment and documentation rules are placeholders until you confirm them in <a href="#" onclick="PRV.tab=\'settings\';renderPayReview();return false">Settings</a>. Pay periods can’t be closed until then.</div>';
-  if(!p){ h+='<div class="pr-card pr-empty"><b>Start by creating a pay period.</b><br>Pick its start and end dates explicitly — the period is never guessed from the upload.<div style="margin-top:12px">'+prNewPeriodForm()+'</div></div></div>'; body.innerHTML=h; return; }
+  if(!p){ h+='<div class="pr-card pr-empty"><b>Start by creating a pay period.</b><br>Pick it from the official pay-period calendar — the period is never guessed from the upload.<div style="margin-top:12px">'+prNewPeriodForm()+'</div></div></div>'; body.innerHTML=h; return; }
   const R=PRV.res, T=R?R.totals:null;
   h+='<div class="pr-pbar"><div><span class="pr-ptitle">'+prEsc(p.label)+'</span> <span class="pr-range">'+prDate(p.start)+' – '+prDate(p.end)+'</span> '
     +(p.status==='closed'?'<span class="pr-chip closed">Closed · v'+(p.version||1)+'</span>':'<span class="pr-chip open">Open'+((p.version||1)>1?' · draft v'+p.version:'')+'</span>')+'</div><div class="pr-pact">'
@@ -13466,12 +13900,19 @@ function prPeriodPicker(){
     +(PRV.newOpen&&PRV.periods.length?'<div class="pr-pop">'+prNewPeriodForm()+'</div>':'');
 }
 function prNewPeriodForm(){
-  return '<div class="pr-newp"><label>Start<input type="date" id="pr-np-s"></label><label>End<input type="date" id="pr-np-e"></label>'
-    +'<label>Name<input type="text" id="pr-np-l" placeholder="e.g. PP 19"></label><button class="btn" onclick="prCreatePeriod()">Create period</button>'
+  // Official pay periods only (hard-coded calendar), newest first, up to 3 months ahead;
+  // ones already created are listed but disabled.
+  const made={}; (PRV.periods||[]).forEach(function(p){ made[p.start+'|'+p.end]=1; });
+  const cur=appPPCurrentIdx();
+  const opts=ALL_PPS.filter(appPPInMenu).slice().reverse().map(function(pp){ const done=made[pp.startISO+'|'+pp.endISO];
+    return '<option value="'+pp.i+'"'+(done?' disabled':'')+(pp.i===cur&&!done?' selected':'')+'>'+pp.short+' · '+prDate(pp.startISO)+' – '+prDate(pp.endISO)+(pp.i===cur?' (current)':'')+(done?' — already created':'')+'</option>'; }).join('');
+  return '<div class="pr-newp"><label>Pay period<select id="pr-np-pp" class="pr-sel">'+opts+'</select></label><button class="btn" onclick="prCreatePeriod()">Create period</button>'
     +(PRV.periods.length?'<button class="btn btn-secondary" onclick="PRV.newOpen=false;renderPayReview()">Cancel</button>':'')+'</div>';
 }
 async function prCreatePeriod(){
-  const s=(document.getElementById('pr-np-s')||{}).value, e=(document.getElementById('pr-np-e')||{}).value; let l=((document.getElementById('pr-np-l')||{}).value||'').trim();
+  const ppSel=document.getElementById('pr-np-pp'); const ppo=ppSel?ALL_PPS[parseInt(ppSel.value,10)]:null;
+  if(!ppo){ showToast('⚠ Choose a pay period'); return; }
+  const s=ppo.startISO, e=ppo.endISO; let l=ppo.short;
   if(!s||!e){ showToast('⚠ Choose both a start and an end date'); return; }
   if(e<s){ showToast('⚠ The end date is before the start date'); return; }
   const clash=PRV.periods.find(function(p){ return !(e<p.start||s>p.end); });
@@ -13552,7 +13993,7 @@ function prPayHtml(){
   list.sort(function(a,b){ const x=prSortVal(a,k), y=prSortVal(b,k); return (x<y?-1:x>y?1:0)*d; });
   let h='<div class="pr-tools"><input class="pr-q" type="search" placeholder="Search name, Valant ID or payroll ID" value="'+prEsc(PRV.q)+'" oninput="PRV.q=this.value;prRefreshMain()" aria-label="Search employees">'
     +'<span class="pr-recon '+(T.reconciled?'ok':'bad')+'">'+(T.reconciled?'✓ Ledger reconciles (appointments → employees → practice)':'⚠ Ledger does not reconcile')+'</span>'
-    +'<span class="pr-hint">Meetings &amp; admin = Time &amp; Attendance entries ($25/hr, or hours × FFS rate). </span><span class="pr-hint">Rounding: each line exact to 1/100¢; each employee × category rounded half-up to the cent once.</span></div>';
+    +'<span class="pr-hint">Meetings &amp; admin = Meeting and Admin Time entries ($25/hr, or hours × FFS rate). </span><span class="pr-hint">Rounding: each line exact to 1/100¢; each employee × category rounded half-up to the cent once.</span></div>';
   h+='<div class="pr-tblwrap"><table class="pr-tbl"><thead><tr>'+PR_COLS.map(function(c){ return '<th><button class="pr-sort" onclick="prSort(\''+c[0]+'\')">'+c[1]+(PRV.sort.k===c[0]?(PRV.sort.d>0?' ▲':' ▼'):'')+'</button></th>'; }).join('')+'</tr></thead><tbody>';
   h+=prTotalRow(T,'Practice total ('+T.emps+')');
   list.forEach(function(E){
@@ -13599,7 +14040,7 @@ function prEmpDetail(E,maps){
   if(E.cxlFee.n) groups.push({k:'cxlfee',label:'Fee-charged cancellations/no-shows · '+E.cxlFee.n+' × '+prUsd(E.rateCents),n:E.cxlFee.n,units:E.cxlFee.n*100,c:E.cxlFee.c,hrs:0,lines:lines.filter(function(L){ return L.approved&&L.kind==='cxl_fee'; })});
   if(E.eve.n) groups.push({k:'eve',label:'Weekday evening differential (start ≥ '+PR.hhmm(R.settings.eveStart)+')',n:E.eve.n,c:E.eve.c,lines:lines.filter(function(L){ return L.eve4; })});
   if(E.wknd.n) groups.push({k:'wknd',label:'Weekend differential (Saturday'+(R.settings.includeSunday?' + Sunday':'')+')',n:E.wknd.n,c:E.wknd.c,lines:lines.filter(function(L){ return L.wknd4; })});
-  if(E.mtg&&E.mtg.n) groups.push({k:'mtg',label:'Meetings & admin time (Time & Attendance)',n:E.mtg.n,c:E.mtg.c,mtg:true});
+  if(E.mtg&&E.mtg.n) groups.push({k:'mtg',label:'Meetings & admin time (Meeting and Admin Time)',n:E.mtg.n,c:E.mtg.c,mtg:true});
   const held=lines.filter(function(L){ return !L.approved && L.kind!=='np_uncoded' && L.kind!=='cxl_nofee'; });
   const nofee=lines.filter(function(L){ return L.kind==='cxl_nofee'; }), npu=lines.filter(function(L){ return L.kind==='np_uncoded'; });
   if(held.length) groups.push({k:'held',label:'Not approved for payroll (decide or correct)',n:held.length,lines:held,warn:true});
@@ -13628,13 +14069,15 @@ function prLinesTable(lines,E){
         +(closed?'':'<td class="pr-act"><button onclick="prEditLine(\''+prEsc(L.key)+'\')">Correct…</button></td>')+'</tr>'; }).join('')+'</tbody></table>';
 }
 // Meeting & admin entries for one person (money=false hides dollars — therapist sheet).
+function prMtgFlatCents(m){ if(m.kind!=='flat') return null; if(m.payCents!=null) return m.payCents; return Math.round((+m.mins||0)*2500/60); }
 function prMtgTable(E,money){
+  const flatOnly=money==='flat';
   const it=(E.mtg&&E.mtg.items)||[]; if(!it.length) return '';
   return '<table class="pr-ltbl"><thead><tr><th>Date</th><th>Time</th><th>Meeting / admin work</th><th>Hours</th><th>Paid as</th>'+(money?'<th>Pay</th>':'')+'</tr></thead><tbody>'
     +it.slice().sort(function(a,b){ return (a.date+a.start).localeCompare(b.date+b.start); }).map(function(m){
       return '<tr><td>'+prDate(m.date)+(m.early?' <span class="pr-pill info" title="Dated before this period and not yet paid">earlier, unpaid</span>':'')+'</td><td>'+prEsc(m.start)+(m.end?'–'+prEsc(m.end):'')+'</td><td>'+prEsc(m.type)+(m.notes?'<div class="pr-muted">'+prEsc(m.notes)+'</div>':'')+'</td>'
         +'<td class="num">'+PR.fmtH(Math.round(m.mins*100/60))+'</td><td>'+(m.kind==='flat'?'$25/hr':m.kind==='ffs'?'FFS rate':'<span class="pr-pill warn">needs a rate</span>')+'</td>'
-        +(money?'<td class="num">'+(m.c4?PR.fmt$(PR.round4(m.c4)):'—')+'</td>':'')+'</tr>'; }).join('')+'</tbody></table>';
+        +(money?'<td class="num">'+(flatOnly?(m.kind==='flat'?PR.fmt$(prMtgFlatCents(m)):m.kind==='ffs'?'<span class="pr-muted">at your FFS rate</span>':'—'):(m.c4?PR.fmt$(PR.round4(m.c4)):'—'))+'</td>':'')+'</tr>'; }).join('')+'</tbody></table>';
 }
 function prAdjHtml(E){
   const adj=(PRV.period.adjustments||[]).filter(function(a){ return a.pid===E.pid; });
@@ -13868,11 +14311,11 @@ async function prClose(){
   const stmts=[]; Object.keys(R.emps).forEach(function(k){ const E=R.emps[k]; const sidE=pvC[k]&&pvC[k].sid; if(!sidE) return;
     stmts.push(prBuildStatement(R,Object.assign({},E,{sid:sidE}),{name:prEmpName(E),periodId:p.__id,version:v,label:p.label,start:p.start,end:p.end,closedAt:at,maps:used})); });
   if(!(await payStore.addStatements(sid,stmts))) showToast('⚠ Snapshot saved, but employee sheets could not be published');
-  // Time & Attendance entries paid in this payroll → PAID (unrated "Other" entries stay unpaid)
+  // Meeting and Admin Time entries paid in this payroll → PAID (unrated "Other" entries stay unpaid)
   try{ if(window.mtgStore){ const day=at.slice(0,10); let nPaid=0;
     for(const k of Object.keys(R.emps)){ for(const m of ((R.emps[k].mtg||{}).items||[])){ if(!m.kind||!m.c4) continue;
       if(await window.mtgStore.update(m.id,{status:'PAID',payDate:day,payMethod:'PAYROLL',paidPeriod:p.__id,paidVersion:v})) nPaid++; } }
-    if(nPaid) prAudit(p,{act:'meetings.paid',detail:nPaid+' Time & Attendance entries marked PAID'});
+    if(nPaid) prAudit(p,{act:'meetings.paid',detail:nPaid+' Meeting and Admin Time entries marked PAID'});
     try{ MTG_ALL=null; MTG_MINE=null; }catch(e){} } }catch(e){ console.error(e); showToast('⚠ Payroll closed, but some meeting entries could not be marked paid'); }
   PRV.paidDocs=(PRV.paidDocs||[]).concat({__id:sid,periodId:p.__id,label:p.label,version:v,fps:fps});
   p.status='closed'; p.closedAt=at; p.closedBy=by; p.snapshots=(p.snapshots||[]).concat({v:v,id:sid,at:at,by:by,total:R.totals.total});
@@ -13948,7 +14391,7 @@ function prBuildStatement(R,E,meta){
   return {sid:E.sid,pid:E.pid,name:meta.name,periodId:meta.periodId,version:meta.version,label:meta.label,start:meta.start,end:meta.end,closedAt:meta.closedAt,
     summary:{approvedHrs:E.approvedHrs,mappedHrs:E.mappedHrs,services:E.services,appts:E.appts,cats:cats,cxlFee:E.cxlFee.n,cxlNoFee:E.cxlNoFee.n,eve:E.eve.n,wknd:E.wknd.n,
       bonusHrs:E.bonusHrs,overHrs:E.overHrs||0,threshold:R.settings.threshold,bonusEligible:!!E.bonusEligible,mtgMins:(E.mtg&&E.mtg.mins)||0},
-    meetings:((E.mtg&&E.mtg.items)||[]).map(function(m){ return {date:m.date,start:m.start,end:m.end,type:m.type,mins:m.mins,kind:m.kind,notes:m.notes,early:m.early}; }),
+    meetings:((E.mtg&&E.mtg.items)||[]).map(function(m){ return {date:m.date,start:m.start,end:m.end,type:m.type,mins:m.mins,kind:m.kind,notes:m.notes,early:m.early,payCents:m.kind==='flat'&&m.c4?PR.round4(m.c4):null}; }),
     lines:lines};
 }
 // One line, e.g.  FRADON — Mon 9/8 · 9am–10am · 90837 · 1.00 clinical hr · 1.00 FFS
@@ -13971,14 +14414,14 @@ function prSheetHtml(st,opt){
   let h='<div class="pr-sheet">';
   h+='<div class="pr-shead"><div><div class="pr-eyebrow">Pay-period sheet'+(money?' · Super Admin':'')+'</div><div class="pr-sname">'+prEsc(st.name)+'</div>'
     +'<div class="pr-muted">'+prEsc(st.label)+' · '+prDate(st.start)+' – '+prDate(st.end)+(closed?' · closed '+new Date(st.closedAt).toLocaleDateString()+(st.version>1?' (v'+st.version+')':''):' · <b>open — still being reviewed</b>')+'</div></div>'
-    +'<div class="pr-sact">'+(opt.actions||'')+'<button class="btn btn-secondary" onclick="window.print()">Print</button><button class="pr-x" onclick="prCloseSheet()" aria-label="Close">×</button></div></div>';
+    +'<div class="pr-sact">'+(opt.actions||'')+(opt.inline?'':'<button class="btn btn-secondary" onclick="window.print()">Print</button><button class="pr-x" onclick="prCloseSheet()" aria-label="Close">×</button>')+'</div></div>';
   h+='<div class="pr-stiles">'
     +prTile('Clinical hours credited',PR.fmtH(S.approvedHrs),S.mappedHrs!==S.approvedHrs?PR.fmtH(S.mappedHrs)+' mapped in total':'')
     +prTile('Sessions',S.services,S.appts+' appointments')
     +prTile('Evening / weekend',S.eve+' / '+S.wknd,'sessions with a differential')
     +prTile('Cancellations',S.cxlFee+' fee · '+S.cxlNoFee+' no-fee','0 clinical hours')
     +prTile('Over '+PR.fmtH(S.threshold)+' hrs',PR.fmtH(S.overHrs),S.bonusEligible?'over-attainment hours':'not bonus-eligible')
-    +(S.mtgMins?prTile('Meetings & admin',PR.fmtH(Math.round(S.mtgMins*100/60))+' h',money&&opt.E?PR.fmt$(opt.E.mtg.c):'Time & Attendance entries'):'')
+    +(S.mtgMins?prTile('Meetings & admin',PR.fmtH(Math.round(S.mtgMins*100/60))+' h',money&&opt.E?PR.fmt$(opt.E.mtg.c):prMtgSheetNote(st.meetings)):'')
     +(money&&opt.E?prTile('Total pay',PR.fmt$(opt.E.total),'base '+PR.fmt$(opt.E.base)):'')
     +'</div>';
   // what they're getting credit for, by category
@@ -13992,21 +14435,105 @@ function prSheetHtml(st,opt){
     +(money&&opt.E&&(opt.E.other||opt.E.adj)?'<tr><td>Other pay &amp; adjustments</td><td></td><td></td><td></td><td class="num">'+PR.fmt$(opt.E.other+opt.E.adj)+'</td></tr>':'')
     +'</tbody></table></div>';
   if(money&&opt.E&&!prClosed()) h+=prAdjHtml(opt.E);
-  // meeting & admin time (Time & Attendance)
+  // meeting & admin time (Meeting and Admin Time)
   const mtgE=money&&opt.E?opt.E:{mtg:{items:st.meetings||[]}};
-  if((mtgE.mtg.items||[]).length) h+='<div class="pr-card"><b>Meetings &amp; admin time</b> <span class="pr-muted">from Time &amp; Attendance</span><div style="overflow-x:auto;margin-top:6px">'+prMtgTable(mtgE,money)+'</div></div>';
+  if((mtgE.mtg.items||[]).length) h+='<div class="pr-card"><b>Meetings &amp; admin time paid</b> <span class="pr-muted">from Meeting and Admin Time</span><div style="overflow-x:auto;margin-top:6px">'+prMtgTable(mtgE,money?true:'flat')+'</div></div>';
   // appointment list
   const byKey={}; (opt.lines||[]).forEach(function(L){ byKey[L.key]=L; });
   h+='<div class="pr-card"><b>Appointments</b> <span class="pr-muted">clients shown by client code only</span><div style="overflow-x:auto"><table class="pr-ltbl pr-sltbl" style="margin-top:6px"><thead><tr><th>Client</th><th>Day</th><th>Time</th><th>Service</th><th>Clinical hrs</th><th>FFS units</th><th></th><th>Type</th><th>Status</th>'+(money?'<th>Base</th><th>Diff.</th><th></th>':'')+'</tr></thead><tbody>'
     +st.lines.map(function(l){ return prSheetLine(l,money,l.key?byKey[l.key]:null); }).join('')+'</tbody></table></div></div>';
   return h+'</div>';
 }
+// Therapist-side tile note: $ for $25/hr items; FFS-rate meetings are counted in hours only.
+function prMtgSheetNote(items){
+  try{ let c=0, ffs=0; (items||[]).forEach(function(m){ const v=prMtgFlatCents(m); if(v!=null) c+=v; else if(m.kind==='ffs') ffs++; });
+    return (c?PR.fmt$(c)+' at $25/hr':'')+(c&&ffs?' + ':'')+(ffs?ffs+' at FFS rate':''); }catch(e){ return ''; } }
 function prShowSheet(html){
   let d=document.getElementById('pr-sheet-modal');
   if(!d){ d=document.createElement('div'); d.id='pr-sheet-modal'; d.className='pr-sheetmodal'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true'); document.body.appendChild(d); }
   d.innerHTML=prCss()+prSheetCss()+'<div class="pr-sheetbox">'+html+'</div>';
 }
 function prCloseSheet(){ const d=document.getElementById('pr-sheet-modal'); if(d) d.remove(); PRV.sheetPid=null; }
+// ── Pay Period Snapshot (HR Hub) ──
+// Each person's closed pay-period sheets (payStatements: clinical hours + FFS units, clients by code,
+// no FFS dollars) plus meeting & admin time — $ shown only for $25/hr items. Super Admins can pick anyone;
+// everyone else sees only their own (firestore.rules enforce the same).
+var PSNAP={sid:null,list:null,unpaid:null,sel:null,target:null,loading:false};
+function paySnapGo(sid,a,b){
+  try{ PSNAP.target={sid:sid||null,a:a||null,b:b||null}; if(sid&&isSuperAdminView()) PSNAP.sid=sid;
+    showPage('paysnap',document.getElementById('nav-paysnap')); }catch(e){ console.error(e); }
+}
+function paySnapToCapacity(){
+  try{ const sid=PSNAP.sid; showPage('capacity',document.getElementById('nav-capacity'));
+    if(sid && currentRole()!=='therapist' && typeof capOpenDetail==='function') capOpenDetail(sid); }catch(e){ console.error(e); }
+}
+function paySnapPick(id){ PSNAP.sid=id; PSNAP.list=null; PSNAP.sel=null; renderPaySnap(); }
+function paySnapSel(pid){ PSNAP.sel=pid; renderPaySnap(); }
+async function renderPaySnap(){
+  const body=document.getElementById('paysnap-body'); if(!body) return;
+  try{
+    const me=mtgWho(); const sa=isSuperAdminView();
+    if(!sa||!PSNAP.sid) PSNAP.sid=me?me._id:null;
+    if(PSNAP.target&&PSNAP.target.sid&&sa) PSNAP.sid=PSNAP.target.sid;
+    const sid=PSNAP.sid;
+    if(PSNAP.list===null||PSNAP.forSid!==sid){
+      body.innerHTML='<div style="padding:30px;text-align:center;color:#999;font-size:13px">Loading your pay periods…</div>';
+      PSNAP.forSid=sid; PSNAP.sel=null;
+      const all=sid&&window.payStore?(await payStore.myStatements(sid)):[];
+      const latest={}; (all||[]).forEach(function(x){ if(!latest[x.periodId]||(latest[x.periodId].version||1)<(x.version||1)) latest[x.periodId]=x; });
+      PSNAP.list=Object.keys(latest).map(function(k){ return latest[k]; }).sort(function(x,y){ return String(y.start).localeCompare(String(x.start)); });
+      PSNAP.failed=(all===null);
+      const mt=sid&&window.mtgStore?(await mtgStore.mine(sid)):[];
+      PSNAP.unpaid=(mt||[]).filter(function(m){ return m.status!=='PAID'; }).map(function(m){ const r=prMtgRate(m);
+        return {date:m.date,start:m.start,end:m.end,type:m.type,mins:+m.mins||0,notes:m.notes,kind:r===25?'flat':r==='FFS'?'ffs':'none'}; });
+    }
+    const L=PSNAP.list||[];
+    // pick: target dates (from the capacity dashboard) → best overlap; else newest
+    if(PSNAP.target&&PSNAP.target.a){ const a=PSNAP.target.a,b=PSNAP.target.b;
+      let best=null,bo=0; L.forEach(function(x){ const lo=x.start>a?x.start:a, hi=x.end<b?x.end:b; const o=hi<lo?0:PR.dayDiff(lo,hi)+1; if(o>bo){bo=o;best=x;} });
+      PSNAP.sel=best?best.periodId:'__none__'; }
+    PSNAP.target=null;
+    if(!PSNAP.sel&&L.length) PSNAP.sel=L[0].periodId;
+    const st=L.find(function(x){ return x.periodId===PSNAP.sel; })||null;
+
+    let picker='';
+    if(sa){
+      const ppl=(STAFF||[]).filter(function(x){ return x&&x._id&&!x._archived&&!x.Archived; }).slice().sort(function(x,y){ return String(x['Clinician']||'').localeCompare(String(y['Clinician']||'')); });
+      picker='<label style="font-size:12px;font-weight:700;color:#6b7280;display:flex;align-items:center;gap:6px">Viewing <select onchange="paySnapPick(this.value)" style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid #d1d5db;border-radius:8px;max-width:260px">'
+        +ppl.map(function(x){ return '<option value="'+hesc(x._id)+'"'+(x._id===sid?' selected':'')+'>'+hesc(x['Clinician']||x._id)+'</option>'; }).join('')+'</select></label>';
+    }
+    let h=prCss()+prSheetCss()
+      +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'
+      +'<div style="flex:1;min-width:240px;font-size:13px;color:#4b5563">Each pay period once payroll closes: the clinical hours you were credited, what each session counted as, and the meeting &amp; admin time you were paid for. Clients are shown by code only.</div>'
+      +picker
+      +'<button class="btn btn-secondary" onclick="paySnapToCapacity()" style="font-size:12.5px">📈 Capacity Dashboard</button></div>';
+    if(!sid){ body.innerHTML=h+'<div class="pr-empty">Your sign-in isn’t linked to a staff record yet — ask an admin to link it.</div>'; return; }
+    if(L.length){
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+L.map(function(x){ const on=x.periodId===PSNAP.sel;
+        return '<button onclick="paySnapSel(\''+hesc(x.periodId)+'\')" style="font:inherit;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;border:1px solid '+(on?'#122B67':'#d1d5db')+';background:'+(on?'#122B67':'#fff')+';color:'+(on?'#fff':'#374151')+'">'
+          +hesc(x.label||'Pay period')+' <span style="font-weight:600;opacity:.75">'+prDate(x.start)+' – '+prDate(x.end)+'</span></button>'; }).join('')+'</div>';
+    }
+    if(st){
+      h+=prSheetHtml(st,{money:false,inline:true,actions:'<button class="btn btn-secondary" onclick="paySnapPrint()">Print</button>'});
+    } else {
+      h+='<div class="pr-card" style="text-align:center;color:#6b7280;padding:26px">'
+        +(PSNAP.failed?'Pay periods couldn’t be loaded right now. Try again in a moment.'
+          :PSNAP.sel==='__none__'?'That pay period hasn’t been closed by payroll yet — its snapshot appears here once it is.'
+          :'No closed pay periods yet. Your first snapshot appears here once payroll closes a period you worked in.')+'</div>';
+    }
+    // logged but not yet paid
+    const up=PSNAP.unpaid||[];
+    if(up.length){
+      h+='<div class="pr-card" style="margin-top:12px"><b>Meeting &amp; admin time logged — not paid yet</b> <span class="pr-muted">paid when the pay period it falls in closes</span>'
+        +'<div style="overflow-x:auto;margin-top:6px">'+prMtgTable({mtg:{items:up}},'flat')+'</div></div>';
+    }
+    body.innerHTML=h;
+  }catch(e){ console.error(e); body.innerHTML='<div class="pr-empty">Couldn’t load the Pay Period Snapshot.</div>'; }
+}
+function paySnapPrint(){
+  try{ const st=(PSNAP.list||[]).find(function(x){ return x.periodId===PSNAP.sel; }); if(!st) return;
+    prShowSheet(prSheetHtml(st,{money:false})); setTimeout(function(){ window.print(); },60); }catch(e){ console.error(e); }
+}
 // Super Admin sheet for one employee in the period currently open in Payroll Review.
 function prOpenAdminSheet(pid){ PRV.sheetPid=pid; prRenderAdminSheet(); }
 function prRenderAdminSheet(){
@@ -14039,6 +14566,7 @@ async function prOpenSheetForPP(sid,idx){
     if(!pid){ none('This person isn’t linked to a Valant provider in '+prEsc(cand[0].p.label)+'. Link them on Payroll Review → Providers &amp; rates.'); return; }
     prOpenAdminSheet(pid); return;
   }
+  if(!isSuperAdminView()){ paySnapGo(sid,a,b); return; }
   const list=await payStore.myStatements(sid);
   // latest closed version of each period, best date overlap first
   const latest={}; (list||[]).forEach(function(x){ if(!latest[x.periodId]||latest[x.periodId].version<x.version) latest[x.periodId]=x; });

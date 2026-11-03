@@ -257,12 +257,13 @@ service cloud.firestore {
     //                    except therapist-profile drafts (tp_*) which any
     //                    signed-in staff member may save.
     match /kv/{key} {
-      allow read: if (key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] && isSuperAdmin())
+      // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)
+      allow read: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key == 'app_recruit' && isAdmin())
-        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && isDomain());
-      allow write: if (key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] && isSuperAdmin())
+        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}') && isDomain());
+      allow write: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key == 'app_recruit' && isAdmin())
-        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist'])
+        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}')
             && (isAdmin() || (isDomain() && key.matches('tp_.*'))));
     }
   }

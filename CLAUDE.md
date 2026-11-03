@@ -34,7 +34,8 @@ Live at https://advance-intranet.web.app · Firebase project: `advance-intranet`
   Valant export with patient names/notes stripped — and the create-only
   `payrollSnapshots` + `payrollPaid` for closed periods, plus `payStatements` —
   one read-only pay-period sheet per employee, readable by that employee: hours and
-  FFS units only, no dollars, clients by code only), and `kv/*` blobs
+  FFS units only, no FFS dollars, clients by code only; shown on HR Hub → Pay Period
+  Snapshot, where only $25/hr meeting time shows dollars), and `kv/*` blobs
   (tiered by key).
 - **`storage.rules`** — Firebase Storage access control. The project has been on
   the Blaze plan since Sept 23, 2026; Storage is enabled (bucket
@@ -61,6 +62,32 @@ items via `canSeePage()` and hides any section left empty. Placeholder pages
 ("Coming soon") are listed in `PLACEHOLDERS`. New roles from the spreadsheet
 (Prac Ops, Director, CTM/CPM) are NOT built yet — still therapist /
 supervisor / admin / superadmin.
+
+## Capacity math (Capacity Dashboard)
+
+Goals are built day by day from the capacity year start (`capGoalTo`): 1140 × (Weekly
+Capacity ÷ 25) ÷ 364 per day × new-hire ramp (25/50/75/100% in 15-day steps), and 0 on leave
+days, before hire, and after the term date. Timeline data lives on the `staff` record (dates
+only, no reasons): `_capHist` [{from, weekly}] (Weekly Capacity changes — earlier days keep
+the old pace), `_leaves` [{start, end}], `Notice Date`, `Term Date`. They're entered from the
+profile edit form when Status / Weekly Capacity changes, or fixed in the admin
+"Capacity adjustments" card on a clinician's dashboard. Unadjusted staff keep the even
+quarter checkpoints (¼, ½, ¾, full). Capacity-tier review warning: catch-up > 12 extra
+hrs/week over the next 90 days (full-time → step down a tier; part-time → seek supervision).
+
+## Pay periods
+
+The official 2026–2028 pay-period calendar is hard-coded in `APP_PAY_PERIODS` (verified by
+HR; never changes) and drives `ALL_PPS` (index 0–25 = 2026 = the capacity year's data index).
+Every pay-period menu shows past periods and at most 3 months ahead (`APP_PP_AHEAD_MONTHS`,
+`appPPInMenu`). Payroll Review periods are created by picking from this calendar.
+
+Capacity years reset on PP YYYY-01 (`CAP_YEAR`, `CAP_YEAR_START`, `CAP_PP_OFFSET`): the year is
+the one today's pay period belongs to; admins can open an earlier year from the year picker
+(Capacity Dashboard / Payroll Processing — per browser tab via sessionStorage, reloads the
+page). Each year has its own stores: 2026 = kv/app_clinical_hours, app_group_hours,
+app_payroll_detail; later years append `_YYYY` (`capStoreKey`). firestore.rules gives
+`app_payroll_detail_YYYY` the same Super Admin–only tier as `app_payroll_detail`.
 
 ## Hard rules
 
