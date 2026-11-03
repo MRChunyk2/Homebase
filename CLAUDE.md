@@ -103,6 +103,15 @@ firebase deploy --only hosting,firestore:rules,storage --project advance-intrane
 - When a change touches `firestore.rules` (new collection, permission change),
   say so in the commit message so Will knows the deploy must include
   `firestore:rules`, not hosting alone. Same for `storage.rules` → `storage`.
+- Unsaved-changes guard (`hbConfirmLeave`, site-wide): typing in an edit form marks
+  it unsaved and navigation/closing a record/closing the tab asks first. New edit
+  forms must be covered by `HB_EDIT_MATCH` (ids/containers) or they won't be guarded.
+- Theme follows the Advance Psychotherapy brand kit: Deep Navy #122B67 (sidebar,
+  headers, primary buttons) + Teal #18A9B6 (active/highlight) + white; Coral
+  #E46756 / Orange #F2A54B / Aqua #5EBAC8 only as small accents; Montserrat for
+  headings, Open Sans for body. No off-brand colors. Exception — the SIDEBAR is
+  "dusty navy" (#3a4a6b, light text, emoji icons, no accent colors; only the
+  section headers are emphasized), by Michael's request.
 - index.html is one huge file with two script blocks and sign-in wired at the
   very end: an uncaught top-level error stops everything after it (this once
   took the site down). New code goes in functions with try/catch — no top-level
