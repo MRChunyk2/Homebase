@@ -64,6 +64,31 @@ items via `canSeePage()` and hides any section left empty. Placeholder pages
 (Prac Ops, Director, CTM/CPM) are NOT built yet — still therapist /
 supervisor / admin / superadmin.
 
+Nov 2026 changes: **Leadership Dashboard** moved to Admin Logistics (admin only). New
+My Homebase page **My Team** (page id `clin-leadership`, `renderClinLeadership`, `clScope`): Admins / Super
+Admins / Senior Leadership see every team (team picker); CTMs and Program Managers see their
+whole team plus their supervisees broken out (flagged "other site"); Clinical Supervisors /
+Supervisors see their supervisees (Supervisor field, overrides, and Reports To). Tiles, alerts
+(tier review, behind, licenses ≤60 days, leave/offboarding/ramping) and insights.
+**My Homebase is personal at every permission level** (no practice-wide alerts): Needs your
+attention, Your capacity, Meeting & admin time (`homeMeetingsHtml`), Your Team Site, Emergency
+quick reference by site (`homeEmergencyHtml`, site picker), quick links, announcements, and
+a collapsed suggestion box. **Performance Reviews are hidden** (`HB_REVIEWS_HIDDEN`). Manuals:
+"Clinical Policies Manual" + "Clinical How-To Manual" (eCANS bookmarked under How-To, removed
+from nav). License alerts read the profile's `Lic Exp Date` first. Differential/bonus
+eligibility: profile field `Diff Bonus Eligible` (Yes/No/blank = default: not eligible for
+supervisor/CTM/PM/Senior Leadership roles and salaried staff — `payEligible`); ineligible staff
+are tracked but paid $0 on Pay Period Upload and their snapshot doesn't mention it.
+
+**Custom roles** (Roles & Permissions → Custom roles, `renderPermBuilder`, kv/app_perm_roles):
+a role = an access level (therapist/supervisor/admin/superadmin — still what the server allows,
+synced to userRoles via ROLE_MAP when a Super Admin assigns people) + the pages it shows + its
+abilities (`hbCan`: edit-profiles, see-files, see-comp, edit-library, manage-permissions).
+`canSeePage` checks the viewer's custom role first, else `canSeePageBase` (the built-in rules).
+Visibility only — firestore.rules are unchanged; the builder flags pages/abilities the chosen
+access level can't load. Super Admins always keep the full view; only a Super Admin can create
+or assign a Super Admin–level role; "Manage roles & permissions" can be delegated.
+
 ## Capacity math (Capacity Dashboard)
 
 Goals are built day by day from the capacity year start (`capGoalTo`): 1140 × (Weekly
@@ -113,6 +138,12 @@ included and marked PAID on close. Closing writes an immutable snapshot
 meetings), and writes each employee's clinical hours into the Capacity Dashboard for that
 period (group factor no longer applied — the sheet sets each code's credit). Reopen = new
 version. Storage reuses the existing Super Admin–only payroll collections (no rules change).
+Closing also saves a no-names practice aggregate per pay period to `kv/app_practice_stats`
+(all staff read). The Capacity Dashboard's **Progress this year** card (`capProgressFill`,
+replaced the "Sessions by Type" placeholder) shows notes signed, signed within 3 days, avg
+days to sign, no-show rate, evening/weekend share, clinical hrs per pay period and sessions
+by type — the clinician's own numbers from their payStatements (self + Super Admin), each
+compared with the practice average.
 
 ## Hard rules
 

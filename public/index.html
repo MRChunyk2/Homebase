@@ -656,14 +656,13 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
          the current role (applyRoleVisibility). Page access = canSeePage(). -->
     <div class="nav-sec"><div class="nav-sec-label">My Homebase</div>
       <button class="nav-item" id="nav-home" data-page="home" onclick="showPage('home',this)"><span class="nav-icon">🏠</span>My Homebase</button>
+      <button class="nav-item" id="nav-clin-leadership" data-page="clin-leadership" onclick="showPage('clin-leadership',this)"><span class="nav-icon">👥</span>My Team</button>
     </div>
     <div class="nav-sec"><div class="nav-sec-label">Clinical Corner</div>
       <button class="nav-item" id="nav-capacity" data-page="capacity" onclick="showPage('capacity',this)"><span class="nav-icon">📈</span>Capacity Dashboard</button>
-      <button class="nav-item" id="nav-team-dashboard" data-page="team-dashboard" onclick="showPage('team-dashboard',this)"><span class="nav-icon">📊</span>Leadership Dashboard</button>
       <button class="nav-item" id="nav-intake-profile" data-page="intake-profile" onclick="showPage('intake-profile',this)"><span class="nav-icon">🗂</span>Clinical Profile for Intake</button>
       <button class="nav-item" id="nav-discharge" data-page="discharge" onclick="showPage('discharge',this)"><span class="nav-icon">🔁</span>Discharge &amp; Transfer</button>
-      <button class="nav-item" id="nav-ecans" data-page="ecans" onclick="showPage('ecans',this)"><span class="nav-icon">📋</span>eCANS</button>
-      <button class="nav-item" id="nav-clin-policies" data-page="clin-policies" onclick="showPage('clin-policies',this)"><span class="nav-icon">📕</span>Clinical Manual &amp; How&#8209;Tos</button>
+      <button class="nav-item" id="nav-clin-policies" data-page="clin-policies" onclick="showPage('clin-policies',this)"><span class="nav-icon">📕</span>Clinical Policies &amp; How&#8209;To Manuals</button>
       <button class="nav-item" id="nav-paperwork" data-page="paperwork" onclick="showPage('paperwork',this)"><span class="nav-icon">📄</span>Paperwork &amp; Templates</button>
       <button class="nav-item" id="nav-reflib" data-page="reflib" onclick="showPage('reflib',this)"><span class="nav-icon">📚</span>Learning &amp; Reference</button>
     </div>
@@ -685,6 +684,7 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
       <button class="nav-item" id="nav-recruitment" data-page="recruitment" onclick="showPage('recruitment',this)"><span class="nav-icon">🧑‍💼</span>Candidate Management</button>
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Admin Logistics</div>
+      <button class="nav-item" id="nav-team-dashboard" data-page="team-dashboard" onclick="showPage('team-dashboard',this)"><span class="nav-icon">📊</span>Leadership Dashboard</button>
       <button class="nav-item" id="nav-ppu" data-page="ppu" onclick="showPage('ppu',this)"><span class="nav-icon">💵</span>Pay Period Upload</button>
       <button class="nav-item" id="nav-coderules" data-page="coderules" onclick="showPage('coderules',this)"><span class="nav-icon">📐</span>Service Code Rules</button>
       <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Finder</button>
@@ -780,6 +780,9 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.pr-h,.ip-name{font-family:var(--font-
   </div>
 
   <!-- PAYROLL REVIEW (Valant import → attainment + compensation; Super Admin) -->
+  <div class="page" id="page-clin-leadership" style="overflow-y:auto;background:#f9fafb">
+    <div id="clin-leadership-body" style="width:100%"></div>
+  </div>
   <div class="page" id="page-ppu" style="overflow-y:auto;background:#f9fafb">
     <div id="ppu-body" style="width:100%"></div>
   </div>
@@ -2006,6 +2009,127 @@ function reportsToOpts(){
   return [''].concat(Array.from(names).sort(function(a,b){return a.localeCompare(b);}));
 }
 
+// ══ CLINICAL LEADERSHIP (supervisors and above) ══
+// Who you see: Admins / Super Admins / Senior Leadership → every team (with a team picker);
+// CTMs and Program Managers → their whole team (site), plus their supervisees broken out;
+// Clinical Supervisors / Supervisors → their supervisees (wherever they sit). "Supervisees" =
+// clinical supervisees (Supervisor field / manual overrides) + direct reports (Reports To).
+var CL={team:'__all', sort:'attain'};
+function clMe(){ return currentViewer() || (STAFF||[]).find(function(x){ return x._id===window.AUTH_STAFF_ID; }) || null; }
+function clScope(){
+  const me=clMe(), role=currentRole();
+  const roles=me?staffRolesOf(me):[], title=me?staffTitleOf(me):'';
+  const nm=me?String(me['Clinician']||'').trim().toLowerCase():'';
+  const sups=me?superviseesOf(me._id).concat((STAFF||[]).filter(function(x){ return nm&&String(x['Reports To']||'').trim().toLowerCase()===nm; }).map(function(x){ return x._id; })):[];
+  const supIds=sups.filter(function(id,i,a){ return a.indexOf(id)===i && id!==(me&&me._id); });
+  if(role==='admin'||role==='superadmin'||roles.indexOf('Senior Leadership')>=0||/director/i.test(title)) return {level:'all',me:me,sups:supIds};
+  if(roles.indexOf('Clinical Team Manager (CTM)')>=0||roles.indexOf('Program Manager')>=0||/team manager|program manager/i.test(title)) return {level:'team',me:me,teams:me&&me['Team']?[me['Team']]:[],sups:supIds};
+  if(role==='supervisor'||roles.indexOf('Clinical Supervisor')>=0||roles.indexOf('Supervisor')>=0||supIds.length) return {level:'sup',me:me,sups:supIds};
+  return null;
+}
+function clActive(s){ return s && normStatus(s['Employee Status'])!=='Terminated'; }
+function clRow(s){
+  const o={s:s,id:s._id,name:s['Clinician']||'',team:s['Team']||'',status:effectiveStatus(s),clin:false,c:null,lic:null,flags:[]};
+  try{ o.clin=parseFloat(s['Weekly Capacity']||0)>=5 && ['Active','Onboarding','On Leave','Off Boarding'].indexOf(o.status)>=0; }catch(e){}
+  if(o.clin){ try{ o.c=capCompute(s); }catch(e){ o.c=null; } }
+  try{ const exp=s['Lic Exp Date']||s['License Expiration']||''; if(exp&&String(s['License']||'').trim()){ const d=new Date(exp); if(!isNaN(d)){ d.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); o.lic=Math.round((d-t)/864e5); } } }catch(e){}
+  const c=o.c;
+  if(c&&c.tierReview) o.flags.push({sev:3,t:'Capacity tier review needed',d:'catching up needs '+c.deficitPerWeek+' extra hrs/wk'});
+  if(o.lic!=null&&o.lic<0) o.flags.push({sev:3,t:'License lapsed',d:Math.abs(o.lic)+' days ago'});
+  else if(o.lic!=null&&o.lic<=60) o.flags.push({sev:o.lic<=30?2:1,t:'License expiring',d:'in '+o.lic+' days'});
+  if(c&&c.hasData!==false&&c.attainPct!=null&&c.attainPct<90&&!c.tierReview) o.flags.push({sev:2,t:'Behind on capacity',d:c.attainPct+'% attainment · +'+c.deficit+' hrs over 90 days'});
+  if(o.status==='On Leave') o.flags.push({sev:1,t:'On leave',d:''});
+  if(o.status==='Off Boarding') o.flags.push({sev:1,t:'Offboarding',d:s['Term Date']?'last day '+usDate(s['Term Date']):''});
+  try{ if(isRamping(s)) o.flags.push({sev:0,t:'New hire — ramping up',d:s['Date of Hire']?'hired '+usDate(s['Date of Hire']):''}); }catch(e){}
+  if(c&&c.hasData===false&&o.clin) o.flags.push({sev:0,t:'No hours recorded yet',d:''});
+  return o;
+}
+function renderClinLeadership(){
+  const body=document.getElementById('clin-leadership-body'); if(!body) return;
+  try{
+    const sc=clScope();
+    if(!sc){ body.innerHTML='<div style="margin:24px;padding:24px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;text-align:center;color:#6b7280">My Team is for supervisors and above.</div>'; return; }
+    const meId=sc.me&&sc.me._id;
+    const teams=Object.keys(CONFIG.siteDirectory||{}).filter(function(k){ return (STAFF||[]).some(function(x){ return x['Team']===k&&clActive(x); }); });
+    let groups=[];
+    const supRows=sc.sups.map(function(id){ return (STAFF||[]).find(function(x){ return x._id===id; }); }).filter(clActive).map(clRow);
+    if(sc.level==='all'){
+      const pick=CL.team; const pool=(STAFF||[]).filter(function(x){ return clActive(x)&&x._id!==meId&&(pick==='__all'||x['Team']===pick); });
+      groups.push({k:'team',label:pick==='__all'?'All teams':teamLabel(pick),rows:pool.map(clRow)});
+      if(supRows.length) groups.push({k:'sup',label:'Your supervisees',rows:supRows});
+    } else if(sc.level==='team'){
+      const t=sc.teams[0];
+      groups.push({k:'team',label:t?teamLabel(t):'Your team',rows:(STAFF||[]).filter(function(x){ return clActive(x)&&x._id!==meId&&t&&x['Team']===t; }).map(clRow)});
+      if(supRows.length) groups.push({k:'sup',label:'Your supervisees',rows:supRows});
+    } else groups.push({k:'sup',label:'Your supervisees',rows:supRows});
+    const all={}; groups.forEach(function(g){ g.rows.forEach(function(r){ all[r.id]=r; }); }); const R=Object.keys(all).map(function(k){ return all[k]; });
+    const clinR=R.filter(function(r){ return r.c&&r.c.hasData!==false&&r.c.attainPct!=null; });
+    const avg=clinR.length?Math.round(clinR.reduce(function(a,r){ return a+r.c.attainPct; },0)/clinR.length):null;
+    let prac=null; try{ const pr=((STAFF||[]).filter(function(x){ return clActive(x)&&parseFloat(x['Weekly Capacity']||0)>=5; }).map(function(x){ try{ return capCompute(x); }catch(e){ return null; } }).filter(function(c){ return c&&c.hasData!==false&&c.attainPct!=null; }));
+      prac=pr.length?Math.round(pr.reduce(function(a,c){ return a+c.attainPct; },0)/pr.length):null; }catch(e){}
+    const n=function(f){ return R.filter(f).length; };
+    const tile=function(l,v,sub,col){ return '<div style="flex:1;min-width:150px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:11px 13px"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8a8f9e">'+l+'</div><div style="font-size:22px;font-weight:800;color:'+(col||'#122B67')+';font-family:Montserrat,sans-serif">'+v+'</div><div style="font-size:11.5px;color:#6b7280">'+(sub||'')+'</div></div>'; };
+    let h='<div style="padding:18px 22px 80px;max-width:1240px;margin:0 auto">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px"><div style="font-size:13px;color:#4b5563;max-width:720px">'
+      +(sc.level==='all'?'Every team, plus anyone you supervise directly.':sc.level==='team'?'Your whole team, plus your supervisees (some may sit at another site).':'The people you supervise, wherever they sit.')+'</div>'
+      +(sc.level==='all'?'<label style="font-size:12px;font-weight:700;color:#6b7280">Team <select onchange="CL.team=this.value;renderClinLeadership()" style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid #d1d5db;border-radius:8px"><option value="__all">All teams</option>'
+        +teams.map(function(t){ return '<option value="'+hesc(t)+'"'+(CL.team===t?' selected':'')+'>'+hesc(teamLabel(t))+'</option>'; }).join('')+'</select></label>':'')+'</div>';
+    h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+      +tile('People',R.length,n(function(r){ return r.clin; })+' with a capacity goal')
+      +tile('Avg attainment',avg==null?'—':avg+'%',prac==null?'':'practice '+prac+'%',avg==null?null:capStatusColor(avg))
+      +tile('Behind (<90%)',n(function(r){ return r.c&&r.c.hasData!==false&&r.c.attainPct!=null&&r.c.attainPct<90; }),'',n(function(r){ return r.c&&r.c.attainPct!=null&&r.c.attainPct<90; })?'#b91c1c':null)
+      +tile('Tier review',n(function(r){ return r.c&&r.c.tierReview; }),'needs a capacity-tier conversation',n(function(r){ return r.c&&r.c.tierReview; })?'#b91c1c':null)
+      +tile('Licenses ≤ 60 days',n(function(r){ return r.lic!=null&&r.lic<=60; }),'incl. lapsed',n(function(r){ return r.lic!=null&&r.lic<=30; })?'#b45309':null)
+      +tile('Leave · offboarding · new',n(function(r){ return r.status==='On Leave'; })+' · '+n(function(r){ return r.status==='Off Boarding'; })+' · '+n(function(r){ try{ return isRamping(r.s); }catch(e){ return false; } }),'')+'</div>';
+    // alerts
+    const al=[]; R.forEach(function(r){ r.flags.forEach(function(f){ if(f.sev>=1) al.push({r:r,f:f}); }); }); al.sort(function(a,b){ return b.f.sev-a.f.sev; });
+    h+='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px 16px;margin-bottom:14px"><div style="font-size:14px;font-weight:800;margin-bottom:6px">🔔 Alerts</div>'
+      +(al.length?al.slice(0,30).map(function(a){ const col=a.f.sev>=3?'#b91c1c':a.f.sev===2?'#b45309':'#475569';
+        return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid #f4f4f5;font-size:12.5px"><span style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></span><b style="min-width:180px">'+hesc(a.r.name)+'</b><span style="color:'+col+';font-weight:700">'+hesc(a.f.t)+'</span><span style="color:#6b7280">'+hesc(a.f.d)+'</span></div>'; }).join('')+(al.length>30?'<div style="font-size:12px;color:#6b7280;padding-top:6px">…and '+(al.length-30)+' more</div>':'')
+        :'<div style="font-size:12.5px;color:#15803d">✓ Nothing needs attention right now.</div>')+'</div>';
+    // insights
+    const ins=[]; if(avg!=null&&prac!=null) ins.push(avg===prac?'Right at the practice average attainment ('+prac+'%).':(avg>prac?'Above':'Below')+' the practice average attainment by '+Math.abs(avg-prac)+' pts.');
+    const ew=clinR.filter(function(r){ return r.c.attainPct>=100; }).length; if(clinR.length) ins.push(ew+' of '+clinR.length+' clinicians are on or ahead of pace.');
+    const offsite=supRows.filter(function(r){ return sc.level==='team'&&sc.teams[0]&&r.team!==sc.teams[0]; }); if(offsite.length) ins.push(offsite.length+' of your supervisees sit at another site.');
+    const ramping=R.filter(function(r){ try{ return isRamping(r.s); }catch(e){ return false; } }); if(ramping.length) ins.push(ramping.length+' new hire'+(ramping.length>1?'s are':' is')+' still ramping up — their goals are reduced.');
+    if(ins.length) h+='<div style="background:#f0fafb;border:1px solid #9fdbe1;border-radius:14px;padding:11px 16px;margin-bottom:14px;font-size:12.5px;color:#134e4a"><b>Insights</b><ul style="margin:4px 0 0 18px;padding:0">'+ins.map(function(x){ return '<li>'+hesc(x)+'</li>'; }).join('')+'</ul></div>';
+    // groups
+    const canCap=currentRole()!=='therapist';
+    groups.forEach(function(g){
+      const rows=g.rows.slice().sort(function(a,b){ const av=a.c&&a.c.attainPct!=null?a.c.attainPct:999, bv=b.c&&b.c.attainPct!=null?b.c.attainPct:999; return av-bv||a.name.localeCompare(b.name); });
+      h+='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:14px"><div style="padding:11px 16px;border-bottom:1px solid #eee;font-size:14px;font-weight:800">'+hesc(g.label)+' <span style="font-size:12px;font-weight:600;color:#9ca3af">'+rows.length+'</span></div>'
+        +(rows.length?'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px"><thead><tr style="background:#f9fafb;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">'
+          +'<th style="padding:8px 14px;text-align:left">Name</th><th style="padding:8px;text-align:left">Site</th><th style="padding:8px;text-align:right">Attainment</th><th style="padding:8px;text-align:right">YTD hrs</th><th style="padding:8px;text-align:right">To add / wk</th><th style="padding:8px;text-align:left">License</th><th style="padding:8px 14px;text-align:left">Flags</th></tr></thead><tbody>'
+          +rows.map(function(r){ const c=r.c, pct=c&&c.hasData!==false?c.attainPct:null;
+            return '<tr style="border-top:1px solid #f1f2f4'+(canCap&&r.clin?';cursor:pointer':'')+'"'+(canCap&&r.clin?' onclick="showPage(\'capacity\',document.getElementById(\'nav-capacity\'));capOpenDetail(\''+hesc(r.id)+'\')"':'')+'>'
+              +'<td style="padding:8px 14px"><b>'+hesc(r.name)+'</b><div style="font-size:11px;color:#9ca3af">'+hesc(displayTitle(r.s)||'')+'</div></td>'
+              +'<td style="padding:8px">'+hesc(teamLabel(r.team)||'—')+(g.k==='sup'&&sc.level==='team'&&sc.teams[0]&&r.team!==sc.teams[0]?' <span style="font-size:10px;font-weight:800;background:#e0f2fe;color:#075985;border-radius:8px;padding:1px 6px">other site</span>':'')+'</td>'
+              +'<td style="padding:8px;text-align:right;font-weight:800;color:'+capStatusColor(pct)+'">'+(r.clin?(pct==null?'—':pct+'%'):'<span style="color:#cbd5e1;font-weight:400">n/a</span>')+'</td>'
+              +'<td style="padding:8px;text-align:right">'+(c&&c.hasData!==false?Math.round(c.ytd):'')+'</td><td style="padding:8px;text-align:right">'+(c&&c.hasData!==false?(c.deficit>0.5?'+'+c.deficitPerWeek:'✓'):'')+'</td>'
+              +'<td style="padding:8px;color:'+(r.lic!=null&&r.lic<=30?'#b91c1c':'#374151')+'">'+(r.lic==null?'<span style="color:#cbd5e1">—</span>':(r.lic<0?'lapsed':r.lic+' days'))+'</td>'
+              +'<td style="padding:8px 14px">'+r.flags.map(function(f){ const col=f.sev>=3?'#b91c1c':f.sev===2?'#b45309':'#475569'; return '<span style="display:inline-block;font-size:10.5px;font-weight:700;color:'+col+';background:'+col+'14;border-radius:8px;padding:1px 7px;margin:1px 3px 1px 0">'+hesc(f.t)+'</span>'; }).join('')+'</td></tr>'; }).join('')
+          +'</tbody></table></div>':'<div style="padding:16px;color:#9ca3af;font-size:12.5px">No one here yet.</div>')+'</div>';
+    });
+    body.innerHTML=h+'<div style="font-size:11.5px;color:#9ca3af">Attainment is year-to-date against each person’s adjusted goal (ramp, leave and capacity changes included). Click a clinician for their capacity dashboard.</div></div>';
+  }catch(e){ console.error(e); body.innerHTML='<div style="margin:24px">⚠ Couldn’t load My Team.</div>'; }
+}
+
+// ══ DIFFERENTIAL & BONUS ELIGIBILITY ══
+// Supervisors, CTMs, Program Managers, Senior Leadership and salaried staff aren't eligible for the
+// evening/weekend differential or the over-50 bonus (their hours are still tracked). The profile's
+// 'Diff Bonus Eligible' ('Yes' / 'No' / blank = this default) overrides per person.
+var PAY_INELIGIBLE_ROLES=['Clinical Supervisor','Supervisor','Clinical Team Manager (CTM)','Program Manager','Senior Leadership'];
+function payEligDefault(s){
+  try{
+    if(/\bSAL/i.test(String(s&&s['Employee Category']||''))) return {ok:false,why:'salaried'};
+    const r=staffRolesOf(s||{}).find(function(x){ return PAY_INELIGIBLE_ROLES.indexOf(x)>=0; });
+    if(r) return {ok:false,why:r};
+    const t=staffTitleOf(s||{}); if(/supervisor|team manager|program manager|director/i.test(t)) return {ok:false,why:t};
+    return {ok:true,why:''};
+  }catch(e){ return {ok:true,why:''}; }
+}
+function payEligible(s){ const v=String(s&&s['Diff Bonus Eligible']||'').trim(); if(v==='Yes') return true; if(v==='No') return false; return payEligDefault(s).ok; }
+
 // ══ MISSING-INFO FLAGS (admins) ══
 // A clinician for required-field purposes: Psychotherapist role, or the record
 // carries a license or weekly capacity.
@@ -2403,7 +2527,7 @@ function renderRoster(){
       <td>${t?`<span class="pill t-${t}">${teamLabel(t)}</span>`:''}</td>
       <td style="color:#666">${p['Title']||''}</td>
       <td style="font-family:monospace;font-size:11px">${p['License']||''}</td>
-      <td>${p['License Expiration']||'—'}</td>
+      <td>${p['Lic Exp Date']||p['License Expiration']||'—'}</td>
       <td style="color:#888;font-size:12px">${p['Supervisor']||'—'}</td>
       <td>${p['Format']||''}</td>
       <td style="text-align:center">${capTierLabel(p['Capacity Tier'])||''}</td>
@@ -2439,16 +2563,16 @@ function isDeclined(wf){return!!wf&&(wf.includes('Declined')||wf.includes('No In
 // and records a "what changed" note — the raw material for the future
 // review-and-initial flow on the employee manual and clinical SOPs.
 var LIB_CATS=[
- {k:"cmanual",l:"Clinical Manual",   icon:"📕", c:"#7f1d1d", hint:"APP’s clinical manual, chapter by chapter: standards for care, documentation, billing, supervision, safety, and continuity of care."},
+ {k:"cmanual",l:"Clinical Policies Manual",   icon:"📕", c:"#7f1d1d", hint:"APP’s clinical manual, chapter by chapter: standards for care, documentation, billing, supervision, safety, and continuity of care."},
  {k:"manual", l:"Employee Handbook",   icon:"📖", c:"#122b67", hint:"Policies and expectations for everyone at APP."},
  {k:"sop",    l:"Clinical SOPs",     icon:"🩺", c:"#1d7479", hint:"Step-by-step clinical operating procedures."},
  {k:"policy", l:"Clinical Policies", icon:"⚖️", c:"#7c2d12", hint:"Formal clinical policy — the why behind the SOPs."},
- {k:"howto",  l:"How-Tos",           icon:"🧭", c:"#4d7c0f", hint:"Practical guides for systems and workflows."}
+ {k:"howto",  l:"Clinical How-To Manual",           icon:"🧭", c:"#4d7c0f", hint:"Practical guides for systems and workflows."}
 ];
 // Each nav page shows a subset of the categories (same collection, same data).
 var LIB_PAGES={
   // Clinical Manual and Clinical How-Tos are ONE page with two tabs (Oct 2026).
-  "clin-policies":{cats:["cmanual","howto"], label:"Clinical Manual & How-Tos"},
+  "clin-policies":{cats:["cmanual","howto"], label:"Clinical Policies & How-To Manuals"},
   "clin-howtos":  {cats:["howto"],        label:"Clinical How-Tos"},
   "handbook":     {cats:["manual"],       label:"Employee Handbook"}
 };
@@ -2457,7 +2581,7 @@ function libPageCats(){ const pg=LIB_PAGES[LIB_CUR]||LIB_PAGES["clin-policies"];
 function libBody(){ return document.getElementById(LIB_CUR+"-body"); }
 var LIB_ALL=null, LIB_CAT="cmanual", LIB_OPENID=null, LIB_EDIT=false, LIB_LOG=false;
 // Manuals (Clinical Manual, Employee Handbook): Super Admins only. Other article pages: Admins+.
-function libCanEdit(){ return libIsBook(LIB_CAT)?isSuperAdminView():isAdminView(); }
+function libCanEdit(){ try{ if(permViewerRole()) return hbCan('edit-library'); }catch(e){} return libIsBook(LIB_CAT)?isSuperAdminView():isAdminView(); }
 function libWhoAmI(){
   const v=currentViewer(); if(v) return v["Clinician"]||"Admin";
   const s=STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;});
@@ -2543,6 +2667,8 @@ async function renderLibrary(){
     }).join("")+'</div>'
     +(libCanEdit()?'<div style="margin-top:14px"><button class="btn btn-secondary" style="font-size:12.5px" onclick="libNew()">➕ New article in '+cat.l+'</button></div>':"");
   }
+  if(LIB_CAT==='howto') list='<div style="background:#fff;border:1px dashed #9fdbe1;border-radius:13px;padding:13px 18px;display:flex;align-items:center;gap:14px;margin-bottom:10px">'
+      +'<div style="font-size:20px">📋</div><div style="flex:1"><div style="font-size:14px;font-weight:800">eCANS</div><div style="font-size:11.5px;color:#888;margin-top:2px">Bookmarked — the eCANS how-to is coming soon.</div></div><span class="pill" style="background:#e0f2fe;color:#075985;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:20px">Coming soon</span></div>'+list;
   body.innerHTML=tabs
     +'<div style="font-size:12px;color:#888;background:#e8f6f8;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">This is the practice’s living reference. '+cat.hint+' It’s always the current version; every change is tracked with who, when, and what changed.</div>'
     +list;
@@ -4973,6 +5099,7 @@ async function loadProfileReviews(sid){
 // ── pings: nav badge + home card ──
 function updateReviewsBadge(){
   const b=document.getElementById("rev-badge"); if(!b) return;
+  if(typeof HB_REVIEWS_HIDDEN!=='undefined'&&HB_REVIEWS_HIDDEN){ b.style.display='none'; return; }
   let n=0;
   (REV_MINE||[]).forEach(function(r){ const ph=revPhase(r);
     if(ph==="open"&&!r.self.submittedAt) n++;
@@ -5016,6 +5143,7 @@ async function ipHomeConfirm(){
 }
 async function loadHomeReviews(){
   const host=document.getElementById("home-reviews"); if(!host||!window.revStore) return;
+  if(typeof HB_REVIEWS_HIDDEN!=='undefined'&&HB_REVIEWS_HIDDEN){ host.innerHTML=''; return; }
   const sid=window.AUTH_STAFF_ID || (currentViewer()&&currentViewer()._id) || null;
   if(!sid){ host.innerHTML=""; return; }
   if(REV_MINE===null) REV_MINE=await window.revStore.mine(sid)||[];
@@ -6669,7 +6797,7 @@ function openRoster(id){
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
   const demoPanel =
-    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity']):'')+capProfileRows(p)
+    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])+(isAdminView()?row('Differential & Bonus',payEligible(p)?'Eligible':'Not eligible'+(p['Diff Bonus Eligible']==='No'?'':' ('+hesc(payEligDefault(p).why)+')')):''):'')+capProfileRows(p)
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     + (isAdminView() ? (function(){
         const role=roleOf(p);
@@ -6754,7 +6882,7 @@ function openRoster(id){
   renderRosterTabs();
   const _hasCap = (function(){ try{ return capClinicians().some(x=>x._id===id); }catch(e){ return false; } })();
   document.getElementById('m-actions').innerHTML=
-    (isAdminView() ? `<button class="btn btn-primary" onclick="openRosterEdit('${id}')">✏ Edit this record</button>` : '')
+    (hbCan('edit-profiles') ? `<button class="btn btn-primary" onclick="openRosterEdit('${id}')">✏ Edit this record</button>` : '')
     + (_hasCap ? `<button class="btn btn-secondary" onclick="rosterViewCapacity('${id}')"${isAdminView()?' style="margin-left:8px"':''}>📊 View Capacity Dashboard</button>` : '')
     + (_hasCap ? `<button class="btn btn-secondary" onclick="closeDetail();ipOpenFor('${id}')" style="margin-left:8px">🗂 Clinical Profile for Intake</button>` : '');
   toggleEdit(false);
@@ -6769,8 +6897,8 @@ function renderRosterTabs(){
   const s = sid ? STAFF.find(r=>r._id===sid) : null;
   // Build the Files panel fresh each render so uploads/deletes show right away.
   const filesPanel = s ? (sec('Non-Private Docs') + filesSectionHtml(s)
-    + sec('Performance Reviews')
-    + '<div id="prof-reviews" style="padding:2px 0 6px"><div style="font-size:12px;color:#999">Loading…</div></div>'
+    + (HB_REVIEWS_HIDDEN?'':sec('Performance Reviews')
+    + '<div id="prof-reviews" style="padding:2px 0 6px"><div style="font-size:12px;color:#999">Loading…</div></div>')
     + (s['_application'] ? applicationEssaysSection(s['_application']) : '')) : '';
   const nonClin = !!(s && !isClinicianRec(s));
   if(nonClin && rosterDetailTab==='cred') rosterDetailTab='demo';
@@ -6779,14 +6907,14 @@ function renderRosterTabs(){
     ...(nonClin ? [] : [{k:'cred',  l:'Credentialing'}]),
     {k:'ceu',   l:'Training & CEU'},
     // Employee Files are sensitive HR records: Super Admins, or your own.
-    ...((isSuperAdminView() || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))
+    ...((hbCan('see-files') || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))
       ? [{k:'files', l:'Non-Private Docs', badge:(s&&s['_files']||[]).length||null}] : []),
   ];
-  if(isSuperAdminView()) TABS.push({k:'comp', l:'Comp & Benes'}); // sensitive pay data: SUPER admins only
+  if(hbCan('see-comp')) TABS.push({k:'comp', l:'Comp & Benes'}); // sensitive pay data: Super Admins (or a custom role granted it)
   const bar = TABS.map(t=>`<button onclick="switchRosterTab('${t.k}')"
       class="tab-btn${rosterDetailTab===t.k?' tab-btn-active':''}">${t.l}${t.badge?`<span class="tab-badge${rosterDetailTab===t.k?' tab-badge-active':''}">${t.badge}</span>`:''}</button>`).join('');
-  if(rosterDetailTab==='comp' && !isSuperAdminView()) rosterDetailTab='demo'; // never serve comp to non-super-admins
-  if(rosterDetailTab==='files' && !(isSuperAdminView() || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))) rosterDetailTab='demo';
+  if(rosterDetailTab==='comp' && !hbCan('see-comp')) rosterDetailTab='demo'; // never serve comp to non-super-admins
+  if(rosterDetailTab==='files' && !(hbCan('see-files') || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))) rosterDetailTab='demo';
   let content = rosterDetailTab==='files' ? filesPanel : (panels[rosterDetailTab]||'');
   if(nonClin && rosterDetailTab==='demo' && s && s['_application']){ try{ content+=applicationDataSection(s['_application']); }catch(e){} }
   document.getElementById('m-body').innerHTML =
@@ -7053,6 +7181,8 @@ function buildRosterEditForm(p){
       {id:'ef-capfrom-x',label:'', html:capEfCapFromHtml(p), full:true, extra:true},
       {id:'ef-biweekly', label:'Biweekly Capacity',  html:inp('ef-biweekly','Biweekly Capacity'), key:'Biweekly Capacity'},
       {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
+      {id:'ef-diffelig', label:'Differential & bonus', html:(function(){ const d=payEligDefault(p), v=String(p['Diff Bonus Eligible']||'');
+        return '<select id="ef-diffelig" data-key="Diff Bonus Eligible"><option value=""'+(v===''?' selected':'')+'>Default — '+(d.ok?'eligible':'not eligible ('+hesc(d.why)+')')+'</option><option value="Yes"'+(v==='Yes'?' selected':'')+'>Eligible</option><option value="No"'+(v==='No'?' selected':'')+'>Not eligible</option></select>'; })(), key:'Diff Bonus Eligible'},
     ]},
     {label:'Programs & Services', fields:[
       {id:'ef-prog',     label:'Primary Program',    html:sel('ef-prog','Primary Program',PRIMARY_PROGRAM_O),  key:'Primary Program'},
@@ -7562,7 +7692,7 @@ function confirmAddEmployee(){
     'Service Types':readRolesTitle(document.getElementById('ae-grid')).roles.join(', '),'Programs':'','Primary Program':g('ae-prog'),
     'Date of Hire':hired,'Google Number':g('ae-phone'),'DOB':'',
     'Email Address':email,'Address':'','License #':g('ae-licnum'),
-    'License Expiration':g('ae-licexp')?usDate(g('ae-licexp')):'',
+    'License Expiration':g('ae-licexp')?usDate(g('ae-licexp')):'', 'Lic Exp Date':g('ae-licexp')?usDate(g('ae-licexp')):'',
     'Credentialing Name':name,'NPI':'','Credentialing DOB':'','Credentialing License #':'',
     'Lic Eff Date':'','Lic Exp Date':g('ae-licexp')?usDate(g('ae-licexp')):'',"CAQH #'s":'','CAQH Username':'','CAQH Password':'',
     'PECOS username':'','PECOS password':'','Medicare PTAN':'','Medicare Effective Date':'',
@@ -8237,7 +8367,7 @@ function openWfStep(id, key) {
         if(s){
           if(wf.cr_npi_num)s['NPI']=wf.cr_npi_num;
           if(wf.cr_lic_num)s['License #']=wf.cr_lic_num;
-          if(wf.cr_lic_exp)s['License Expiration']=wf.cr_lic_exp;
+          if(wf.cr_lic_exp){s['License Expiration']=wf.cr_lic_exp;s['Lic Exp Date']=wf.cr_lic_exp;}
           if(wf.cr_caqh_num)s["CAQH #'s"]=wf.cr_caqh_num;
         }
       }
@@ -8347,7 +8477,7 @@ function saveWfStep() {
       wf.cr_npi_num=document.getElementById('cr_npi_num')?.value||''; wf.cr_lic_num=document.getElementById('cr_lic_num')?.value||''; wf.cr_lic_exp=document.getElementById('cr_lic_exp')?.value||''; wf.cr_caqh_num=document.getElementById('cr_caqh_num')?.value||''; wf.cr_notes=document.getElementById('cr_notes')?.value||'';
       wf.cred=true; wf.cred_date=new Date().toLocaleDateString();
       const s=STAFF.find(s2=>s2['_recruit_id']===p._id);
-      if(s){if(wf.cr_npi_num)s['NPI']=wf.cr_npi_num;if(wf.cr_lic_num)s['License #']=wf.cr_lic_num;if(wf.cr_lic_exp)s['License Expiration']=wf.cr_lic_exp;if(wf.cr_caqh_num)s["CAQH #'s"]=wf.cr_caqh_num;}
+      if(s){if(wf.cr_npi_num)s['NPI']=wf.cr_npi_num;if(wf.cr_lic_num)s['License #']=wf.cr_lic_num;if(wf.cr_lic_exp){s['License Expiration']=wf.cr_lic_exp;s['Lic Exp Date']=wf.cr_lic_exp;}if(wf.cr_caqh_num)s["CAQH #'s"]=wf.cr_caqh_num;}
     },
     systems:(wf,p)=>{
       ['sys_google','sys_ehr','sys_sched','sys_portal','sys_intro','sys_dir'].forEach(id=>{const el=document.getElementById(id);if(el)wf[id]=el.checked;});
@@ -9353,10 +9483,24 @@ function visibleStaffIds(){
 }
 // Page-level access by role.
 function canSeePage(pageId){
-  const role = currentRole();
+  if((pageId==='reviews'||pageId==='reviews-hr') && HB_REVIEWS_HIDDEN) return false;   // hidden for now (Nov 2026)
+  if(pageId==='home') return true;
+  // Custom role (Roles & Permissions → Custom roles): its page list decides. My Employee File
+  // lives on the roster page, so that page always opens (the Roster nav item follows the list).
+  try{ const cr=permViewerRole(); if(cr){
+    if(pageId==='admin') return hbCan('manage-permissions');
+    if(pageId==='roster') return true;
+    return (cr.pages||[]).indexOf(pageId)>=0; } }catch(e){}
+  if(pageId==='admin' && currentRole()!=='superadmin'){ try{ if(hbCan('manage-permissions')) return true; }catch(e){} }
+  return canSeePageBase(currentRole(), pageId);
+}
+// Built-in page rules for the four access levels (also the starting point for a new custom role).
+function canSeePageBase(role, pageId){
+  if((pageId==='reviews'||pageId==='reviews-hr') && HB_REVIEWS_HIDDEN) return false;
   if(pageId==='payroll') return role==='superadmin';  // payroll entry: super admin only
   if(pageId==='payreview') return role==='superadmin'; // payroll review: super admin only
   if(pageId==='ppu'||pageId==='coderules') return role==='superadmin'; // pay period upload + its rules: super admin only
+  if(pageId==='clin-leadership'){ if(role!==currentRole()) return role!=='therapist'; try{ return !!clScope(); }catch(e){ return false; } }  // supervisors and above
   if(pageId==='admin')   return role==='superadmin';  // permissions page: super admin only
   if(role==='admin' || role==='superadmin') return true;
   if(pageId==='team-dashboard') return false;        // leadership view: admin only
@@ -9370,6 +9514,144 @@ function canSeePage(pageId){
   if(pageId==='report-center') return false;         // Report Center: admin only (CTM/CPM later)
   if(pageId==='intake-finder') return false;         // Intake Finder: admin only (Intake/CTM role later)
   return true;                                        // roster + capacity: scoped, allowed
+}
+
+// ══ CUSTOM ROLES (Roles & Permissions → Custom roles) ══
+// Visibility layer on top of the four access levels. A custom role = an access level (base:
+// therapist / supervisor / admin / superadmin — what the server lets the account read and write,
+// synced to userRoles like today) + the pages it shows + the abilities it has. Assigning someone
+// a custom role also sets their access level. Stored in kv/app_perm_roles. Super Admins always
+// keep the full view; nobody but a Super Admin can create or assign a Super Admin–level role.
+var PERM={roles:[],assign:{},loaded:false,edit:null};
+var PERM_CAPS=[
+  {k:'edit-profiles',l:'Edit staff profiles',d:'The “Edit this record” button on profiles',need:'admin'},
+  {k:'see-files',l:'See other people’s Employee Files',d:'Non-Private Docs tab on anyone’s profile',need:'admin'},
+  {k:'see-comp',l:'See Comp & Benes (pay data)',d:'Pay rates, increases and benefits on profiles',need:'admin'},
+  {k:'edit-library',l:'Edit manuals and library articles',d:'Clinical manuals, how-tos, handbook',need:'admin'},
+  {k:'manage-permissions',l:'Manage roles & permissions',d:'Open this page, create/edit roles and assign people',need:'admin'}];
+var PERM_LEVELS=['therapist','supervisor','admin','superadmin'];
+async function loadPermRoles(){
+  try{ const r=await window.storage.get('app_perm_roles'); const o=r&&r.value?JSON.parse(r.value):null; PERM.roles=(o&&o.roles)||[]; PERM.assign=(o&&o.assign)||{}; }catch(e){}
+  PERM.loaded=true;
+}
+async function savePermRoles(){ try{ await window.storage.set('app_perm_roles',JSON.stringify({roles:PERM.roles,assign:PERM.assign,updatedAt:new Date().toISOString()})); return true; }catch(e){ console.error(e); return false; } }
+function permRoleById(id){ return PERM.roles.find(function(r){ return r.id===id; })||null; }
+function permRoleFor(s){ if(!s) return null; const id=PERM.assign[s._id]; return id?permRoleById(id):null; }
+function permViewerRole(){ const v=currentViewer(); return v?permRoleFor(v):null; }   // god-view (Super Admin) → none
+// Abilities: a custom role decides; otherwise the access level's built-in rules.
+function hbCan(cap){
+  const r=permViewerRole(); if(r) return (r.caps||[]).indexOf(cap)>=0;
+  if(cap==='edit-profiles'||cap==='edit-library') return isAdminView();
+  return isSuperAdminView();
+}
+function permCanManage(){ return isSuperAdminView() || hbCan('manage-permissions'); }
+// Pages offered in the builder = the sidebar (minus My Employee File, which everyone keeps).
+function permPageGroups(){
+  const out=[];
+  document.querySelectorAll('.nav-sec').forEach(function(sec){
+    const lab=(sec.querySelector('.nav-sec-label')||{}).textContent||'';
+    const items=[]; sec.querySelectorAll('.nav-item[data-page]').forEach(function(b){ const pg=b.getAttribute('data-page');
+      if(b.id==='nav-myfile'||pg==='admin'||pg==='home') return; if(items.some(function(x){ return x.pg===pg; })) return;
+      if(typeof PLACEHOLDERS!=='undefined'&&PLACEHOLDERS[pg]) return;
+      if((pg==='reviews'||pg==='reviews-hr')&&HB_REVIEWS_HIDDEN) return;
+      items.push({pg:pg,l:(b.textContent||'').replace(/\d+$/,'').trim()}); });
+    if(items.length) out.push({l:lab,items:items});
+  });
+  return out;
+}
+var PERM_PAGE_NEED={ppu:'superadmin',coderules:'superadmin',payroll:'superadmin',payreview:'superadmin',recruitment:'admin','rec-tasks':'admin',onboarding:'admin','ceu-upload':'admin','meetings-hr':'admin','team-dashboard':'admin','intake-finder':'admin','report-center':'admin'};
+function permLevelRank(l){ return PERM_LEVELS.indexOf(l); }
+function permDefaultsFor(base){
+  const pages=[]; permPageGroups().forEach(function(g){ g.items.forEach(function(it){ try{ if(canSeePageBase(base,it.pg)) pages.push(it.pg); }catch(e){} }); });
+  if(base==='therapist'){ const i=pages.indexOf('roster'); if(i>=0) pages.splice(i,1); } else if(pages.indexOf('roster')<0) pages.push('roster');   // therapists don't get the Roster list today
+  const caps=[]; if(base==='admin'||base==='superadmin'){ caps.push('edit-profiles','edit-library'); } if(base==='superadmin') caps.push('see-files','see-comp','manage-permissions');
+  return {pages:pages,caps:caps};
+}
+function renderPermBuilder(body){
+  if(!permCanManage()){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Only Super Admins (or people they allow) can manage permissions.</div>'; return; }
+  const esc=hesc;
+  let h=(isSuperAdminView()?adminTabsHtml():'<div style="font-size:20px;font-weight:800;margin-bottom:12px">Custom roles</div>');
+  if(PERM.edit){ body.innerHTML=h+permEditorHtml(); return; }
+  h+='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px 18px;margin-bottom:14px;font-size:12.5px;color:#4b5563;line-height:1.6">'
+    +'<b style="color:#111827">Build roles without a code change.</b> Each role has an <b>access level</b> (what the person’s account can load — the same four levels as today) plus the exact <b>pages</b> it shows and the <b>abilities</b> it has. Assign people to a role and their sidebar changes on their next sign-in. Super Admins always see everything. '
+    +'<span style="color:#9a6212">This controls what people see; what the server allows still follows the access level.</span></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:14px">'+PERM.roles.length+' custom role'+(PERM.roles.length===1?'':'s')+'</b>'
+    +'<span style="display:flex;gap:6px;align-items:center"><span style="font-size:12px;color:#6b7280">New role from</span>'
+    +PERM_LEVELS.filter(function(l){ return l!=='superadmin'||isSuperAdminView(); }).map(function(l){ return '<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="permNew(\''+l+'\')">'+esc(ROLES[l].label)+'</button>'; }).join('')+'</span></div>';
+  if(!PERM.roles.length) h+='<div style="background:#fff;border:1px dashed #d1d5db;border-radius:14px;padding:30px;text-align:center;color:#6b7280;font-size:13px">No custom roles yet. Start one from the access level closest to what you need.</div>';
+  h+=PERM.roles.map(function(r){ const people=Object.keys(PERM.assign).filter(function(k){ return PERM.assign[k]===r.id; }).map(function(id){ return (STAFF.find(function(x){ return x._id===id; })||{})['Clinician']; }).filter(Boolean);
+    return '<div style="background:#fff;border:1px solid #e5e7eb;border-left:5px solid '+esc(r.color||'#122B67')+';border-radius:12px;padding:12px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:240px"><div style="font-size:14.5px;font-weight:800">'+esc(r.name)+' <span style="font-size:11px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:8px;padding:1px 7px">'+esc(ROLES[r.base].label)+' access</span></div>'
+      +'<div style="font-size:12px;color:#6b7280;margin-top:2px">'+esc(r.desc||'')+'</div>'
+      +'<div style="font-size:11.5px;color:#9ca3af;margin-top:4px">'+(r.pages||[]).length+' pages · '+(r.caps||[]).length+' abilities · '+(people.length?people.length+' people: '+esc(people.slice(0,6).join(', '))+(people.length>6?'…':''):'nobody assigned')+'</div></div>'
+      +'<button class="btn btn-secondary" style="font-size:12px" onclick="permEdit(\''+esc(r.id)+'\')">Edit</button>'
+      +'<button class="btn btn-secondary" style="font-size:12px" onclick="permDup(\''+esc(r.id)+'\')">Duplicate</button>'
+      +'<button class="btn btn-secondary" style="font-size:12px;color:#b91c1c" onclick="permDel(\''+esc(r.id)+'\')">Delete</button></div>'; }).join('');
+  body.innerHTML=h;
+}
+function permEditorHtml(){
+  const r=PERM.edit, esc=hesc, sa=isSuperAdminView();
+  const lvl='<select id="perm-base" onchange="PERM.edit.base=this.value;renderAdmin()" style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid #d1d5db;border-radius:8px">'
+    +PERM_LEVELS.filter(function(l){ return l!=='superadmin'||sa||r.base==='superadmin'; }).map(function(l){ return '<option value="'+l+'"'+(r.base===l?' selected':'')+'>'+esc(ROLES[l].label)+'</option>'; }).join('')+'</select>';
+  const need=function(n){ return n&&permLevelRank(r.base)<permLevelRank(n)?' <span style="font-size:10.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:8px;padding:1px 6px" title="This access level can’t load this data — the page will open but stay empty or show a permission message">needs '+esc(ROLES[n].label)+' access</span>':''; };
+  let h='<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px 18px">'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280">Role name<input id="perm-name" value="'+esc(r.name||'')+'" oninput="PERM.edit.name=this.value" style="font:inherit;font-size:14px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;min-width:240px"></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280">Access level'+lvl+'</label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280">Color<input id="perm-color" type="color" value="'+esc(r.color||'#122B67')+'" onchange="PERM.edit.color=this.value" style="width:46px;height:34px;border:1px solid #d1d5db;border-radius:8px"></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280;flex:1;min-width:220px">Description<input id="perm-desc" value="'+esc(r.desc||'')+'" oninput="PERM.edit.desc=this.value" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px"></label></div>'
+    +'<div style="font-size:11.5px;color:#6b7280;margin-bottom:12px">Access level = what this person’s account can read and write on the server, and whose records they see ('+esc(ROLES[r.base].detail||ROLES[r.base].desc)+')</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">';
+  h+='<div><div style="font-size:13px;font-weight:800;margin-bottom:6px">Pages it can see <button class="hs-link" style="font-size:11.5px;margin-left:6px" onclick="permAllPages(true)">all</button><button class="hs-link" style="font-size:11.5px;margin:0" onclick="permAllPages(false)">none</button></div>'
+    +'<div style="font-size:11.5px;color:#9ca3af;margin-bottom:6px">My Homebase and My Employee File are always available.</div>'
+    +permPageGroups().map(function(g){ return '<div style="margin-bottom:8px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a8f9e;margin:6px 0 3px">'+esc(g.l)+'</div>'
+      +g.items.map(function(it){ return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer"><input type="checkbox" id="perm-pg-'+esc(it.pg)+'"'+((r.pages||[]).indexOf(it.pg)>=0?' checked':'')+' onchange="permTogglePage(\''+esc(it.pg)+'\',this.checked)" style="accent-color:#122b67">'+esc(it.l)+need(PERM_PAGE_NEED[it.pg])+'</label>'; }).join('')+'</div>'; }).join('')+'</div>';
+  h+='<div><div style="font-size:13px;font-weight:800;margin-bottom:6px">What it can do</div>'
+    +PERM_CAPS.map(function(c){ return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;padding:5px 0;cursor:pointer"><input type="checkbox" id="perm-cap-'+c.k+'"'+((r.caps||[]).indexOf(c.k)>=0?' checked':'')+' onchange="permToggleCap(\''+c.k+'\',this.checked)" style="accent-color:#122b67;margin-top:2px"><span><b>'+esc(c.l)+'</b>'+need(c.need)+'<br><span style="color:#6b7280;font-size:11.5px">'+esc(c.d)+'</span></span></label>'; }).join('');
+  // people
+  const assigned=(r._people||[]).slice();
+  const others=STAFF.filter(function(x){ return assigned.indexOf(x._id)<0 && normStatus(x['Employee Status'])!=='Terminated'; }).sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
+  h+='<div style="font-size:13px;font-weight:800;margin:16px 0 6px">People in this role</div>'
+    +(assigned.length?assigned.map(function(id){ const p=STAFF.find(function(x){ return x._id===id; })||{}; return '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><b style="flex:1">'+esc(p['Clinician']||id)+'</b><button class="btn btn-secondary" style="font-size:11px;padding:2px 8px" onclick="permUnassign(\''+esc(id)+'\')">Remove</button></div>'; }).join(''):'<div style="font-size:12px;color:#9ca3af">Nobody yet.</div>')
+    +'<select id="perm-add" onchange="if(this.value)permAssign(this.value)" style="margin-top:6px;font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;width:100%"><option value="">+ Add someone…</option>'
+    +others.map(function(x){ const cur=permRoleFor(x); return '<option value="'+esc(x._id)+'">'+esc(x['Clinician']||x._id)+(cur?' (now: '+esc(cur.name)+')':'')+'</option>'; }).join('')+'</select>'
+    +'<div style="font-size:11.5px;color:#9ca3af;margin-top:4px">People are added when you save. Someone can be in one custom role at a time; adding them here moves them.</div></div></div>';
+  h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn btn-secondary" onclick="PERM.edit=null;renderAdmin()">Cancel</button><button class="btn" onclick="permSave()">Save role</button></div></div>';
+  return h;
+}
+function permNew(base){ const d=permDefaultsFor(base); PERM.edit={id:'role_'+Date.now(),name:'',desc:'',color:ROLES[base].color,base:base,pages:d.pages,caps:d.caps,_people:[],_new:true}; ADMIN_TAB='roles'; renderAdmin(); setTimeout(function(){ const e=document.getElementById('perm-name'); if(e) e.focus(); },0); }
+function permEdit(id){ const r=permRoleById(id); if(!r) return; PERM.edit=JSON.parse(JSON.stringify(r)); PERM.edit._people=Object.keys(PERM.assign).filter(function(k){ return PERM.assign[k]===id; }); renderAdmin(); }
+function permDup(id){ const r=permRoleById(id); if(!r) return; PERM.edit=JSON.parse(JSON.stringify(r)); PERM.edit.id='role_'+Date.now(); PERM.edit.name=r.name+' (copy)'; PERM.edit._people=[]; PERM.edit._new=true; renderAdmin(); }
+function permTogglePage(pg,on){ const a=PERM.edit.pages=PERM.edit.pages||[]; const i=a.indexOf(pg); if(on&&i<0) a.push(pg); if(!on&&i>=0) a.splice(i,1); }
+function permToggleCap(k,on){ const a=PERM.edit.caps=PERM.edit.caps||[]; const i=a.indexOf(k); if(on&&i<0) a.push(k); if(!on&&i>=0) a.splice(i,1); }
+function permAllPages(on){ PERM.edit.pages=on?permPageGroups().reduce(function(a,g){ return a.concat(g.items.map(function(x){ return x.pg; })); },[]):[]; renderAdmin(); }
+// people changes are staged on the editor and applied on save
+function permAssign(id){ PERM.edit._people=(PERM.edit._people||[]).concat(id); PERM.edit._add=(PERM.edit._add||[]).concat(id); permStageRender(); }
+function permUnassign(id){ PERM.edit._people=(PERM.edit._people||[]).filter(function(x){ return x!==id; }); PERM.edit._rm=(PERM.edit._rm||[]).concat(id); permStageRender(); }
+function permStageRender(){ renderAdmin(); }
+async function permSave(){
+  try{
+    const e=PERM.edit; if(!e) return;
+    const nm=String(e.name||'').trim(); if(!nm){ showToast('⚠ Give the role a name'); return; }
+    if(PERM.roles.some(function(r){ return r.id!==e.id && r.name.toLowerCase()===nm.toLowerCase(); })){ showToast('⚠ Another role already has that name'); return; }
+    if(e.base==='superadmin'&&!isSuperAdminView()){ showToast('⛔ Only a Super Admin can make a Super Admin–level role'); return; }
+    const role={id:e.id,name:nm,desc:String(e.desc||'').trim(),color:e.color||'#122B67',base:e.base,pages:(e.pages||[]).slice(),caps:(e.caps||[]).slice(),updatedAt:new Date().toISOString(),updatedBy:(typeof prWho==='function'?prWho():'')};
+    const i=PERM.roles.findIndex(function(r){ return r.id===role.id; }); if(i>=0) PERM.roles[i]=role; else PERM.roles.push(role);
+    // people: everyone listed is in this role; removed people go back to built-in access
+    Object.keys(PERM.assign).forEach(function(k){ if(PERM.assign[k]===role.id && (e._people||[]).indexOf(k)<0) delete PERM.assign[k]; });
+    (e._people||[]).forEach(function(k){ PERM.assign[k]=role.id; });
+    // their access level follows the role (only a Super Admin can change levels)
+    let lv=0; if(isSuperAdminView()){ (e._people||[]).forEach(function(k){ if(ROLE_MAP[k]!==role.base){ ROLE_MAP[k]=role.base; lv++; } }); if(lv) await persistRoles(); }
+    if(!(await savePermRoles())){ showToast('⚠ Could not save — check your access'); return; }
+    PERM.edit=null; showToast('✓ Saved “'+nm+'”'+(lv?' · access level updated for '+lv:'')); renderAdmin(); try{ applyRoleVisibility(); }catch(_){}
+  }catch(err){ console.error(err); showToast('⚠ Could not save the role'); }
+}
+async function permDel(id){
+  const r=permRoleById(id); if(!r) return;
+  const n=Object.keys(PERM.assign).filter(function(k){ return PERM.assign[k]===id; }).length;
+  if(!confirm('Delete the role “'+r.name+'”?'+(n?' '+n+' people go back to their built-in access ('+'their access level stays as it is).':''))) return;
+  PERM.roles=PERM.roles.filter(function(x){ return x.id!==id; }); Object.keys(PERM.assign).forEach(function(k){ if(PERM.assign[k]===id) delete PERM.assign[k]; });
+  await savePermRoles(); renderAdmin(); try{ applyRoleVisibility(); }catch(_){}
 }
 
 async function persistRoles(){
@@ -10029,6 +10311,56 @@ async function capDeletePeriod(i){
   }catch(e){ console.error(e); showToast('⚠ Could not delete that pay period'); }
 }
 
+// ── Capacity Dashboard: "Progress this year" card ──
+// The clinician's own numbers come from their Pay Period Snapshots (readable by them and Super
+// Admins); practice averages from kv/app_practice_stats. Only closed pay periods count.
+async function capProgressFill(sid){
+  const el=document.getElementById('cap-progress'); if(!el||el.getAttribute('data-sid')!==sid) return;
+  const box=function(inner){ return '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden"><div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Progress this year — '+CAP_YEAR+'</span><span style="font-size:11px;color:#9ca3af">from closed pay periods</span></div>'+inner+'</div>'; };
+  el.innerHTML=box('<div style="padding:16px;color:#9ca3af;font-size:12.5px">Loading…</div>');
+  try{
+    let mine=null, n=0;
+    try{ const list=window.payStore?await payStore.myStatements(sid):null;
+      if(list){ const latest={}; list.forEach(function(x){ if(x.kind!=='ppu'||String(x.ppId||'').slice(0,4)!==String(CAP_YEAR)) return; if(!latest[x.periodId]||(latest[x.periodId].version||1)<(x.version||1)) latest[x.periodId]=x; });
+        mine={sessions:0,byHead:{}}; Object.keys(latest).forEach(function(k){ ppuProgressAdd(mine,ppuProgressOf(latest[k].lines)); n++; }); } }catch(e){ mine=null; }
+    let prac={sessions:0,byHead:{}}, pn=0;
+    try{ const r=await window.storage.get('app_practice_stats'); const d=r&&r.value?JSON.parse(r.value):{};
+      Object.keys(d||{}).forEach(function(k){ if(k.slice(0,4)===String(CAP_YEAR)){ ppuProgressAdd(prac,d[k]); pn++; } }); }catch(e){}
+    if(document.getElementById('cap-progress')!==el) return;
+    const pct=function(a,b){ return b>0?Math.round(a*1000/b)/10:null; };
+    const fmt=function(v,suf){ return v==null?'—':v+(suf||''); };
+    const m={ns:mine&&pct(mine.noShows,mine.sessions+mine.noShows), done:mine&&pct(mine.signed,mine.sessions), ontime:mine&&pct(mine.onTime,mine.sessions),
+      days:mine&&mine.signed?Math.round(mine.daysSum*10/mine.signed)/10:null, ew:mine&&pct(mine.eveWknd,mine.sessions), avg:mine&&n?Math.round(mine.clin/n)/100:null};
+    const pr={ns:pct(prac.noShows,prac.sessions+prac.noShows), done:pct(prac.signed,prac.sessions), ontime:pct(prac.onTime,prac.sessions),
+      days:prac.signed?Math.round(prac.daysSum*10/prac.signed)/10:null, ew:pct(prac.eveWknd,prac.sessions), avg:(pn&&prac.clinicians)?Math.round(prac.clin/prac.clinicians)/100:null};
+    // better = lower for no-show rate & days to sign; higher for the rest
+    const cmp=function(a,b,lowerBetter){ if(a==null||b==null) return ''; const d=Math.round((a-b)*10)/10; if(Math.abs(d)<0.05) return '<span style="color:#6b7280">same as practice</span>';
+      const good=lowerBetter?d<0:d>0; return '<span style="color:'+(good?'#15803d':'#b45309')+';font-weight:700">'+(d>0?'▲ ':'▼ ')+Math.abs(d)+'</span> <span style="color:#6b7280">vs practice</span>'; };
+    const tile=function(label,val,suf,pv,lowerBetter,help){ return '<div style="flex:1;min-width:150px;border:1px solid #f0f1f3;border-radius:10px;padding:10px 12px">'
+      +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">'+label+'</div>'
+      +'<div style="font-size:21px;font-weight:800;color:#122B67;margin:2px 0">'+fmt(val,suf)+'</div>'
+      +'<div style="font-size:11px;line-height:1.4">'+(val!=null?cmp(val,pv,lowerBetter)+'<br>':'')+'<span style="color:#9ca3af">Practice: '+fmt(pv,suf)+'</span>'+(help?'<br><span style="color:#9ca3af">'+help+'</span>':'')+'</div></div>'; };
+    let inner='';
+    if(mine===null){ inner+='<div style="padding:10px 16px 0;font-size:12px;color:#6b7280">Personal numbers are visible to the clinician and Super Admins. Practice averages:</div>'; }
+    else if(!n){ inner+='<div style="padding:10px 16px 0;font-size:12px;color:#6b7280">No closed pay periods yet this year — personal numbers appear once payroll closes a period.</div>'; }
+    inner+='<div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px">'
+      +tile('Notes signed',mine?m.done:null,'%',pr.done,false,'of sessions')
+      +tile('Signed within 3 days',mine?m.ontime:null,'%',pr.ontime,false)
+      +tile('Avg days to sign',mine?m.days:null,'',pr.days,true)
+      +tile('No-show rate',mine?m.ns:null,'%',pr.ns,true,'paid + unpaid no-shows')
+      +tile('Evening / weekend',mine?m.ew:null,'%',pr.ew,false,'of sessions')
+      +tile('Clinical hrs per pay period',mine?m.avg:null,'',pr.avg,false,'average')+'</div>';
+    if(mine&&n){
+      const hs=Object.keys(mine.byHead).sort(function(a,b){ return mine.byHead[b].n-mine.byHead[a].n; });
+      inner+='<div style="overflow-x:auto;border-top:1px solid #f1f0ec"><table style="width:100%;border-collapse:collapse;min-width:420px"><thead><tr style="background:#f9fafb">'
+        +'<th style="padding:8px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Sessions by type</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#999">Sessions</th><th style="padding:8px 16px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#999">Clinical hrs</th></tr></thead><tbody>'
+        +hs.map(function(h){ return '<tr style="border-top:1px solid #f1f0ec"><td style="padding:8px 16px;font-size:12.5px;font-weight:600">'+hesc(h)+'</td><td style="padding:8px 12px;text-align:right;font-size:12.5px">'+mine.byHead[h].n+'</td><td style="padding:8px 16px;text-align:right;font-size:12.5px">'+(Math.round(mine.byHead[h].clin*100)/10000).toFixed(2)+'</td></tr>'; }).join('')
+        +'</tbody></table></div>';
+    }
+    inner+='<div style="padding:9px 16px;font-size:10.5px;color:#aaa;border-top:1px dashed #eee">'+(n?n+' closed pay period'+(n>1?'s':'')+' this year':'')+(pn?(n?' · ':'')+'practice: '+pn+' closed':'')+'. Signing timeliness is shown for coaching — it doesn’t affect pay.</div>';
+    el.innerHTML=box(inner);
+  }catch(e){ console.error(e); el.innerHTML=''; }
+}
 function capOpenDetail(id){ try{ hbPushSub('capacity', id); }catch(e){} capDetailId=id; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
 function capCloseDetail(){ capDetailId=null; renderCapacity(); try{document.getElementById('cap-body').scrollTop=0;}catch(e){} }
 // Jump from a capacity view straight to this clinician's full record on My Profile.
@@ -10124,14 +10456,19 @@ document.addEventListener('click', function(e){
   if(wrap && !wrap.contains(e.target)) closeViewAsMenu();
 });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeViewAsMenu(); });
+// Performance Reviews are switched off for now (pages, nav, home alerts, profile section). Flip to false to bring them back.
+var HB_REVIEWS_HIDDEN=true;
 // Show/hide nav items the current role can't reach.
 function applyRoleVisibility(){
   // Generic pass: every nav item with data-page follows canSeePage();
   // data-minrole="supervisor" also hides it from therapists. Then any nav
   // section with nothing visible left in it is hidden too.
+  let _cr=null; try{ _cr=permViewerRole(); }catch(e){}
   document.querySelectorAll('.nav-item[data-page]').forEach(function(b){
     let ok=canSeePage(b.getAttribute('data-page'));
     if(ok && b.getAttribute('data-minrole')==='supervisor' && currentRole()==='therapist') ok=false;
+    if(_cr && b.id==='nav-roster') ok=(_cr.pages||[]).indexOf('roster')>=0;
+    if(b.id==='nav-myfile') ok=true;
     b.style.display = ok ? '' : 'none';
   });
   document.querySelectorAll('.nav-sec').forEach(function(sec){
@@ -10188,8 +10525,12 @@ function profileSetRole(id, role){
 }
 let adminFilter='';
 let adminExpanded=null;   // supervisor id whose supervisee editor is open
+var ADMIN_TAB='people';
+function adminTabsHtml(){ const t=function(k,l){ return '<button onclick="ADMIN_TAB=\''+k+'\';PERM.edit=null;renderAdmin()" style="font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border:0;border-bottom:3px solid '+(ADMIN_TAB===k?'#122B67':'transparent')+';background:none;color:'+(ADMIN_TAB===k?'#122B67':'#6b7280')+';cursor:pointer">'+l+'</button>'; };
+  return '<div style="display:flex;gap:2px;border-bottom:1px solid #e5e7eb;margin-bottom:16px">'+t('people','People & access levels')+t('roles','Custom roles'+(PERM.roles.length?' ('+PERM.roles.length+')':''))+'</div>'; }
 function renderAdmin(){
   const body=document.getElementById('admin-body'); if(!body) return;
+  if(ADMIN_TAB==='roles'||(!isSuperAdminView()&&hbCan('manage-permissions'))){ ADMIN_TAB='roles'; renderPermBuilder(body); return; }
   const q=adminFilter.toLowerCase();
   const roleCount={superadmin:0,admin:0,supervisor:0,therapist:0};
   STAFF.forEach(s=>{ roleCount[roleOf(s)]=(roleCount[roleOf(s)]||0)+1; });
@@ -10240,7 +10581,7 @@ function renderAdmin(){
       </tr>${editor}`;
     }).join('');
 
-  body.innerHTML=`
+  body.innerHTML=adminTabsHtml()+`
     <div style="margin-bottom:18px">
       <div style="background:#fff;border:1px solid #e8e8e8;border-radius:14px;padding:16px 18px">
         <div style="font-size:14px;font-weight:800;color:#1a1a1a;margin-bottom:6px">🔐 What permissions are</div>
@@ -10732,36 +11073,10 @@ function capDrillHTML(s,c){
     </div>`;
 
   // ── SESSION-TYPE BREAKDOWN (placeholder — to be built out later) ──
-  const sessionTypes = [
-    {k:'Regular Hour', d:'Standard 60-min clinical hour'},
-    {k:'30 Minute', d:'Half-session / brief contact'},
-    {k:'Extended Hours', d:'Longer sessions beyond a standard hour'},
-    {k:'Nights / Weekends', d:'Sessions outside standard business hours'},
-    {k:'Group', d:'Group clinical hours (count at 0.33 rate)'},
-  ];
-  const sessionRows = sessionTypes.map(t=>`<tr style="border-bottom:1px solid #f1f0ec">
-      <td style="padding:9px 12px;font-size:12.5px;font-weight:600;color:#333">${t.k}</td>
-      <td style="padding:9px 12px;font-size:11px;color:#999">${t.d}</td>
-      <td style="padding:9px 12px;text-align:right;font-size:12.5px;color:#ccc">—</td>
-      <td style="padding:9px 12px;text-align:right;font-size:12.5px;color:#ccc">—</td>
-    </tr>`).join('');
-  const sessionTable = `
-    <div style="margin-top:16px;background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden">
-      <div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Sessions by Type — Year to Date</span>
-        <span style="font-size:9px;font-weight:700;color:#92610f;background:#fef3c7;border:1px solid #fcd97a;border-radius:8px;padding:2px 8px">PLACEHOLDER · COMING SOON</span>
-      </div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:480px">
-        <thead><tr style="background:#f9fafb;border-bottom:1px solid #eee">
-          <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Session Type</th>
-          <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Description</th>
-          <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Count</th>
-          <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">Hours</th>
-        </tr></thead>
-        <tbody>${sessionRows}</tbody>
-      </table></div>
-      <div style="padding:9px 16px;font-size:10.5px;color:#aaa;border-top:1px dashed #eee">This breakout is a placeholder. Session-type detail (regular, 30-minute, extended, nights/weekends, group) will be populated once that data is connected.</div>
-    </div>`;
+  // Progress card (replaces the old "Sessions by Type" placeholder): filled in after render from
+  // closed pay periods — see capProgressFill().
+  const sessionTable = `<div id="cap-progress" data-sid="${s._id}" style="margin-top:16px"></div>`;
+  setTimeout(function(){ try{ capProgressFill(s._id); }catch(e){} },0);
 
   // ── ATTAINMENT CALLOUT (first-person, name-based, tone graded by score) ──
   // Three tiers keyed to the same thresholds as the color coding:
@@ -11240,7 +11555,7 @@ const PAGE_META={
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'CEU Bulk Upload',sub:'File training certificates to staff records'},
   'meetings':{title:'Meeting and Admin Time',sub:'Log your meetings and admin time by pay period, and track what you\'re owed'},
-  'clin-policies':{title:'Clinical Manual & How-Tos',sub:'APP’s clinical manual and practical how-to guides'},
+  'clin-policies':{title:'Clinical Policies & How-To Manuals',sub:'The Clinical Policies Manual and the Clinical How-To Manual'},
   'clin-howtos':{title:'Clinical How-Tos',sub:'Practical guides for clinical systems and workflows'},
   'handbook':{title:'Employee Handbook',sub:'Policies and expectations for everyone at APP — always the current version'},
   'paperwork':{title:'Paperwork & Templates',sub:'Client paperwork packets and letterhead'},
@@ -11259,6 +11574,7 @@ const PAGE_META={
   'hr-dashboard':{title:'HR Dashboard',sub:'Birthdays, anniversaries, and raise eligibility'},
   'payroll':{title:'Payroll Processing',sub:'Enter weekly capacity hours by pay period'},
   'payreview':{title:'Payroll Review',sub:'Import Valant, review, close and save each pay period'},
+  'clin-leadership':{title:'My Team',sub:'Your team and supervisees — capacity, alerts and insights'},
   'ppu':{title:'Pay Period Upload',sub:'Upload one pay period’s Valant export, review every employee, close and save'},
   'coderules':{title:'Service Code Rules',sub:'The Cap Hours Formula sheet — how each Valant service code counts'},
   'intake':{title:'Intake Traffic Control',sub:'Coming soon'},
@@ -11417,6 +11733,7 @@ function showPage(id,btn,_fromHistory){
   if(id==='hr-dashboard'){renderHrDashboard();return;}
   if(id==='payroll'){renderPayroll();return;}
   if(id==='payreview'){renderPayReview();return;}
+  if(id==='clin-leadership'){renderClinLeadership();return;}
   if(id==='ppu'){ (async function(){ try{ if(PPU.loaded&&window.mtgStore) PPU.meetings=await window.mtgStore.all()||PPU.meetings; }catch(e){} renderPPU(); })(); return; }
   if(id==='coderules'){CR.draft=CR.dirty?CR.draft:null;renderCodeRules();return;}
   if(id==='onboarding')renderOnboarding();
@@ -11434,7 +11751,7 @@ function showPage(id,btn,_fromHistory){
     }
   }
   if(id==='crisis')renderCrisisNumbers();
-  if(id==='home'){renderHome();if(typeof loadHomePanelAvail==='function')loadHomePanelAvail();if(typeof loadHomeReviews==='function')loadHomeReviews();if(typeof loadHomeIpAlert==='function')loadHomeIpAlert();if(typeof loadHomeSignAlert==='function')loadHomeSignAlert();return;}
+  if(id==='home'){renderHome();if(typeof loadHomePanelAvail==='function')loadHomePanelAvail();if(typeof loadHomeReviews==='function')loadHomeReviews();if(typeof loadHomeIpAlert==='function')loadHomeIpAlert();if(typeof loadHomeSignAlert==='function')loadHomeSignAlert();if(typeof homeLoadMeetings==='function')homeLoadMeetings();return;}
   if(id==='therapist-profile'){renderTherapistProfile();return;}
   if(id==='intake-coord'){renderIntakeCoord();return;}
   if(id==='announcements'){renderAnnouncements();return;}
@@ -12106,7 +12423,7 @@ function renderAlerts(){
   const all=[];
   STAFF.filter(s=>s['Employee Status']==='Active').forEach(s=>{
     // Licensure
-    const expStr=s['License Expiration']||s['Lic Exp Date']||'';
+    const expStr=s['Lic Exp Date']||s['License Expiration']||'';
     if(expStr){const exp=new Date(expStr);if(!isNaN(exp)){exp.setHours(0,0,0,0);const dl=Math.round((exp-today)/86400000);if(dl<=90)all.push({type:dl<0?'danger':'warning',icon:'📜',title:s['Clinician']+' — License '+(dl<0?'LAPSED':'expiring in '+dl+' days'),body:(s['License']||'License')+' · expires '+expStr,cat:'licensure',urgency:dl<0?-999:dl,sid:s._id});}}
     // Birthday
     const dob=s['DOB']||'';
@@ -12293,7 +12610,7 @@ function renderEPDetail(s) {
   const av = avC(s['Clinician']||'');
   const hireDate = s['Date of Hire']||'';
   const dob      = s['DOB']||'';
-  const licExp   = s['License Expiration']||s['Lic Exp Date']||'';
+  const licExp   = s['Lic Exp Date']||s['License Expiration']||'';
   const age      = dob  ? Math.floor((Date.now()-new Date(dob))/(365.25*86400000))  : null;
   const tenure   = hireDate ? Math.floor((Date.now()-new Date(hireDate))/(365.25*86400000)) : null;
   const licDays  = licExp   ? Math.round((new Date(licExp)-new Date())/86400000)    : null;
@@ -12805,16 +13122,15 @@ function renderHome() {
 
   const today2 = new Date(); today2.setHours(0,0,0,0);
   const urgentLic = STAFF.filter(s=>{
-    const exp = s['License Expiration']||s['Lic Exp Date']||'';
+    const exp = s['Lic Exp Date']||s['License Expiration']||'';
     if(!exp) return false;
     const d = new Date(exp); if(isNaN(d)) return false;
     d.setHours(0,0,0,0);
     return Math.round((d-today2)/86400000) <= 30;
   });
-  // Practice-wide license alert: admins only (therapists get their own below).
-  const alertsPreview = (isAdminView() && urgentLic.length)
-    ? homeAlertRow('🪪','red', urgentLic.length + ' license' + (urgentLic.length!==1?'s':'') + ' expiring or lapsed', 'Across the practice, within 30 days', 'View alerts →', "showPage('alerts',null)")
-    : '';
+  // My Homebase is personal at every permission level: only YOUR alerts (practice-wide
+  // license tracking lives on HR Dashboard / Roster).
+  const alertsPreview = '';
 
   container.innerHTML =
     // ── HEADER ──
@@ -12838,22 +13154,12 @@ function renderHome() {
           '<div class="hs-clear" id="home-allclear"><span class="hs-check" aria-hidden="true">✓</span><span><b>All done</b>Nothing needs your attention right now.</span></div>' +
         '</section>' +
         homeCapacityHtml() +
+        homeMeetingsHtml() +
       '</div>' +
-      '<div class="hm-col">' + homeTeamSiteHtml() + '</div>' +
+      '<div class="hm-col">' + homeTeamSiteHtml() + homeEmergencyHtml() + '</div>' +
     '</div>' +
 
-    '<div class="hs-more"><span>More</span></div>' +
-    '<div style="padding:16px 20px 4px"><div class="home-section-title">Quick Access</div></div>' +
-    '<div class="home-quick">' +
-      '<div class="home-quick-card" onclick="showPage(\'announcements\',null)"><div class="home-quick-icon">📢</div><div class="home-quick-label">Announcements</div><div class="home-quick-sub">Latest news</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'roster\',null)"><div class="home-quick-icon">👥</div><div class="home-quick-label">Staff Roster</div><div class="home-quick-sub">Team directory</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'my-performance\',null)"><div class="home-quick-icon">📊</div><div class="home-quick-label">My Performance</div><div class="home-quick-sub">Session tracking</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'resources\',null)"><div class="home-quick-icon">📚</div><div class="home-quick-label">Resources</div><div class="home-quick-sub">Articles &amp; tools</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'crisis\',null)" style="border-color:#fecaca"><div class="home-quick-icon">🚨</div><div class="home-quick-label">Crisis &amp; Safety</div><div class="home-quick-sub">Emergency contacts</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'supplies\',null)"><div class="home-quick-icon">📦</div><div class="home-quick-label">Supply Ordering</div><div class="home-quick-sub">Request supplies</div></div>' +
-      '<div class="home-quick-card" onclick="showPage(\'suggestions\',null)"><div class="home-quick-icon">📬</div><div class="home-quick-label">Suggestion Box</div><div class="home-quick-sub">Private feedback</div></div>' +
-      '<div class="home-quick-card" onclick="window.open(\'https://www.thewatercooleratapp.com\',\'_blank\')"><div class="home-quick-icon">💧</div><div class="home-quick-label">Watercooler</div><div class="home-quick-sub">Full hub ↗</div></div>' +
-    '</div>' +
+    homeQuickHtml() +
 
     // ── ANNOUNCEMENTS PREVIEW ──
     '<div class="home-section">' +
@@ -12862,25 +13168,13 @@ function renderHome() {
       '<div style="text-align:right;margin-top:8px"><button onclick="showPage(\'announcements\',null)" style="background:none;border:none;font-size:12px;color:#1f2937;font-weight:600;cursor:pointer;font-family:inherit">View all →</button></div>' +
     '</div>' +
 
-    // ── CRISIS STRIP ──
-    '<div class="home-section">' +
-      '<div class="home-section-title">🚨 Emergency Quick Reference</div>' +
-      '<div class="home-crisis-strip">' +
-        '<div class="home-crisis-head">' +
-          '<span style="font-size:14px">📞</span>' +
-          '<span style="font-size:12px;font-weight:700;color:#991b1b">Leadership Emergency Numbers</span>' +
-          '<button onclick="showPage(\'crisis\',null)" style="margin-left:auto;background:none;border:none;font-size:11px;color:#dc2626;font-weight:600;cursor:pointer;font-family:inherit">Full crisis page →</button>' +
-        '</div>' +
-        '<div class="home-crisis-body">' +
-          crisisStripHtml() +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-
     // ── SUGGESTION BOX ──
     '<div class="home-section">' +
-      '<div class="home-section-title">📬 Suggestion Box</div>' +
-      '<div class="suggest-wrap" id="suggest-box">' +
+      '<div class="hs-card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 16px">' +
+        '<span style="font-size:18px">📬</span><div style="flex:1;min-width:220px"><b style="font-size:13px">Suggestion box</b> <span style="font-size:12px;color:#6b7280">Ideas or concerns, sent privately to the practice partners — anonymous if you like.</span></div>' +
+        '<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="var w=document.getElementById(\'suggest-box\');w.style.display=w.style.display===\'none\'?\'\':\'none\';this.textContent=w.style.display===\'none\'?\'Write a suggestion\':\'Hide\'">Write a suggestion</button>' +
+      '</div>' +
+      '<div class="suggest-wrap" id="suggest-box" style="display:none;margin-top:10px">' +
         '<div class="suggest-head">' +
           '<div class="suggest-head-title">🔒 Your Voice Matters</div>' +
           '<div class="suggest-head-sub">Share feedback, ideas, or concerns directly with the practice partners. Every submission is read personally by ' + hesc(suggestionRecipients()) + '.</div>' +
@@ -12914,6 +13208,7 @@ function renderHome() {
   loadHomeSites();
   homeWatchAlerts();
   homeLoadWeather();
+  try{ homeLoadMeetings(); }catch(e){}
 }
 
 // ── My Homebase snapshot helpers ──
@@ -12950,7 +13245,7 @@ function homeWhenHtml(w){
 function homeMyAlertsHtml(){
   const me=homeMe(); if(!me) return "";
   let out="";
-  const exp=me['License Expiration']||me['Lic Exp Date']||'';
+  const exp=me['Lic Exp Date']||me['License Expiration']||'';
   if(exp){ const d=new Date(exp); if(!isNaN(d)){ const t=new Date(); t.setHours(0,0,0,0); d.setHours(0,0,0,0);
     const days=Math.round((d-t)/864e5);
     if(days<=60) out+=homeAlertRow('🪪', days<0?'red':days<=30?'red':'amber',
@@ -13036,11 +13331,73 @@ function homeTeamSiteHtml(){
       +homeLeadsHtml(ctm,cpm,sup,supName)
     +'</div>'
     +'<div class="ts-foot">'
-      +(site.police?'<span>Police <a href="'+hesc(telHref(site.police))+'">'+hesc(site.police)+'</a></span>':'')
-      +(site.fire?'<span>Fire <a href="'+hesc(telHref(site.fire))+'">'+hesc(site.fire)+'</a></span>':'')
       +'<span class="ts-links"><button class="hs-link" style="margin:0" onclick="showPage(\'site-info\',null)">Site info →</button>'
       +'<button class="hs-link" style="margin:0" onclick="showPage(\'crisis\',null)">Crisis &amp; safety →</button></span>'
     +'</div></section>';
+}
+// ── Quick access: real pages from the sidebar, only the ones this person can open ──
+function homeQuickHtml(){
+  try{
+    const Q=[
+      ['capacity','📈','My Capacity','Your goal & progress'],
+      ['meetings','🕒','Log Meeting & Admin Time','Before the pay period closes'],
+      ['paysnap','🧾','Pay Period Snapshot','Your closed pay periods'],
+      ['intake-profile','🗂','Clinical Profile for Intake','Openings & availability'],
+      ['__myfile','👤','My Employee File','Profile, CEUs & documents'],
+      ['clin-leadership','👥','My Team','Your team & supervisees'],
+      ['clin-policies','📕','Clinical Manuals','Policies & how-tos'],
+      ['paperwork','📄','Paperwork & Templates','Client packets & letterhead'],
+      ['reflib','📚','Learning & Reference','Articles, videos & files'],
+      ['handbook','📘','Employee Handbook','Current version']];
+    const cards=Q.filter(function(q){ return q[0]==='__myfile' || (canSeePage(q[0]) && document.getElementById('page-'+q[0]) && !(typeof PLACEHOLDERS!=='undefined'&&PLACEHOLDERS[q[0]])); }).map(function(q){
+      const click=q[0]==='__myfile'?"openMyEmployeeFile(document.getElementById('nav-myfile'))":"showPage('"+q[0]+"',document.getElementById('nav-"+q[0]+"'))";
+      return '<div class="home-quick-card" role="button" tabindex="0" onclick="'+click+'" onkeydown="if(event.key===\'Enter\')this.click()"><div class="home-quick-icon">'+q[1]+'</div><div class="home-quick-label">'+q[2]+'</div><div class="home-quick-sub">'+q[3]+'</div></div>'; }).join('');
+    return '<div class="hs-more"><span>More</span></div><div style="padding:16px 20px 4px"><div class="home-section-title">Quick Access</div></div><div class="home-quick">'+cards+'</div>';
+  }catch(e){ return ''; }
+}
+// ── Meeting & Admin Time widget (your own entries) ──
+function homeMeetingsHtml(){
+  const me=homeMe(); if(!me) return '';
+  return '<section class="hs-card" aria-labelledby="hs-mtg-h"><div class="hs-h" id="hs-mtg-h"><span>🕒</span> Meeting &amp; admin time'
+    +'<button class="hs-link" onclick="showPage(\'meetings\',document.getElementById(\'nav-meetings\'))">Log time →</button></div><div id="home-mtg"><div class="hs-none">Loading…</div></div></section>';
+}
+async function homeLoadMeetings(){
+  const host=document.getElementById('home-mtg'); if(!host) return;
+  try{
+    const me=homeMe(); if(!me||!window.mtgStore){ host.innerHTML='<div class="hs-none">Log meetings and admin time on Meeting and Admin Time.</div>'; return; }
+    const list=await window.mtgStore.mine(me._id)||[];
+    if(!document.getElementById('home-mtg')) return;
+    const cur=appPPCurrentIdx(), prev=cur-1, h=function(m){ return (Math.round((m||0)/60*100)/100).toFixed(2); };
+    const inPP=function(i){ const pp=ALL_PPS[i]; return pp?list.filter(function(m){ const d=String(m.date||'').slice(0,10); return d>=pp.startISO&&d<=pp.endISO; }):[]; };
+    const sum=function(arr){ let mins=0,usd=0,ffs=0; arr.forEach(function(m){ const r=prMtgRate(m); mins+=+m.mins||0; if(r===25) usd+=(+m.mins||0)*25/60; else if(r==='FFS') ffs+=+m.mins||0; }); return {mins:mins,usd:usd,ffs:ffs,n:arr.length}; };
+    const c=sum(inPP(cur)), p=prev>=0?sum(inPP(prev)):null, un=sum(list.filter(function(m){ return m.status!=='PAID'; }));
+    const box=function(lab,v,sub){ return '<div style="flex:1;min-width:120px"><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8a8f9e">'+lab+'</div><div style="font-size:19px;font-weight:800;color:#122B67">'+v+'</div><div style="font-size:11.5px;color:#6b7280">'+sub+'</div></div>'; };
+    const pp=ALL_PPS[cur];
+    host.innerHTML='<div style="display:flex;gap:14px;flex-wrap:wrap">'
+      +box('This pay period',h(c.mins)+' h',c.n+' entr'+(c.n===1?'y':'ies')+(pp?' · '+pp.range:''))
+      +(p?box('Last pay period',h(p.mins)+' h',p.n+' entr'+(p.n===1?'y':'ies')):'')
+      +box('Awaiting pay',h(un.mins)+' h',(un.usd?'$'+un.usd.toFixed(2)+' at $25/hr':'')+(un.usd&&un.ffs?' · ':'')+(un.ffs?h(un.ffs)+' h at FFS':'')+(!un.mins?'all paid':''))+'</div>'
+      +'<div style="font-size:11.5px;color:#9ca3af;margin-top:8px">Log time before the pay period closes. For anything older than the last pay period, contact HR.</div>';
+  }catch(e){ console.error(e); host.innerHTML='<div class="hs-none">Couldn’t load your entries.</div>'; }
+}
+// ── Emergency quick reference, by site (defaults to your team site) ──
+var HOME_EM_SITE=null;
+function homeEmergencyHtml(){
+  try{
+    const dir=CONFIG.siteDirectory||{}, codes=(typeof SITE_ORDER!=='undefined'&&SITE_ORDER.length?SITE_ORDER:Object.keys(dir)).filter(function(k){ return dir[k]; });
+    const code=HOME_EM_SITE&&dir[HOME_EM_SITE]?HOME_EM_SITE:(homeSiteCode()||codes[0]); const site=dir[code]||{};
+    const tel=function(lbl,num,strong){ return num?'<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #f4f4f5"><span style="font-size:12.5px;color:#374151'+(strong?';font-weight:800':'')+'">'+hesc(lbl)+'</span><a href="'+hesc(telHref(num))+'" style="font-size:13px;font-weight:800;color:#b91c1c;text-decoration:none">'+hesc(num)+'</a></div>':''; };
+    const lines=(CONFIG.crisisContacts||[]).filter(function(c){ return c&&!c.leadership; }), lead=(CONFIG.crisisContacts||[]).filter(function(c){ return c&&c.leadership; });
+    return '<section class="hs-card" id="home-emergency" aria-labelledby="hs-em-h" style="border-color:#fecaca">'
+      +'<div class="hs-h" id="hs-em-h"><span>🚨</span> Emergency'
+        +(codes.length>1?'<select aria-label="Site" onchange="HOME_EM_SITE=this.value;var x=document.getElementById(\'home-emergency\');if(x)x.outerHTML=homeEmergencyHtml();" style="margin-left:auto;font:inherit;font-size:12px;font-weight:600;padding:3px 6px;border:1px solid #e5e7eb;border-radius:7px;max-width:190px">'
+          +codes.map(function(k){ return '<option value="'+hesc(k)+'"'+(k===code?' selected':'')+'>'+hesc((dir[k]&&dir[k].l)||k)+(k===homeSiteCode()?' (your site)':'')+'</option>'; }).join('')+'</select>':'')+'</div>'
+      +(site.addr?'<a class="hs-addr" style="display:block;margin-bottom:4px" href="https://maps.google.com/?q='+encodeURIComponent(site.addr)+'" target="_blank" rel="noopener">📍 '+hesc(site.addr)+' ↗</a>':'')
+      +tel('Life-threatening emergency','911',true)+tel((site.l||code)+' police',site.police)+tel((site.l||code)+' fire',site.fire)
+      +lines.map(function(c){ return tel(c.name,c.phone); }).join('')
+      +(lead.length?'<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8a8f9e;margin-top:8px">Leadership on call</div>'+lead.map(function(c){ return tel(c.name,c.phone); }).join(''):'')
+      +'<div style="text-align:right;margin-top:6px"><button class="hs-link" style="margin:0" onclick="showPage(\'crisis\',null)">Full crisis &amp; safety guide →</button></div></section>';
+  }catch(e){ return ''; }
 }
 // Google Chat space link per site — not shown on My Homebase yet (feed parked until Chat API setup).
 // Admins paste a site’s Google Chat space link (e.g. https://chat.google.com/room/…).
@@ -13054,7 +13411,7 @@ async function homeSetChat(code){
   CONFIG.siteChat=Object.assign({},CONFIG.siteChat||{}); if(url) CONFIG.siteChat[code]=url; else delete CONFIG.siteChat[code];
   await persistConfig(); showToast(url?"💬 Chat link saved":"Chat link removed"); renderHome(); homeRefreshAsync();
 }
-function homeRefreshAsync(){ try{ loadHomePanelAvail(); loadHomeReviews(); loadHomeIpAlert(); loadHomeSignAlert(); }catch(e){} }
+function homeRefreshAsync(){ try{ loadHomePanelAvail(); loadHomeReviews(); loadHomeIpAlert(); loadHomeSignAlert(); }catch(e){} try{ homeLoadMeetings(); }catch(e){} }
 // Small live weather widget (Open-Meteo: free, no key). Cached for 30 minutes.
 var HM_WX={};
 // Weather: National Weather Service (api.weather.gov) — free, public-domain, OK for business use, no key.
@@ -13101,6 +13458,7 @@ async function boot() { // called by the Firebase auth module once sign-in compl
   renderSuggestionContacts();// and the suggestion-box recipient labels
   await loadPersistedData();
   await loadRoles();
+  try{ await loadPermRoles(); }catch(e){}
   await loadPhotos();
   await loadCompChecklist();
   try{ const r=await window.storage.get('app_comp_data'); if(r&&r.value){ COMP_DATA=JSON.parse(r.value)||{}; } }catch(e){}
@@ -14799,7 +15157,7 @@ var HB_EDIT_MATCH=[
   '#m-edit','#ae-grid','#pr-modal','#ceu-self-form',
   '[id^="ref-"]:not(#ref-search)','[id^="lib-"]','#lb-typed',
   '[id^="mtg-"]:not(#mtg-pp):not([id^="mtg-pay"])','[id^="supply-"]','[id^="of-"]',
-  '[id^="suggest-"]','#reviews-body textarea','#reviews-body input:not([type=search])','[id^="pr-np-"]','[id^="pa-note-"]','[id^="cr-"]'
+  '[id^="suggest-"]','#reviews-body textarea','#reviews-body input:not([type=search])','[id^="pr-np-"]','[id^="pa-note-"]','[id^="cr-"]','[id^="perm-"]:not(#perm-add)'
 ];
 function hbIsEditField(t){
   try{
@@ -14984,7 +15342,7 @@ function ppuEsc(v){ return hesc(v); }
 function ppuSeedRules(){ return {version:1, rows:PPU_SEED.map(function(a){ return {cat:a[0],id:a[1],head:a[2],diff:!!a[3],desc:a[4],delivery:a[5],cpt:a[6],clin:a[7],ffs:a[8],add:a[9]}; }),
   settings:Object.assign({},PPU_DEF_SETTINGS), fixes:['diff-2026-11'], updatedAt:new Date().toISOString(), updatedBy:'seed (Cap Hours Formula sheet)', history:[{v:1,at:new Date().toISOString(),by:'seed',note:'Imported from the Cap Hours Formula sheet; no-show codes corrected'}]}; }
 function ppuSettings(r){ return Object.assign({},PPU_DEF_SETTINGS,(r||PPU.rules||{}).settings||{}); }
-function ppuNormId(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toUpperCase(); }
+function ppuNormId(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().replace(/^'+/,'').replace(/^(\d+)\.0+$/,'$1').toUpperCase(); }
 function ppuRuleMap(rules){ const m={}; ((rules&&rules.rows)||[]).forEach(function(r){ const k=ppuNormId(r.id); if(k&&!m[k]) m[k]=r; }); return m; }
 function ppuH(x){ return Math.round((+x||0)*100); }                   // hours → hundredths
 function ppuF(h){ return (Math.round(h)/100).toFixed(2); }            // hundredths → "0.00"
@@ -15025,7 +15383,7 @@ function ppuParseUpload(text){
   const addCols=parsed.headers.filter(function(h){ return /^AddOnTransactionID/i.test(h); });
   const rows=parsed.records.map(function(r,i){
     return {i:i+2, pid:String(r.ProviderID||'').trim(), prov:String(r.Provider||'').trim(), date:PR.isoDate(r.Date), st:PR.minutes(r.AppointmentStartTime), en:PR.minutes(r.AppointmentEndTime),
-      tx:String(r.PrimaryTransactionID||'').trim(), cpt:String(r.PrimaryCPTCode||'').trim(), addons:addCols.map(function(h){ return String(r[h]||'').trim(); }).filter(Boolean),
+      tx:String(r.PrimaryTransactionID||'').trim()||String(r.PrimaryCPTCode||'').trim(), cpt:String(r.PrimaryCPTCode||'').trim(), addons:addCols.map(function(h){ return String(r[h]||'').trim(); }).filter(Boolean),
       cc:ppuClientCode(r.Patient), fac:String(r.FacilityID||'').trim(), docStatus:String(r.DocumentStatus||'').trim(), signed:PR.isoDate(r.DocumentSignedDate)||'', signedTime:String(r.DocumentSignedDate1||'').trim()};
   }).filter(function(r){ return r.pid||r.tx||r.date; });
   return {rows:rows};
@@ -15099,7 +15457,8 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp){
     if(!E.sid && k.indexOf('staff:')!==0){ block('Provider not linked',E.prov||k,'ProviderID '+k+' — link to a staff record below'); E.flags++; }
     Object.keys(E.other).forEach(function(h){ warn('No display column',E.prov,'“'+h+'” '+ppuF(E.other[h])+' FFS hrs — counted in the Paychex FFS total'); });
     E.thresh=ppuH(S.threshold); E.bonus=Math.max(0,E.clin-E.thresh);
-    E.diffC=E.diff*Math.round(S.diffRate*100); E.bonusC=Math.round(E.bonus*S.bonusRate);
+    { const st=E.sid?(STAFF||[]).find(function(x){ return x._id===E.sid; }):null; E.elig=st?payEligible(st):true; }
+    E.diffC=E.elig?E.diff*Math.round(S.diffRate*100):0; E.bonusC=E.elig?Math.round(E.bonus*S.bonusRate):0;   // not eligible → hours tracked, $0
     const catSum=Object.keys(E.cats).reduce(function(a,h){ return a+E.cats[h]; },0), othSum=Object.keys(E.other).reduce(function(a,h){ return a+E.other[h]; },0);
     E.mtgFfsH=Math.round(E.mtg.ffsMins*100/60);
     E.ffsSessions=catSum+othSum; E.ffsTot=catSum+othSum+E.pns+E.sup+E.mtgFfsH;
@@ -15272,15 +15631,15 @@ async function ppuLink(pid,sid){
 }
 function ppuTableHtml(R,closed){
   const c=function(v){ return '<td class="'+(v?'':'z')+'">'+ppuF(v||0)+'</td>'; };
-  let h='<div class="ppu-tw"><table><thead><tr><th class="l stk" rowspan="2">Employee</th><th rowspan="2" class="l">Provider ID</th><th class="g" colspan="'+PPU_HEADS.length+'">Service categories — hours</th>'
-    +'<th class="g t">Clinical credit</th><th class="g t">Paid no shows</th><th class="g t">Paid supervision</th><th class="g t" style="background:#eef7f8">Paychex</th><th class="g t" colspan="2">Differentials · $'+R.settings.diffRate+'</th><th class="g t" colspan="2">Bonus &gt;'+R.settings.threshold+' · $'+R.settings.bonusRate+'/hr</th><th class="g t" colspan="2">Additional comp</th><th class="g t" colspan="2">Meetings $25/hr</th><th rowspan="2"></th></tr><tr>'
-    +PPU_HEADS.map(function(x){ return '<th style="white-space:normal;min-width:72px">'+ppuEsc(x)+(x===PPU_NOSHOW_UNPAID?' (count)':'')+'</th>'; }).join('')
-    +'<th>Billable session time</th><th>Hours</th><th>Hours</th><th style="background:#eef7f8">Total FFS hours</th><th>Hours</th><th>$</th><th>Hours</th><th>$</th><th>Count</th><th>$</th><th>Hours</th><th>$</th></tr></thead><tbody>';
+  let h='<div class="ppu-tw"><table><thead><tr><th class="l stk" rowspan="2">Employee</th><th rowspan="2" class="l">Provider ID</th><th class="g" colspan="'+(PPU_HEADS.length+1)+'">Service categories — hours</th>'
+    +'<th class="g t">Clinical credit</th><th class="g t">Paid supervision</th><th class="g t" style="background:#eef7f8">Paychex</th><th class="g t" colspan="2">Differentials · $'+R.settings.diffRate+'</th><th class="g t" colspan="2">Bonus &gt;'+R.settings.threshold+' · $'+R.settings.bonusRate+'/hr</th><th class="g t" colspan="2">Additional comp</th><th class="g t" colspan="2">Meetings $25/hr</th><th rowspan="2"></th></tr><tr>'
+    +PPU_HEADS.map(function(x){ return (x===PPU_NOSHOW_UNPAID?'<th style="white-space:normal;min-width:72px;background:#eef7f8">No Show Paid (11111) hrs</th>':'')+'<th style="white-space:normal;min-width:72px">'+ppuEsc(x)+(x===PPU_NOSHOW_UNPAID?' (11112) count':'')+'</th>'; }).join('')
+    +'<th>Billable session time</th><th>Hours</th><th style="background:#eef7f8">Total FFS hours</th><th>Hours</th><th>$</th><th>Hours</th><th>$</th><th>Count</th><th>$</th><th>Hours</th><th>$</th></tr></thead><tbody>';
   R.emps.forEach(function(E){
     h+='<tr class="emp'+(PPU.sel===E.pid?' on':'')+'" onclick="ppuPick(\''+ppuEsc(E.pid)+'\')"><td class="l stk"><b>'+ppuEsc(E.name||E.prov)+'</b>'+(E.flags&&!closed?' <span class="pill bad">'+E.flags+'</span>':'')+(!E.sid?' <span class="pill warn">not linked</span>':(ppuIsFormer(E.sid)?' <span class="pill grey">former staff</span>':''))+'</td><td class="l muted">'+ppuEsc(E.pid.indexOf('staff:')===0?'(meetings only)':E.pid)+'</td>'
-      +PPU_HEADS.map(function(x){ return x===PPU_NOSHOW_UNPAID?'<td class="'+(E.nsu?'':'z')+'">'+E.nsu+'</td>':c(E.cats[x]); }).join('')
-      +'<td><b>'+ppuF(E.clin)+'</b></td>'+c(E.pns)+c(E.sup)+'<td style="background:#f3fbfc"><b>'+ppuF(E.ffsTot)+'</b></td>'
-      +c(E.diff*100)+'<td>'+ppuUsd(E.diffC)+'</td>'+c(E.bonus)+'<td>'+ppuUsd(E.bonusC)+'</td><td class="'+(E.addN?'':'z')+'">'+E.addN+'</td><td>'+ppuUsd(E.addC)+'</td>'
+      +PPU_HEADS.map(function(x){ return x===PPU_NOSHOW_UNPAID?'<td class="'+(E.pns?'':'z')+'" style="background:#f3fbfc"><b>'+ppuF(E.pns)+'</b></td><td class="'+(E.nsu?'':'z')+'">'+E.nsu+'</td>':c(E.cats[x]); }).join('')
+      +'<td><b>'+ppuF(E.clin)+'</b></td>'+c(E.sup)+'<td style="background:#f3fbfc"><b>'+ppuF(E.ffsTot)+'</b></td>'
+      +c(E.diff*100)+'<td>'+(E.elig||!E.diff?ppuUsd(E.diffC):'<span class="pill grey" title="Not eligible — tracked only">n/a</span>')+'</td>'+c(E.bonus)+'<td>'+(E.elig||!E.bonus?ppuUsd(E.bonusC):'<span class="pill grey" title="Not eligible — tracked only">n/a</span>')+'</td><td class="'+(E.addN?'':'z')+'">'+E.addN+'</td><td>'+ppuUsd(E.addC)+'</td>'
       +c(Math.round(E.mtg.flatMins*100/60))+'<td>'+ppuUsd(E.mtg.flatC)+'</td><td class="muted">›</td></tr>';
   });
   return h+'</tbody></table></div><div class="muted" style="font-size:12px;margin-top:6px">Click an employee for the drill-down. Total FFS hours = service categories + paid no shows + paid supervision + meeting time paid at the FFS rate — the flat FFS hours entered in Paychex. Clients appear by code only.</div>';
@@ -15327,15 +15686,15 @@ function ppuDrill(){
   const lines=R.lines.filter(function(L){ return L.pid===E.pid; }).sort(function(a,b){ return ((a.date||'')+String(a.st).padStart(4,'0')).localeCompare((b.date||'')+String(b.st).padStart(4,'0')); });
   let h='<div class="ppu-card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><div class="muted" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">'+ppuPP(PPU.ppId).short+'</div><div style="font-size:20px;font-weight:800;color:#122B67;font-family:Montserrat,sans-serif">'+ppuEsc(E.name||E.prov)+'</div><div class="muted">'+ppuEsc(E.pid)+' · '+E.rows+' appointment rows'+(E.mtg.items.length?' · '+E.mtg.items.length+' meeting entries':'')+'</div></div><button class="btn btn-secondary" onclick="ppuPick(\''+ppuEsc(E.pid)+'\')">Close ×</button></div>';
   h+='<div style="font-size:12.5px;font-weight:800;margin:14px 0 8px">Service categories (hours)</div><div class="ppu-cats">'+PPU_HEADS.map(function(x){ const v=x===PPU_NOSHOW_UNPAID?E.nsu:E.cats[x]||0;
-    return '<div class="ppu-cat'+(v?'':' zero')+'"><div class="n">'+(x===PPU_NOSHOW_UNPAID?v:ppuF(v))+'</div><div class="k">'+ppuEsc(x)+(x===PPU_NOSHOW_UNPAID?' · count (0 hrs, $0)':'')+'</div></div>'; }).join('')
+    return (x===PPU_NOSHOW_UNPAID?'<div class="ppu-cat'+(E.pns?'':' zero')+'" style="background:#f0fafb;border-color:#9fdbe1"><div class="n">'+ppuF(E.pns)+'</div><div class="k">No Show Paid (11111) · 1 hr FFS each · in Paychex total</div></div>':'')+'<div class="ppu-cat'+(v?'':' zero')+'"><div class="n">'+(x===PPU_NOSHOW_UNPAID?v:ppuF(v))+'</div><div class="k">'+ppuEsc(x)+(x===PPU_NOSHOW_UNPAID?' · count (0 hrs, $0)':'')+'</div></div>'; }).join('')
     +Object.keys(E.other).map(function(k){ return '<div class="ppu-cat"><div class="n">'+ppuF(E.other[k])+'</div><div class="k">'+ppuEsc(k)+' · no column</div></div>'; }).join('')+'</div>';
   h+='<div style="font-size:12.5px;font-weight:800;margin:16px 0 0">Pay-period tally</div><div class="ppu-tally">'
     +tile('Billable session time for clinical hour credit',ppuF(E.clin)+' hrs','feeds the Capacity Dashboard','big')
     +tile('Total FFS hours for Paychex',ppuF(E.ffsTot)+' hrs','sessions '+ppuF(E.ffsSessions)+' + paid no shows '+ppuF(E.pns)+(E.sup?' + paid supervision '+ppuF(E.sup):'')+(E.mtgFfsH?' + meetings at FFS '+ppuF(E.mtgFfsH):''),'pay')
     +tile('Paid no shows',ppuF(E.pns)+' hrs','1 hr at FFS each · 0 clinical hrs')
     +((E.sup||E.supU)?tile('Supervision',ppuF(E.sup)+' hrs paid','1 hr at FFS each · 0 clinical hrs'+(E.supU?'<br>'+E.supU+' unpaid (tracked only)':'')):'')
-    +tile('Differentials',ppuF(E.diff*100)+' hrs',E.diff+' × $'+(+S.diffRate).toFixed(2)+' = <b>'+ppuUsd(E.diffC)+'</b>')
-    +tile('Bonus payout — clinical hours over '+S.threshold,ppuF(E.bonus)+' hrs',ppuF(E.bonus)+' × $'+(+S.bonusRate).toFixed(2)+' = <b>'+ppuUsd(E.bonusC)+'</b>')
+    +tile('Differentials',ppuF(E.diff*100)+' hrs',E.elig?E.diff+' × $'+(+S.diffRate).toFixed(2)+' = <b>'+ppuUsd(E.diffC)+'</b>':'tracked only — not eligible (change on their profile)')
+    +tile('Bonus payout — clinical hours over '+S.threshold,ppuF(E.bonus)+' hrs',E.elig?ppuF(E.bonus)+' × $'+(+S.bonusRate).toFixed(2)+' = <b>'+ppuUsd(E.bonusC)+'</b>':'tracked only — not eligible')
     +tile('Additional clinical comp',E.addN+' hrs',E.addN?(function(){ const g={}; lines.forEach(function(L){ if(L.addC){ const k=L.head+' · '+ppuUsd(L.addC); g[k]=(g[k]||0)+1; } }); return Object.keys(g).map(function(k){ return g[k]+' × '+ppuEsc(k); }).join('<br>')+'<br>= <b>'+ppuUsd(E.addC)+'</b>'; })():'none this period')
     +tile('Meeting & admin time',ppuF(Math.round((E.mtg.flatMins+E.mtg.ffsMins)*100/60))+' hrs','$25/hr: '+ppuF(Math.round(E.mtg.flatMins*100/60))+' h = <b>'+ppuUsd(E.mtg.flatC)+'</b>'+(E.mtg.ffsMins?'<br>at FFS rate: '+ppuF(E.mtgFfsH)+' h (in Paychex total)':'')+(E.mtg.otherMins?'<br><span style="color:#b45309">needs a rate: '+ppuF(Math.round(E.mtg.otherMins*100/60))+' h</span>':''))
     +'</div>';
@@ -15415,11 +15774,11 @@ function ppuExportCsv(){
     const R=PPU.R; if(!R) return; const pp=ppuPP(PPU.ppId);
     const q=function(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
     const head=['Employee','Provider ID','Pay Period','Start Date','End Date'].concat(PPU_HEADS.map(function(h){ return h===PPU_NOSHOW_UNPAID?h+' (count)':h; }))
-      .concat(['Billable Session Time for Clinical Hour Credit - Hours','Paid No Shows - Hours','Paid Supervision - Hours','Unpaid Supervision (count)','Total FFS Hours for Paychex','Differentials - Hours','Differentials - Rate','Differentials - Dollar Amount',
+      .concat(['Billable Session Time for Clinical Hour Credit - Hours','Paid No Shows - Hours','Paid Supervision - Hours','Unpaid Supervision (count)','Total FFS Hours for Paychex','Differential & Bonus Eligible','Differentials - Hours','Differentials - Rate','Differentials - Dollar Amount',
         'Bonus Payout - Clinical Hours Over '+R.settings.threshold+' - Hours','Bonus Payout - Rate','Bonus Payout - Dollar Amount','Additional Clinical Comp - Hours','Additional Clinical Comp - Dollar Amount',
         'Meeting & Admin $25/hr - Hours','Meeting & Admin $25/hr - Dollar Amount','Meeting & Admin at FFS - Hours']);
     const rows=R.emps.map(function(E){ return [E.name||E.prov,E.pid.indexOf('staff:')===0?'':E.pid,pp.id,pp.startISO,pp.endISO].concat(PPU_HEADS.map(function(h){ return h===PPU_NOSHOW_UNPAID?E.nsu:ppuF(E.cats[h]||0); }))
-      .concat([ppuF(E.clin),ppuF(E.pns),ppuF(E.sup),E.supU,ppuF(E.ffsTot),ppuF(E.diff*100),(+R.settings.diffRate).toFixed(2),(E.diffC/100).toFixed(2),ppuF(E.bonus),(+R.settings.bonusRate).toFixed(2),(E.bonusC/100).toFixed(2),E.addN,(E.addC/100).toFixed(2),
+      .concat([ppuF(E.clin),ppuF(E.pns),ppuF(E.sup),E.supU,ppuF(E.ffsTot),E.elig===false?'No':'Yes',ppuF(E.diff*100),(+R.settings.diffRate).toFixed(2),(E.diffC/100).toFixed(2),ppuF(E.bonus),(+R.settings.bonusRate).toFixed(2),(E.bonusC/100).toFixed(2),E.addN,(E.addC/100).toFixed(2),
         ppuF(Math.round(E.mtg.flatMins*100/60)),(E.mtg.flatC/100).toFixed(2),ppuF(E.mtgFfsH)]); });
     const csv=[head].concat(rows).map(function(r){ return r.map(q).join(','); }).join('\n');
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='pay_period_'+pp.id+(PPU.periods[pp.id]&&PPU.periods[pp.id].status==='closed'?'_closed_v'+PPU.periods[pp.id].version:'_preview')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -15447,6 +15806,7 @@ async function ppuClose(){
       try{ MTG_ALL=null; MTG_MINE=null; }catch(e){} }catch(e){ console.error(e); showToast('⚠ Some meeting entries could not be marked paid'); }
     // Capacity Dashboard: this period's clinical hours
     const wrote=await ppuWriteCapacity(PPU.ppId,R.emps,p.capSids||[]);
+    await ppuSavePracticeStats(PPU.ppId,R);
     p.status='closed'; p.closedAt=at; p.closedBy=by; p.capSids=wrote; p.snapshots=(p.snapshots||[]).concat({v:v,id:snapId,at:at,by:by});
     ppuAudit(p,{act:'close',detail:'v'+v+' · '+R.emps.length+' employees · '+nPaid+' meeting entries paid'});
     await payStore.setPeriod('ppu_'+PPU.ppId,p);
@@ -15463,9 +15823,9 @@ async function ppuReopen(){
   }catch(e){ console.error(e); showToast('⚠ Could not reopen'); }
 }
 function ppuStatement(E,R,pp,v,at){
-  const lines=R.lines.filter(function(L){ return L.pid===E.pid && L.status!=='excluded'; }).map(function(L){ return {cc:L.cc||'',date:L.date,st:L.st,tx:L.tx,head:L.head,clin:L.clin,ffs:L.ffs,diff:L.diff,status:L.status}; });
+  const lines=R.lines.filter(function(L){ return L.pid===E.pid && L.status!=='excluded'; }).map(function(L){ return {cc:L.cc||'',date:L.date,st:L.st,tx:L.tx,head:L.head,clin:L.clin,ffs:L.ffs,diff:L.diff,status:L.status,signed:L.signed||'',doc:L.docStatus||''}; });
   return {kind:'ppu',sid:E.sid,pid:E.pid,name:E.name||E.prov,periodId:'ppu_'+pp.id,ppId:pp.id,version:v,label:pp.short,start:pp.startISO,end:pp.endISO,closedAt:at,
-    summary:{clin:E.clin,cats:E.cats,nsu:E.nsu,pns:E.pns,sup:E.sup,supU:E.supU,other:E.other,ffsTot:E.ffsTot,diff:E.diff,bonus:E.bonus,threshold:R.settings.threshold,addN:E.addN,
+    summary:{elig:E.elig!==false,clin:E.clin,cats:E.cats,nsu:E.nsu,pns:E.pns,sup:E.sup,supU:E.supU,other:E.other,ffsTot:E.ffsTot,diff:E.diff,bonus:E.bonus,threshold:R.settings.threshold,addN:E.addN,
       mtgFlatMins:E.mtg.flatMins,mtgFlatC:E.mtg.flatC,mtgFfsMins:E.mtg.ffsMins},
     meetings:E.mtg.items.map(function(m){ return {date:m.date,start:m.start,end:m.end,type:m.type,mins:m.mins,kind:m.kind,notes:m.notes,early:m.early}; }),
     lines:lines};
@@ -15498,6 +15858,33 @@ async function ppuWriteCapacity(ppId,emps,prevSids){
   }catch(e){ console.error(e); showToast('⚠ Closed, but the Capacity Dashboard could not be updated'); }
   return wrote;
 }
+// ── Progress measures (shared by the per-person card and the practice summary) ──
+// From appointment lines: sessions = counted rows that aren't no-shows or supervision.
+// Notes: "signed" = the row has a signed date; "on time" = signed within 3 days of the session.
+function ppuProgressOf(lines){
+  const o={sessions:0,noShows:0,paidNS:0,signed:0,onTime:0,daysSum:0,eveWknd:0,clin:0,byHead:{}};
+  (lines||[]).forEach(function(L){
+    if(L.status&&L.status!=='counted') return;
+    const h=L.head||'';
+    if(h===PPU_NOSHOW_PAID||h===PPU_NOSHOW_UNPAID){ o.noShows++; if(h===PPU_NOSHOW_PAID) o.paidNS++; return; }
+    if(h===PPU_SUP_PAID||h===PPU_SUP_UNPAID) return;
+    o.sessions++; o.clin+=(+L.clin||0); if(L.diff) o.eveWknd++;
+    const b=o.byHead[h||'Other']=o.byHead[h||'Other']||{n:0,clin:0}; b.n++; b.clin+=(+L.clin||0);
+    if(L.signed&&L.date){ o.signed++; const d=PR.dayDiff(L.date,L.signed); if(d>=0){ o.daysSum+=d; if(d<=3) o.onTime++; } }
+  });
+  return o;
+}
+function ppuProgressAdd(a,b){ ['sessions','noShows','paidNS','signed','onTime','daysSum','eveWknd','clin','clinicians'].forEach(function(k){ a[k]=(a[k]||0)+(b[k]||0); });
+  Object.keys(b.byHead||{}).forEach(function(h){ const x=a.byHead[h]=a.byHead[h]||{n:0,clin:0}; x.n+=b.byHead[h].n; x.clin+=b.byHead[h].clin; }); return a; }
+// Saved on close: one aggregate per pay period, all clinicians together (no names) — readable by all staff.
+async function ppuSavePracticeStats(ppId,R){
+  try{
+    const lines=R.lines.filter(function(L){ const E=R.emps.find(function(x){ return x.pid===L.pid; }); return E&&E.sid; });
+    const agg=ppuProgressOf(lines); agg.clinicians=R.emps.filter(function(E){ return E.sid&&E.pid.indexOf('staff:')!==0; }).length; agg.at=ppuNow();
+    let doc={}; try{ const r=await window.storage.get('app_practice_stats'); if(r&&r.value) doc=JSON.parse(r.value)||{}; }catch(e){}
+    doc[ppId]=agg; await window.storage.set('app_practice_stats',JSON.stringify(doc));
+  }catch(e){ console.error(e); }
+}
 // Pay Period Snapshot (employee view) for a closed pay period — hours only; $ only for $25/hr meetings.
 function ppuStatementHtml(st,opt){
   opt=opt||{}; const S=st.summary||{};
@@ -15507,7 +15894,8 @@ function ppuStatementHtml(st,opt){
   const mFlat=Math.round((S.mtgFlatMins||0)*100/60), mFfs=Math.round((S.mtgFfsMins||0)*100/60);
   h+='<div class="pr-stiles">'+tile('Clinical hours credited',ppuF(S.clin||0),'counts toward your capacity goal')+tile('FFS hours',ppuF(S.ffsTot||0),'paid at your FFS rate')
     +tile('Paid no shows',ppuF(S.pns||0),'0 clinical hours')+tile('Unpaid no shows',S.nsu||0,'not paid · 0 clinical hours')
-    +tile('Evening / weekend',(S.diff||0)+' appt'+((S.diff||0)===1?'':'s'),'differential hours')+tile('Over '+(S.threshold||50)+' clinical hrs',ppuF(S.bonus||0),'bonus hours')
+    +(S.elig===false?tile('Evening / weekend',(S.diff||0)+' appt'+((S.diff||0)===1?'':'s'),'sessions')
+      :tile('Evening / weekend',(S.diff||0)+' appt'+((S.diff||0)===1?'':'s'),'differential hours')+tile('Over '+(S.threshold||50)+' clinical hrs',ppuF(S.bonus||0),'bonus hours'))
     +(S.addN?tile('Additional clinical comp',S.addN+' hrs','e.g. CANS'):'')
     +((mFlat||mFfs)?tile('Meetings & admin',ppuF(mFlat+mFfs)+' h',(mFlat?ppuUsd(S.mtgFlatC||0)+' at $25/hr':'')+(mFfs?(mFlat?' · ':'')+ppuF(mFfs)+' h at FFS':'')):'')+'</div>';
   h+='<div class="pr-card"><b>Hours by service type</b><table class="pr-ltbl" style="margin-top:6px"><thead><tr><th>Service</th><th>Hours</th></tr></thead><tbody>'
@@ -16178,6 +16566,9 @@ window.__applyIdentity = function () {
   window.AUTH_STAFF_ID = me ? me._id : null;
   window.__NO_ROSTER_MATCH = (!me && !admin);
   VIEW_AS_ID = admin ? null : (me ? me._id : null);
+  // Someone with a custom role sees that role's pages even if their access level is Admin
+  // (Super Admins keep the full view).
+  try{ if(me && role!=='superadmin' && !BOOTSTRAP_ADMINS.includes(email) && typeof permRoleFor==='function' && permRoleFor(me)) VIEW_AS_ID = me._id; }catch(e){}
   const chip = document.getElementById('signed-in-email');
   if (chip) chip.textContent = email;
 };
