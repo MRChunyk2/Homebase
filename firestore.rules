@@ -139,6 +139,40 @@ service cloud.firestore {
     // Meeting & Admin Pay submissions (the in-app Meeting Pay form). Each
     // person files and reads their own; deleting only while still UNPAID.
     // Admins (HR) read everything, mark rows paid, and import history.
+    // Alerts issued to one employee from their Employee File (Admins / Super Admins issue;
+    // the employee reads their own and can only mark one done).
+    match /staffAlerts/{aid} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create: if isAdmin() && request.resource.data.sid is string && request.resource.data.size() < 20;
+      allow delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isDomain() && resource.data.sid == myStaffId()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ackAt', 'ackBy'])
+            && request.resource.data.status == 'done');
+    }
+
+    // Suggestion box (My Homebase). Anyone signed in can send one (create only, small,
+    // status 'new'); only Super Admins read, mark read/done, add notes or delete.
+    match /suggestions/{id} {
+      allow create: if isDomain() && request.resource.data.size() < 12
+        && request.resource.data.text is string && request.resource.data.text.size() <= 4000
+        && request.resource.data.status == 'new';
+      allow read, update, delete: if isSuperAdmin();
+    }
+
+    // Office bookings (My Homebase → Office Bookings). Everyone signed in reads the calendar.
+    // Staff create pending requests for themselves and may cancel (delete) their own pending ones;
+    // Supervisor level and up (CTMs/CPMs) and Admins assign, approve, decline, free up days and remove.
+    match /officeBookings/{bid} {
+      allow read: if isDomain();
+      allow create: if isDomain() && request.resource.data.size() < 24 && request.resource.data.sid is string
+        && (isAdmin() || myRole() == 'supervisor'
+            || (request.resource.data.sid == myStaffId() && request.resource.data.status == 'pending'));
+      allow update: if isAdmin() || (isDomain() && myRole() == 'supervisor');
+      allow delete: if isAdmin() || (isDomain() && myRole() == 'supervisor')
+        || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'pending');
+    }
+
     match /meetings/{mid} {
       allow create: if isDomain()
         && request.resource.data.sid is string
@@ -253,18 +287,19 @@ service cloud.firestore {
     // kv tiers:
     //   superadmin-only: payroll detail
     //   admin-only:      recruiting pipeline, compensation data & checklist
-    //   everyone else:   read for all signed-in staff; writes admin-only,
-    //                    except therapist-profile drafts (tp_*) which any
-    //                    signed-in staff member may save.
+    //   everyone else:   read for all signed-in staff; writes admin-only.
+    //                    (Nov 2026: the retired therapist-profile drafts — tp_* — are no longer writable by staff.)
     match /kv/{key} {
       // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)
       allow read: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key == 'app_recruit' && isAdmin())
-        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}') && isDomain());
+        // app_team_stats = per-person note status / no-show counts for My Team: Supervisor level and up
+        || (key == 'app_team_stats' && isDomain() && (isAdmin() || myRole() == 'supervisor'))
+        || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist', 'app_team_stats']) && !key.matches('app_payroll_detail_[0-9]{4}') && isDomain());
       allow write: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key == 'app_recruit' && isAdmin())
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}')
-            && (isAdmin() || (isDomain() && key.matches('tp_.*'))));
+            && isAdmin());
     }
   }
 }
