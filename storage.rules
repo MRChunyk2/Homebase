@@ -22,8 +22,17 @@ service firebase.storage {
         && request.auth.token.email_verified == true
         && em().matches('.*@advancepsychotherapy[.]org$');
     }
+    // Named here rather than looked up, because the firestore.get()/exists()
+    // calls below DO NOT WORK in this project's Storage rules — Firebase's rules
+    // evaluator rejects them with "Function not found: firestore.exists". So the
+    // role lookup always fails and only these hardcoded accounts can write.
+    // comms@ is listed because that role is permanent; anyone else who needs to
+    // upload must either be added here or the lookup replaced with an auth
+    // custom claim (the real fix).
     function isBootstrap() {
-      return em() in ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
+      return em() in ['will@advancepsychotherapy.org',
+                      'michael@advancepsychotherapy.org',
+                      'comms@advancepsychotherapy.org'];
     }
     function hasRoleDoc() {
       return firestore.exists(/databases/(default)/documents/userRoles/$(em()));
