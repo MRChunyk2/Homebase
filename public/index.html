@@ -9471,6 +9471,23 @@ function capPeriodInfo(){
 
 // Real clinical hours from the capacity spreadsheet, bucketed by pay-period quarter.
 // QTD = sum of the current quarter's pay periods to date; YTD = sum of all periods to date.
+// Clinical/group hours credited in pay periods that ENDED before this person's Date of Hire — a sign the
+// hire date is wrong (later than their real start) or their Valant provider link points at someone else.
+// Returns null when there are none.
+function capHoursBeforeHire(s){
+  try{
+    const hire=capHireDate(s), data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null; if(!hire||!data||!data.periods) return null;
+    const arr=(data.byId&&data.byId[s._id])||[], g=(typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId&&GROUP_HOURS_DATA.byId[s._id])||[];
+    let hrs=0, n=0, first=null;
+    for(let i=0;i<data.periods.length;i++){
+      const st=capDateOf(data.periods[i]); if(!st) continue;
+      const end=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13);
+      if(end>=hire) break;
+      const v=(+arr[i]||0)+(+g[i]||0); if(v>0){ hrs+=v; n++; if(!first) first=st; }
+    }
+    return hrs>0?{hrs:Math.round(hrs*10)/10,n:n,first:first,hire:hire}:null;
+  }catch(e){ return null; }
+}
 function capRealHours(s){
   const data = (typeof CLINICAL_HOURS_DATA!=='undefined') ? CLINICAL_HOURS_DATA : null;
   const arr = (data && data.byId && data.byId[s._id]) || null;
@@ -10725,7 +10742,22 @@ function capDrillHTML(s,c){
   const fname = (s['Clinician']||'').trim().split(' ')[0] || 'there';
   const pct = c.attainPct;
   let catchUp = '';
-  if(pct===null){
+  const preHire = capHoursBeforeHire(s);
+  if(preHire){
+    // Hours before the hire date: the attainment number can't be trusted until the record is fixed.
+    const isSelf = (function(){ try{ const v=currentViewer(); return (v&&v._id===s._id)||window.AUTH_STAFF_ID===s._id; }catch(e){ return false; } })();
+    catchUp = (!isSelf || isAdminView())
+      ? `<div style="display:flex;align-items:flex-start;gap:12px;background:#fff7ed;border:1px solid #f2a54b;border-radius:12px;padding:14px 18px;margin-bottom:18px">
+        <span style="font-size:20px;line-height:1">⚠️</span>
+        <div style="flex:1"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#9a5b12">Hours credited before hire date — check the Date of Hire or provider link</div>
+          <div style="font-size:12.5px;color:#7c4a0e;line-height:1.55;margin-top:4px"><strong>${preHire.hrs} clinical hours</strong> are credited in ${preHire.n} pay period${preHire.n===1?'':'s'} (from ${capUS(preHire.first)}) that ended before ${hesc(fname)}’s Date of Hire of <strong>${capUS(preHire.hire)}</strong>, so the ${pct===null?'':pct+'% '}attainment isn’t reliable.
+          If ${hesc(fname)} really started earlier, correct the Date of Hire on the Employee File. If not, check the Valant provider link in Payroll Processing — those hours may belong to someone else (reopen and re-close the affected pay periods after fixing it).</div></div>
+      </div>`
+      : `<div style="display:flex;align-items:center;gap:10px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:12px 18px;margin-bottom:18px">
+        <span style="font-size:17px">🔎</span>
+        <div style="font-size:12.5px;color:#555;font-weight:600">Your attainment is being double-checked, ${hesc(fname)} — some hours are dated before your start date in Homebase. HR will fix it; nothing you need to do.</div>
+      </div>`;
+  } else if(pct===null){
     catchUp = `<div style="display:flex;align-items:center;gap:10px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:12px 18px;margin-bottom:18px">
         <span style="font-size:17px">📋</span>
         <div style="font-size:12.5px;color:#555;font-weight:600">No clinical-hours data recorded yet, ${fname} — your attainment will appear here once hours are logged.</div>
@@ -14251,7 +14283,7 @@ async function prClose(){
   if(!confirm('Close and save '+p.label+'?\n\n'+R.totals.emps+' employees · '+PR.fmtH(R.totals.approvedHrs)+' approved clinical hours · total payroll '+PR.fmt$(R.totals.total)+(unrev?'\n\n'+unrev+' employees are not marked reviewed.':'')
     +(unlinked.length?'\n\n'+unlinked.length+' Valant providers are not linked to a roster employee, so they will not get a pay-period sheet: '+unlinked.slice(0,8).join(', ')+(unlinked.length>8?'…':''):'')
     +'\n\nEach linked employee can then see their own sheet (clinical hours and FFS units only — no dollars).\nThe saved snapshot will not change if rates or mappings change later.')) return;
-  const v=p.version||1, sid=p.__id+'_v'+v, at=prNow(), by=prWho(), maps=prMaps();
+  const v=p.version||1, at=prNow(), by=prWho(), maps=prMaps(); let sid=p.__id+'_v'+v;
   const used={}; R.lines.forEach(function(L){ if(L.code&&maps[L.code]) used[L.code]=maps[L.code]; });
   const provs={}, pv=prProvs(); Object.keys(R.emps).forEach(function(k){ provs[k]=pv[k]||null; });
   const slim=R.lines.map(function(L){ return {key:L.key,n:L.n,imp:L.imp,pid:L.pid,prov:L.prov,date:L.date,st:L.st,en:L.en,cc:L.cc||'',orig:L.orig,code:L.code,edited:L.edited,cpt:L.cpt,np:L.np,apn:L.apn,ds:L.ds,sd:L.sd,
@@ -14263,7 +14295,7 @@ async function prClose(){
     result:result};
   const fps=slim.filter(function(L){ return L.approved && !L.addon; }).map(function(L){ return L.fp; });
   showToast('Saving snapshot…');
-  if(!(await payStore.createSnapshot(sid,snap))){ showToast('⚠ Could not save the snapshot — the period is still open'); return; }
+  { const got=await payStore.createSnapshot(sid,snap); if(!got){ showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return; } if(typeof got==='string') sid=got; }
   await payStore.addPaid(sid,{periodId:p.__id,label:p.label,version:v,fps:fps,at:at});
   // one read-only sheet per linked employee (no dollars; clients by code only)
   const stmts=[]; Object.keys(R.emps).forEach(function(k){ const E=R.emps[k]; const sidE=pvC[k]&&pvC[k].sid; if(!sidE) return;
@@ -14465,7 +14497,7 @@ async function renderPaySnap(){
     }
     let h=prCss()+prSheetCss()
       +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'
-      +'<div style="flex:1;min-width:240px;font-size:13px;color:#4b5563">Each pay period once payroll closes: the clinical hours you were credited, what each session counted as, and the meeting &amp; admin time you were paid for. Clients are shown by code only.</div>'
+      +'<div style="flex:1;min-width:240px;font-size:13px;color:#4b5563">Each pay period once payroll closes: the clinical hours you were credited'+(paySnapNoMoney({sid:sid})?' and':',')+' what each session counted as'+(paySnapNoMoney({sid:sid})?'':', and the meeting &amp; admin time you were paid for')+'. Clients are shown by code only.</div>'
       +picker
       +'<button onclick="paySnapToCapacity()" style="padding:8px 14px;border-radius:8px;border:1px solid #122B67;background:#122B67;color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">📈 '+(sa&&me&&sid!==me._id?'Their':'My')+' Capacity Dashboard →</button></div>';
     if(!sid){ body.innerHTML=h+'<div class="pr-empty">Your sign-in isn’t linked to a staff record yet — ask an admin to link it.</div>'; return; }
@@ -14492,7 +14524,7 @@ async function renderPaySnap(){
     }
     // logged but not yet paid
     const up=PSNAP.unpaid||[];
-    if(up.length){
+    if(up.length&&!paySnapNoMoney({sid:sid})){
       h+='<div class="pr-card" style="margin-top:12px"><b>Meeting &amp; admin time logged — not paid yet</b> <span class="pr-muted">paid when the pay period it falls in closes</span>'
         +'<div style="overflow-x:auto;margin-top:6px">'+prMtgTable({mtg:{items:up}},paySnapNoMoney({sid:sid})?'none':'flat')+'</div></div>';
     }
@@ -15101,7 +15133,7 @@ async function ppuSelectPP(id){ PPU.ppId=id; PPU.rows=null; PPU.rowsFor=null; PP
 async function ppuLoadPeriodData(){
   const p=PPU.periods[PPU.ppId]; if(!p){ PPU.rows=[]; PPU.rowsFor=PPU.ppId; return; }
   if(p.status==='closed'){
-    if(!PPU.snap||PPU.snap.ppId!==PPU.ppId){ const sid='ppu_'+PPU.ppId+'_v'+(p.version||1); PPU.snap=await payStore.getSnapshot(sid); }
+    if(!PPU.snap||PPU.snap.ppId!==PPU.ppId){ const last=(p.snapshots||[]).filter(function(x){ return x.v===(p.version||1); }).pop(); const sid=last&&last.id?last.id:'ppu_'+PPU.ppId+'_v'+(p.version||1); PPU.snap=await payStore.getSnapshot(sid); }
     PPU.rowsFor=PPU.ppId; return;
   }
   if(PPU.rowsFor!==PPU.ppId){ PPU.rows=p.importId?(await payStore.rows(p.importId,p.importChunks||0)||[]):[]; PPU.rowsFor=PPU.ppId; }
@@ -16053,14 +16085,16 @@ async function ppuClose(){
     if(R.blocking){ showToast('⚠ Resolve the items listed first'); return; }
     if(ppuReimbPending()){ showToast('⚠ Approve or remove the reimbursements first'); return; }
     if(!confirm('Close '+pp.label+'?\n\nThis saves a frozen snapshot, publishes '+R.emps.filter(function(E){ return E.sid; }).length+' Pay Period Snapshots, marks Meeting and Admin Time paid, and writes clinical hours to the Capacity Dashboard.')) return;
-    const v=p.version||1, at=ppuNow(), by=ppuWho(), snapId='ppu_'+PPU.ppId+'_v'+v;
+    const v=p.version||1, at=ppuNow(), by=ppuWho(); let snapId='ppu_'+PPU.ppId+'_v'+v;
     // provider links actually used (incl. confirmed suggestions)
     const used={}; R.emps.forEach(function(E){ if(E.sid&&E.pid.indexOf('staff:')!==0) used[E.pid]=E.sid; });
     Object.keys(used).forEach(function(k){ PPU.links[k]=used[k]; }); await payStore.setCfgDoc('ppuProviders',{map:PPU.links,updatedAt:at,updatedBy:by});
     const result={emps:R.emps, lines:R.lines, exc:R.exc, blocking:0, settings:R.settings};
     const snap={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,version:v,closedAt:at,closedBy:by,importId:p.importId,importMeta:p.importMeta||null,
       rules:{version:PPU.rules.version,rows:PPU.rules.rows,settings:ppuSettings(PPU.rules)},links:used,corrections:p.corrections||{},result:JSON.parse(JSON.stringify(result))};
-    if(!(await payStore.createSnapshot(snapId,snap))){ showToast('⚠ Could not save the snapshot — the period is still open'); return; }
+    const got=await payStore.createSnapshot(snapId,snap);
+    if(!got){ showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return; }
+    if(typeof got==='string') snapId=got;
     // Pay Period Snapshot for each linked employee (hours only; $ only for $25/hr meetings; clients by code)
     const stmts=R.emps.filter(function(E){ return E.sid; }).map(function(E){ return ppuStatement(E,R,pp,v,at); });
     if(!(await payStore.addStatements(snapId,stmts))) showToast('⚠ Snapshot saved, but some Pay Period Snapshots could not be published');
@@ -16224,8 +16258,10 @@ function psMoney(S){
   o.total=o.diff+o.bonus+o.anniv;   // CANS/additional comp is admin pay (shown with Meetings & Admin), not a bonus
   return o;
 }
+// Pay Period Snapshot wording for staff who don't see pay (payHideMoney).
+function psNoMoneyHead(h){ return h===PPU_NOSHOW_PAID?'No Show - Client Charged':h===PPU_NOSHOW_UNPAID?'No Shows - No Charge':String(h||''); }
 function ppuStatementHtml(st,opt){
-  opt=opt||{}; const S=st.summary||{};
+  opt=opt||{}; const S=st.summary||{}, nm=!!opt.noMoney;
   const big=function(l,v,s,main){ return '<div class="ps-bt'+(main?' main':'')+'"><div class="ps-bl">'+l+'</div><div class="ps-bv">'+v+'</div><div class="ps-bs">'+(s||'')+'</div></div>'; };
   const sm=function(l,v,s){ return '<div class="ps-st"><span class="l">'+l+'</span><b>'+v+'</b>'+(s?'<span>'+s+'</span>':'')+'</div>'; };
   const n=function(x){ return +x||0; };
@@ -16240,22 +16276,25 @@ function ppuStatementHtml(st,opt){
   let clinFfs=n(S.pns); Object.keys(S.cats||{}).forEach(function(k){ clinFfs+=n(S.cats[k]); }); Object.keys(S.other||{}).forEach(function(k){ clinFfs+=n(S.other[k]); });
   h+='<div class="ps-band clin"><div class="ps-bh">🩺 Compensation for Clinical Hours and Credits towards Capacity</div><div class="ps-bb">'
     +'<button class="ps-guide" onclick="psGuideOpen()"><span>📋 <b>How each service counts</b> — capacity credit and pay for every service code</span><span>Open guide →</span></button>'
-    +'<div class="ps-g2">'+big('Clinical Hours Credited',hrs(n(S.clin)),'Counts toward your capacity goal',true)
+    +(nm?'<div class="ps-g2">'+big('Clinical Hours Credited',hrs(n(S.clin)),'Counts toward your capacity goal',true)+'</div>'
+      +'<div class="ps-g2 ps-gap">'+sm('No Show - Client Charged',hrs(n(S.pns)),'No capacity credit')
+        +sm('No Shows - No Charge',cnt(n(S.nsu),'session','sessions'),'No capacity credit')+'</div>'
+    :'<div class="ps-g2">'+big('Clinical Hours Credited',hrs(n(S.clin)),'Counts toward your capacity goal',true)
       +big('FFS Hours Paid',hrs(clinFfs),'Sessions and paid no-shows')+'</div>'
     +'<div class="ps-g2 ps-gap">'+sm('Paid No-Shows',hrs(n(S.pns)),'Paid at FFS rate · no capacity credit')
-      +sm('Unpaid No-Shows',cnt(n(S.nsu),'session','sessions'),'Not paid · no capacity credit')+'</div>'
+      +sm('Unpaid No-Shows',cnt(n(S.nsu),'session','sessions'),'Not paid · no capacity credit')+'</div>')
     +(n(S.grpN)?'<div class="ps-g2 ps-gap">'+sm('Group Sessions',cnt(n(S.grpN),'group','groups'),'Logged on Meeting and Admin Time')
       +(opt.noMoney?sm('Group Attendees',cnt(n(S.grpHeadN),'participant','participants'),'Marked as attending'):sm('Group Pay — Per Participant',ppuUsd(n(S.grpHeadC)),n(S.grpHeadN)+' participant'+(n(S.grpHeadN)===1?'':'s')+' × $'+(+(S.groupRate||17)).toFixed(2)))+'</div>':'');
   const rows=[]; PPU_HEADS.forEach(function(x){ if(x===PPU_NOSHOW_UNPAID||x===PPU_NOSHOW_PAID) return; const v=n((S.cats||{})[x]); if(v) rows.push([x,v]); });
   Object.keys(S.other||{}).forEach(function(k){ if(n(S.other[k])) rows.push([k,n(S.other[k])]); });
-  if(rows.length){ const mx=Math.max.apply(null,rows.map(function(r){ return r[1]; }));
+  if(rows.length&&!nm){ const mx=Math.max.apply(null,rows.map(function(r){ return r[1]; }));
     h+='<div class="ps-bars"><div class="ps-sub">FFS hours paid by service type</div>'
       +rows.sort(function(a,b){ return b[1]-a[1]; }).map(function(r){ return '<div class="ps-bar"><span>'+ppuEsc(r[0])+'</span><i style="width:'+Math.max(1,Math.round(r[1]*100/mx))+'%"></i><em>'+hrs(r[1])+'</em></div>'; }).join('')+'</div>'; }
   // ── Appointments ──
   const L=(st.lines||[]).slice().sort(function(a,b){ return ((a.date||'')+String(a.st).padStart(4,'0')).localeCompare((b.date||'')+String(b.st).padStart(4,'0')); });
-  const apptHtml='<details class="ps-appt"'+(opt.inline?'':' open')+'><summary><span class="ps-apl">📋 Appointments this pay period <span class="ps-apn">'+L.length+'</span></span><span class="ps-apb"><span class="ps-apshow">Show all appointments ▾</span><span class="ps-aphide">Hide appointments ▴</span></span></summary><div class="pr-muted" style="font-size:12px;margin:2px 0 6px">Every appointment that counted this pay period · clients shown by client code only</div><div style="overflow-x:auto"><table class="pr-ltbl" style="margin-top:6px"><thead><tr><th>Client</th><th>Day</th><th>Time</th><th>Service code</th><th>Counts as</th><th>Clinical hrs</th><th>FFS hrs</th><th></th></tr></thead><tbody>'
+  const apptHtml='<details class="ps-appt"'+(opt.inline?'':' open')+'><summary><span class="ps-apl">📋 Appointments this pay period <span class="ps-apn">'+L.length+'</span></span><span class="ps-apb"><span class="ps-apshow">Show all appointments ▾</span><span class="ps-aphide">Hide appointments ▴</span></span></summary><div class="pr-muted" style="font-size:12px;margin:2px 0 6px">Every appointment that counted this pay period · clients shown by client code only</div><div style="overflow-x:auto"><table class="pr-ltbl" style="margin-top:6px"><thead><tr><th>Client</th><th>Day</th><th>Time</th><th>Service code</th><th>Counts as</th><th>Clinical hrs</th>'+(nm?'':'<th>FFS hrs</th><th></th>')+'</tr></thead><tbody>'
     +L.map(function(l){
-      return '<tr><td class="pr-cc">'+ppuEsc(l.cc||'—')+'</td><td>'+(l.date?PR_DOW[PR.dow(l.date)]+' '+usDate(l.date):'')+'</td><td>'+(l.st!=null?PR.hhmm(l.st):'')+'</td><td><b>'+ppuEsc(l.tx)+'</b></td><td>'+ppuEsc(l.head||'')+'</td><td class="num">'+ppuF(l.clin||0)+'</td><td class="num">'+ppuF(l.ffs||0)+'</td><td>'+(l.diff?'<span class="pr-pill info">Evening/weekend</span>':'')+'</td></tr>'; }).join('')
+      return '<tr><td class="pr-cc">'+ppuEsc(l.cc||'—')+'</td><td>'+(l.date?PR_DOW[PR.dow(l.date)]+' '+usDate(l.date):'')+'</td><td>'+(l.st!=null?PR.hhmm(l.st):'')+'</td><td><b>'+ppuEsc(l.tx)+'</b></td><td>'+ppuEsc(nm?psNoMoneyHead(l.head):(l.head||''))+'</td><td class="num">'+ppuF(l.clin||0)+'</td>'+(nm?'':'<td class="num">'+ppuF(l.ffs||0)+'</td><td>'+(l.diff?'<span class="pr-pill info">Evening/weekend</span>':'')+'</td>')+'</tr>'; }).join('')
     +'</tbody></table></div></details>';
   h+=apptHtml+'</div></div>';
   // ── 2. Differentials and Bonuses ──  ($ from the pay-period close; YTD from opt.ytd = this year's
@@ -16266,7 +16305,7 @@ function ppuStatementHtml(st,opt){
   const rate=function(r){ return '$'+(+r).toFixed(2); };
   if(opt.noMoney){
     let ay=0; (opt.ytd||[]).forEach(function(x){ const A=(x.summary||{}).anniv; if(A) ay+=n(A.c); });
-    h+='<div class="ps-band bonus"><div class="ps-bh">⭐ Anniversary Bonus'+(ay?'<span class="ps-bht"><span><small>Year to date</small><b>'+ppuUsd(ay)+'</b></span></span>':'')+'</div><div class="ps-bb"><div class="ps-g2">'
+    h+='<div class="ps-band bonus"><div class="ps-bh">⭐ Bonus'+(ay?'<span class="ps-bht"><span><small>Year to date</small><b>'+ppuUsd(ay)+'</b></span></span>':'')+'</div><div class="ps-bb"><div class="ps-g2">'
       +(S.anniv?sm('Anniversary Bonus',usd(M.anniv),S.anniv.years+' year'+(S.anniv.years===1?'':'s')+' at APP · anniversary '+usDate(S.anniv.date))
         :'<div class="ps-st ps-soon"><span class="l">Anniversary Bonus</span><b>—</b><span>Paid the first pay period after your hire-date anniversary</span></div>')+'</div></div></div>';
   } else {
@@ -16278,7 +16317,8 @@ function ppuStatementHtml(st,opt){
     +'</div>';
   h+='</div></div>';
   }
-  // ── 3. Paid Time and Meetings ──
+  // ── 3. Paid Time and Meetings ── (not shown at all to payHideMoney staff)
+  if(nm) return h+'</div>';
   const mFlat=Math.round(n(S.mtgFlatMins)*100/60), mFfs=Math.round(n(S.mtgFfsMins)*100/60);
   h+='<div class="ps-band paid"><div class="ps-bh">💵 Paid Time, Supervision and Meetings <small>Doesn’t count toward capacity</small></div><div class="ps-bb"><div class="ps-g4">'
     +sm('Supervision — Paid',hrs(n(S.sup)),'Paid at FFS rate')
@@ -16899,21 +16939,36 @@ window.payStore = {
     try { for (let k = 0; k < n; k++) { const d = await getDoc(doc(db, 'payrollRows', id + '_' + k)); if (d.exists()) (d.data().rows || []).forEach(r => out.push(r)); } return out; }
     catch (e) { return null; }
   },
-  // Snapshots are create-only (rules forbid update/delete). The ledger is split into parts under 1 MB.
+  // Snapshots are create-only (rules forbid update/delete), so every close attempt writes under its own
+  // token: a failed earlier attempt can leave part docs (or even the main doc) behind, and writing to the
+  // same id again is an update the rules refuse. Returns the snapshot id actually used (or false; the
+  // reason is kept in payStore.lastError). The ledger lines and the employees/exceptions are stored in
+  // parts — employees/exceptions as JSON text, so a large pay period never hits the 1 MB document limit.
+  lastError: '',
   createSnapshot: async (id, snap) => {
     try {
-      const s = prClean(snap); const lines = s.result.lines || []; const PART = 700, parts = [];
-      for (let i = 0; i < lines.length; i += PART) parts.push(lines.slice(i, i + PART));
-      for (let k = 0; k < parts.length; k++) await setDoc(doc(db, 'payrollSnapshots', id + '~L' + k), { snapshot: id, k, lines: parts[k] });
-      s.result.lines = []; s.lineParts = parts.length;
-      await setDoc(doc(db, 'payrollSnapshots', id), s); return true;
-    } catch (e) { console.error(e); return false; }
+      window.payStore.lastError = '';
+      const s = prClean(snap); const tok = Date.now().toString(36);
+      let sid = id; try { const ex = await getDoc(doc(db, 'payrollSnapshots', id)); if (ex.exists()) sid = id + '_r' + tok; } catch (e) {}
+      const pre = sid + '~' + tok;
+      const lines = s.result.lines || []; const PART = 600; let nL = 0;
+      for (let i = 0; i < lines.length; i += PART) { await setDoc(doc(db, 'payrollSnapshots', pre + 'L' + nL), { snapshot: sid, k: nL, lines: lines.slice(i, i + PART) }); nL++; }
+      s.result.lines = []; s.lineParts = nL; s.linePrefix = pre + 'L';
+      const big = JSON.stringify({ emps: s.result.emps || [], exc: s.result.exc || [] }), CH = 250000; let nE = 0;
+      for (let i = 0; i < big.length; i += CH) { await setDoc(doc(db, 'payrollSnapshots', pre + 'E' + nE), { snapshot: sid, k: nE, text: big.slice(i, i + CH) }); nE++; }
+      s.result.emps = []; s.result.exc = []; s.empParts = nE; s.empPrefix = pre + 'E';
+      await setDoc(doc(db, 'payrollSnapshots', sid), s); return sid;
+    } catch (e) { console.error(e); window.payStore.lastError = String((e && (e.code || e.message)) || e); return false; }
   },
   getSnapshot: async (id) => {
     try {
       const d = await getDoc(doc(db, 'payrollSnapshots', id)); if (!d.exists()) return null; const s = d.data(); const lines = [];
-      for (let k = 0; k < (s.lineParts || 0); k++) { const p = await getDoc(doc(db, 'payrollSnapshots', id + '~L' + k)); if (p.exists()) (p.data().lines || []).forEach(l => lines.push(l)); }
-      s.result.lines = lines; return s;
+      const lp = s.linePrefix || (id + '~L');
+      for (let k = 0; k < (s.lineParts || 0); k++) { const p = await getDoc(doc(db, 'payrollSnapshots', lp + k)); if (p.exists()) (p.data().lines || []).forEach(l => lines.push(l)); }
+      s.result.lines = lines;
+      if (s.empParts) { let t = ''; for (let k = 0; k < s.empParts; k++) { const p = await getDoc(doc(db, 'payrollSnapshots', s.empPrefix + k)); if (p.exists()) t += p.data().text || ''; }
+        try { const o = JSON.parse(t); s.result.emps = o.emps; s.result.exc = o.exc; } catch (e) { console.error(e); } }
+      return s;
     } catch (e) { return null; }
   },
   paid: async () => { try { const s = await getDocs(collection(db, 'payrollPaid')); const o = []; s.forEach(d => o.push({ __id: d.id, ...d.data() })); return o; } catch (e) { return null; } },

@@ -454,5 +454,13 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 
 ### Pay privacy for leaders/non-clinical + Reimbursements tab (Nov 2026)
 - `payHideMoney(s)` = non-clinical OR not diff/bonus eligible (`payEligible`, so the Employee File override applies). Those people see hours/headcounts only, no $ except the anniversary bonus: Pay Period Snapshot (`paySnapNoMoney` → `ppuStatementHtml(opt.noMoney)`, `prMtgTable(...,'none')`), Meeting & Admin Time page (`mtgNoMoney`), My Homebase meeting widget. Super Admins viewing someone else's snapshot still see $.
+- Their snapshot also: no FFS Hours Paid, no service-type bars, no FFS/differential columns; no-shows read "No Show - Client Charged" / "No Shows - No Charge" (`psNoMoneyHead`); bonus band titled "Bonus" (anniversary only); no Paid Time, Supervision and Meetings band; no unpaid-meetings card.
 - Payroll Processing "Training Reimbursement" tab is now **Reimbursements** with categories `REIMB_CATS` (training, license → Paychex Professional Reimbursement; others → Expense Reimbursement; `vendor:true` rows never paid via payroll). `reimbGuessCat` maps the Check Request form's category/type.
 - CSV upload reads the Check Request sheet (never reads client name/address columns; "Refund Check to Client" rows skipped). Paid rows → `payrollConfig/reimbHistory` {rows}; unpaid → current period unapproved. Name match also by APP email. History card on the tab merges imported history + closed periods' reimbursements, filter by category/year/person, recategorize/remove imported rows.
+
+### Fix: pay period wouldn't close ("Could not save the snapshot") (Nov 2026)
+- Cause: `payrollSnapshots` is create-only. A big period's main snapshot doc (employees + their meeting items) could exceed Firestore's 1 MB limit, and the failed attempt left ledger-part docs behind, so every retry hit "update denied".
+- `payStore.createSnapshot` now writes each attempt under its own token (`linePrefix`/`empPrefix`), stores employees+exceptions as JSON text parts, uses `<id>_r<token>` if the main doc already exists, returns the id used, and keeps the reason in `payStore.lastError` (shown in the toast). `getSnapshot` reassembles; the period's `snapshots[].id` is used to load it. Old snapshots still load.
+
+### Capacity Dashboard: hours before hire date warning (Nov 2026)
+- `capHoursBeforeHire(s)` = hours credited in pay periods that ended before Date of Hire. When present, the attainment callout is replaced: admins (and anyone viewing someone else) get "Hours credited before hire date — check the Date of Hire or provider link"; the person themself gets a neutral "being double-checked" note instead of the congratulations.
