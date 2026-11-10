@@ -2274,6 +2274,10 @@ function payEligDefault(s){
   }catch(e){ return {ok:true,why:''}; }
 }
 function payEligible(s){ const v=String(s&&s['Diff Bonus Eligible']||'').trim(); if(v==='Yes') return true; if(v==='No') return false; return payEligDefault(s).ok; }
+// Supervisors, CTMs, CPMs, SLT, salaried and non-clinical staff (= not eligible for differentials &
+// bonuses, or non-clinical) see hours, capacity credit and group headcounts on their own pages, but no
+// dollar amounts — except the anniversary bonus.
+function payHideMoney(s){ try{ return !!s && (!isClinicianRec(s) || !payEligible(s)); }catch(e){ return false; } }
 
 // ══ MISSING-INFO FLAGS (admins) ══
 // A clinician for required-field purposes: Psychotherapist role, or the record
@@ -5348,7 +5352,8 @@ function mtgTypesFor(v){
   const myRoles=(function(){ try{ return v?staffRolesOf(v):[]; }catch(e){ return []; } })();
   return (CONFIG.meetingTypes||[]).filter(function(t){ return !t.role||myRoles.indexOf(t.role)>=0; });
 }
-function mtgRateTxt(t){ return t.isGroup?'$'+mtgGroupSettings().rate+'/participant · needs approval':t.rate===25?'$25/hr':t.rate==='FFS'?'Your FFS rate · needs approval':t.rate==='interim'?'1.25× your FFS rate':''; }
+function mtgNoMoney(){ try{ return payHideMoney(mtgWho()); }catch(e){ return false; } }
+function mtgRateTxt(t){ const nm=mtgNoMoney(); return t.isGroup?(nm?'By headcount':'$'+mtgGroupSettings().rate+'/participant')+' · needs approval':t.rate===25?(nm?'Admin hourly':'$25/hr'):t.rate==='FFS'?'Your FFS rate · needs approval':t.rate==='interim'?'1.25× your FFS rate':''; }
 function mtgStatusPill(r){
   const mt=mtgTypeOf(r.type||'')||{};
   if(r.status==='PAID') return '<span class="me-pill paid">✓ Paid'+(r.payDate?' '+hesc(usDate(String(r.payDate).slice(0,10))):'')+'</span>';
@@ -5498,10 +5503,10 @@ function mtgDurPreview(){
     const t=mtgTypeOf(type)||{}, i=mtgPPfor(d), pp=ALL_PPS[i];
     if(t.isGroup){ const code=(document.getElementById('mtg-gcode')||{}).value||'', hc=parseInt((document.getElementById('mtg-ghc')||{}).value,10)||0, GS=mtgGroupSettings();
       el.innerHTML='<b>'+hesc(((document.getElementById('mtg-gname')||{}).value||'').trim()||'Group session')+'</b>'+(code?' · '+hesc(code):'')+' · '+hesc(usDate(d))+' · <b>'+mtgClock(st)+' – '+mtgClock(end)+'</b>'+(pp?' · '+hesc(pp.label):'')
-        +(!code?' · <span style="color:#b45309">pick the service code</span>':mtgIsHeadCode(code)?(hc?' · <b>'+hc+' × $'+GS.rate+' = $'+(hc*GS.rate).toFixed(2)+'</b> ('+hc+' attended)':' · <span style="color:#b45309">add how many attended</span>'):' · paid by the service code rules')+' · needs payroll approval';
+        +(!code?' · <span style="color:#b45309">pick the service code</span>':mtgIsHeadCode(code)?(hc?(mtgNoMoney()?' · <b>'+hc+' attended</b>':' · <b>'+hc+' × $'+GS.rate+' = $'+(hc*GS.rate).toFixed(2)+'</b> ('+hc+' attended)'):' · <span style="color:#b45309">add how many attended</span>'):' · paid by the service code rules')+' · needs payroll approval';
       return; }
     el.innerHTML='<b>'+hesc(t.short||type)+'</b> · '+hesc(usDate(d))+' · <b>'+mtgClock(st)+' – '+mtgClock(end)+'</b> ('+mtgHrs(len)+' hrs)'+(pp?' · '+hesc(pp.label):'')
-      +(t.rate===25?' · <b>$'+(Math.round(len*2500/60)/100).toFixed(2)+'</b>':t.rate==='FFS'?' · paid at your FFS rate once approved':t.rate==='interim'?' · paid at 1.25× your FFS rate':'');
+      +(t.rate===25?(mtgNoMoney()?'':' · <b>$'+(Math.round(len*2500/60)/100).toFixed(2)+'</b>'):t.rate==='FFS'?' · paid at your FFS rate once approved':t.rate==='interim'?' · paid at 1.25× your FFS rate':'');
   }catch(e){}
 }
 async function mtgSubmit(again){
@@ -5548,11 +5553,12 @@ async function mtgLoadMine(){
     const inPP=function(i){ return list.filter(function(r){ return mtgPPidx(r)===i; }); };
     const sumMins=function(a){ return a.reduce(function(t,r){ return t+(+r.mins||0); },0); };
     const sumC=function(a){ return a.reduce(function(t,r){ return t+(mtgRateFor(r.type||'')===25||r.rate===25?Math.round((+r.mins||0)*2500/60):0); },0); };
+    const nm=payHideMoney(v);
     const yr=String(new Date().getFullYear()), ytd=list.filter(function(r){ return String(r.date||'').slice(0,4)===yr; });
     const curL=inPP(cur), waiting=list.filter(function(r){ return r.status!=='PAID'&&(mtgTypeOf(r.type||'')||{}).approval&&r.approved===false; });
     const stats=document.getElementById('me-stats');
     if(stats) stats.innerHTML='<div class="me-stat"><b>'+mtgHrs(sumMins(curL))+' hrs</b><span>This period</span></div>'
-      +'<div class="me-stat"><b>$'+(sumC(curL)/100).toFixed(2)+'</b><span>At $25/hr</span></div>'
+      +(nm?'':'<div class="me-stat"><b>$'+(sumC(curL)/100).toFixed(2)+'</b><span>At $25/hr</span></div>')
       +(waiting.length?'<div class="me-stat"><b>'+waiting.length+'</b><span>Awaiting approval</span></div>':'')
       +'<div class="me-stat"><b>'+mtgHrs(sumMins(ytd))+' hrs</b><span>'+yr+' total</span></div>';
     const rows=inPP(MTG_VIEW_PP).sort(function(a,b){ return String(a.date+a.start).localeCompare(String(b.date+b.start)); });
@@ -5563,14 +5569,14 @@ async function mtgLoadMine(){
         return '<tr><td style="white-space:nowrap">'+hesc(usDate(String(r.date||'')))+'</td><td>'+hesc(r.type||'')+(r.group?' <span class="me-pill sub" style="background:#f3f4f6;color:#374151">'+hesc(r.group)+'</span>':'')+(r.code?'<div class="muted" style="font-size:11.5px">'+hesc(r.code)+(r.headcount!==''&&r.headcount!=null?' · '+hesc(String(r.headcount))+' attended':'')+'</div>':'')+(r.notes?'<div class="muted" style="font-size:11.5px">'+hesc(r.notes)+'</div>':'')+(r.enteredBy==='payroll'?'<div class="muted" style="font-size:11px">Entered by payroll</div>':'')+'</td>'
           +'<td style="white-space:nowrap">'+hesc(r.start||'')+(r.end?'–'+hesc(r.end):'')+'</td><td><b>'+mtgHrs(r.mins)+'</b></td><td>'+mtgStatusPill(r)+'</td>'
           +'<td style="white-space:nowrap;text-align:right">'+(can?'<button class="me-x" onclick="mtgEditMine(\''+r.__id+'\')">Edit</button><button class="me-x" style="color:#b91c1c" onclick="mtgDeleteMine(\''+r.__id+'\')">Delete</button>':'')+'</td></tr>'; }).join('')
-      +'</tbody><tfoot><tr><td colspan="3" style="font-weight:800">Total</td><td><b>'+mtgHrs(sumMins(rows))+'</b></td><td colspan="2" class="muted">$'+(sumC(rows)/100).toFixed(2)+' at $25/hr</td></tr></tfoot></table></div>'
+      +'</tbody><tfoot><tr><td colspan="3" style="font-weight:800">Total</td><td><b>'+mtgHrs(sumMins(rows))+'</b></td><td colspan="2" class="muted">'+(nm?'':'$'+(sumC(rows)/100).toFixed(2)+' at $25/hr')+'</td></tr></tfoot></table></div>'
       :'<div class="muted" style="padding:10px 0;font-size:13px">Nothing logged for this pay period yet.</div>';
     // earlier periods — compact history
     const older={}; list.forEach(function(r){ const i=mtgPPidx(r); if(allowed.indexOf(i)<0) (older[i]=older[i]||[]).push(r); });
     const ok=Object.keys(older).map(Number).sort(function(a,b){ return b-a; });
-    if(ok.length) h+='<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;font-size:13px;color:#122B67">Earlier pay periods ('+ok.length+')</summary><table class="me-tbl" style="margin-top:6px"><thead><tr><th>Pay period</th><th>Entries</th><th>Hours</th><th>At $25/hr</th><th>Status</th></tr></thead><tbody>'
+    if(ok.length) h+='<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;font-size:13px;color:#122B67">Earlier pay periods ('+ok.length+')</summary><table class="me-tbl" style="margin-top:6px"><thead><tr><th>Pay period</th><th>Entries</th><th>Hours</th>'+(nm?'':'<th>At $25/hr</th>')+'<th>Status</th></tr></thead><tbody>'
       +ok.map(function(i){ const a=older[i], p=ALL_PPS[i], unpaid=a.filter(function(r){ return r.status!=='PAID'; }).length;
-        return '<tr><td>'+(p?hesc(p.label)+' <span class="muted">'+hesc(p.range)+'</span>':'Earlier')+'</td><td>'+a.length+'</td><td><b>'+mtgHrs(sumMins(a))+'</b></td><td>$'+(sumC(a)/100).toFixed(2)+'</td><td>'+(unpaid?'<span class="me-pill wait">'+unpaid+' not paid yet</span>':'<span class="me-pill paid">✓ Paid</span>')+'</td></tr>'; }).join('')+'</tbody></table></details>';
+        return '<tr><td>'+(p?hesc(p.label)+' <span class="muted">'+hesc(p.range)+'</span>':'Earlier')+'</td><td>'+a.length+'</td><td><b>'+mtgHrs(sumMins(a))+'</b></td>'+(nm?'':'<td>$'+(sumC(a)/100).toFixed(2)+'</td>')+'<td>'+(unpaid?'<span class="me-pill wait">'+unpaid+' not paid yet</span>':'<span class="me-pill paid">✓ Paid</span>')+'</td></tr>'; }).join('')+'</tbody></table></details>';
     host.innerHTML=h;
   }catch(e){ console.error(e); host.innerHTML='<div class="muted">⚠ Could not load your entries.</div>'; }
 }
@@ -13146,7 +13152,7 @@ async function homeLoadMeetings(){
     host.innerHTML='<div style="display:flex;gap:14px;flex-wrap:wrap">'
       +box('This pay period',h(c.mins)+' h',c.n+' entr'+(c.n===1?'y':'ies')+(pp?' · '+pp.range:''))
       +(p?box('Last pay period',h(p.mins)+' h',p.n+' entr'+(p.n===1?'y':'ies')):'')
-      +box('Awaiting pay',h(un.mins)+' h',(un.usd?'$'+un.usd.toFixed(2)+' at $25/hr':'')+(un.usd&&un.ffs?' · ':'')+(un.ffs?h(un.ffs)+' h at FFS':'')+(!un.mins?'all paid':''))+'</div>'
+      +box('Awaiting pay',h(un.mins)+' h',(un.usd&&!payHideMoney(me)?'$'+un.usd.toFixed(2)+' at $25/hr':'')+(un.usd&&un.ffs&&!payHideMoney(me)?' · ':'')+(un.ffs?h(un.ffs)+' h at FFS':'')+(!un.mins?'all paid':''))+'</div>'
       +'<div style="font-size:11.5px;color:#9ca3af;margin-top:8px">Log time before the pay period closes. For anything older than the last pay period, contact HR.</div>';
   }catch(e){ console.error(e); host.innerHTML='<div class="hs-none">Couldn’t load your entries.</div>'; }
 }
@@ -14022,12 +14028,13 @@ function prLinesTable(lines,E){
 // Meeting & admin entries for one person (money=false hides dollars — therapist sheet).
 function prMtgFlatCents(m){ if(m.kind!=='flat') return null; if(m.payCents!=null) return m.payCents; return Math.round((+m.mins||0)*2500/60); }
 function prMtgTable(E,money){
+  const noRate=money==='none'; if(noRate) money=false;
   const flatOnly=money==='flat';
   const it=(E.mtg&&E.mtg.items)||[]; if(!it.length) return '';
   return '<table class="pr-ltbl"><thead><tr><th>Date</th><th>Time</th><th>Meeting / admin work</th><th>Hours</th><th>Paid as</th>'+(money?'<th>Pay</th>':'')+'</tr></thead><tbody>'
     +it.slice().sort(function(a,b){ return (a.date+a.start).localeCompare(b.date+b.start); }).map(function(m){
       return '<tr><td>'+prDate(m.date)+(m.early?' <span class="pr-pill info" title="Dated before this period and not yet paid">earlier, unpaid</span>':'')+'</td><td>'+prEsc(m.start)+(m.end?'–'+prEsc(m.end):'')+'</td><td>'+prEsc(m.type)+(m.notes?'<div class="pr-muted">'+prEsc(m.notes)+'</div>':'')+'</td>'
-        +'<td class="num">'+PR.fmtH(Math.round(m.mins*100/60))+'</td><td>'+(m.kind==='flat'?'$25/hr':m.kind==='ffs'?'FFS rate':'<span class="pr-pill warn">needs a rate</span>')+'</td>'
+        +'<td class="num">'+PR.fmtH(Math.round(m.mins*100/60))+'</td><td>'+(m.kind==='flat'?(noRate?'Admin hourly':'$25/hr'):m.kind==='ffs'?'FFS rate':'<span class="pr-pill warn">needs a rate</span>')+'</td>'
         +(money?'<td class="num">'+(flatOnly?(m.kind==='flat'?PR.fmt$(prMtgFlatCents(m)):m.kind==='ffs'?'<span class="pr-muted">at your FFS rate</span>':'—'):(m.c4?PR.fmt$(PR.round4(m.c4)):'—'))+'</td>':'')+'</tr>'; }).join('')+'</tbody></table>';
 }
 function prAdjHtml(E){
@@ -14476,7 +14483,7 @@ async function renderPaySnap(){
     }
     if(st){
       const ytd=L.filter(function(x){ return x.kind==='ppu'&&String(x.start||'').slice(0,4)===String(st.start||'').slice(0,4)&&String(x.start)<=String(st.start); });
-      h+=(st.kind==='ppu'?ppuStatementHtml:prSheetHtml)(st,{money:false,inline:true,ytd:ytd,actions:'<button class="btn btn-secondary" onclick="paySnapPrint()">Print</button>'});
+      h+=(st.kind==='ppu'?ppuStatementHtml:prSheetHtml)(st,{money:false,noMoney:paySnapNoMoney(st),inline:true,ytd:ytd,actions:'<button class="btn btn-secondary" onclick="paySnapPrint()">Print</button>'});
     } else {
       h+='<div class="pr-card" style="text-align:center;color:#6b7280;padding:26px">'
         +(PSNAP.failed?'Pay periods couldn’t be loaded right now. Try again in a moment.'
@@ -14487,14 +14494,21 @@ async function renderPaySnap(){
     const up=PSNAP.unpaid||[];
     if(up.length){
       h+='<div class="pr-card" style="margin-top:12px"><b>Meeting &amp; admin time logged — not paid yet</b> <span class="pr-muted">paid when the pay period it falls in closes</span>'
-        +'<div style="overflow-x:auto;margin-top:6px">'+prMtgTable({mtg:{items:up}},'flat')+'</div></div>';
+        +'<div style="overflow-x:auto;margin-top:6px">'+prMtgTable({mtg:{items:up}},paySnapNoMoney({sid:sid})?'none':'flat')+'</div></div>';
     }
     body.innerHTML=h;
   }catch(e){ console.error(e); body.innerHTML='<div class="pr-empty">Couldn’t load the Pay Period Snapshot.</div>'; }
 }
+// No $ on the snapshot for staff in payHideMoney (or whose period was closed as not eligible), unless a
+// Super Admin is looking at someone else's.
+function paySnapNoMoney(st){
+  try{ const me=mtgWho(); if(isSuperAdminView()&&me&&st&&st.sid!==me._id) return false;
+    const p=(STAFF||[]).find(function(x){ return x._id===(st&&st.sid); });
+    return payHideMoney(p)||!!(st&&st.summary&&st.summary.elig===false); }catch(e){ return false; }
+}
 function paySnapPrint(){
   try{ const st=(PSNAP.list||[]).find(function(x){ return x.periodId===PSNAP.sel; }); if(!st) return;
-    prShowSheet((st.kind==='ppu'?ppuStatementHtml:prSheetHtml)(st,{money:false})); setTimeout(function(){ window.print(); },60); }catch(e){ console.error(e); }
+    prShowSheet((st.kind==='ppu'?ppuStatementHtml:prSheetHtml)(st,{money:false,noMoney:paySnapNoMoney(st)})); setTimeout(function(){ window.print(); },60); }catch(e){ console.error(e); }
 }
 // Super Admin sheet for one employee in the period currently open in Payroll Review.
 function prOpenAdminSheet(pid){ PRV.sheetPid=pid; prRenderAdminSheet(); }
@@ -15135,7 +15149,7 @@ function ppuStepsHtml(R,p,pp,closed){
   const line=function(n,txt,btn,cls){ return '<div class="ppu-todo'+(cls?' '+cls:'')+'"><span><b>'+n+'</b> '+txt+'</span>'+btn+'</div>'; };
   if(mPend) todo.push(line(mPend,'meeting &amp; admin entr'+(mPend===1?'y':'ies')+' to approve',go('mtg','Review meetings →')));
   if(gPend) todo.push(line(gPend,'group session'+(gPend===1?'':'s')+' to approve',go('groups','Review groups →')));
-  if(rPend) todo.push(line(rPend,'training reimbursement'+(rPend===1?'':'s')+' to approve',go('reimb','Review reimbursements →')));
+  if(rPend) todo.push(line(rPend,'reimbursement'+(rPend===1?'':'s')+' to approve',go('reimb','Review reimbursements →')));
   if(B.length) todo.push(line(B.length,'problem'+(B.length===1?'':'s')+' to fix','<button class="btn btn-secondary" style="font-size:12.5px" onclick="PPU.showB=!PPU.showB;renderPPU()">'+(PPU.showB?'Hide':'Show')+'</button>','bad')
     +(PPU.showB?'<ul class="ppu-list">'+B.slice(0,60).map(function(x){ return '<li><b>'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov)+' · '+ppuEsc(x.detail)+'</li>'; }).join('')+'</ul><div class="muted" style="font-size:12px;margin:4px 0 0 4px">Fix these on the Employees tab (click the person → Appointments) or in Payroll Settings.</div>':''));
   if(W.length) todo.push(line(W.length,'note'+(W.length===1?'':'s')+' to look over <span class="muted">(won’t stop closing)</span>','<button class="btn btn-secondary" style="font-size:12.5px" onclick="PPU.showW=!PPU.showW;renderPPU()">'+(PPU.showW?'Hide':'Show')+'</button>','note')
@@ -15243,9 +15257,10 @@ function ppuPaychexRows(R){
   });
   const inUp={}; rows.forEach(function(r){ if(r.sid) inUp[r.sid]=1; });
   (R.annivs||[]).forEach(function(a){ if(inUp[a.sid]) return; rows.push({name:a.name,sid:a.sid,ffs:0,bonus:+a.c||0,parts:{diff:0,over:0,anniv:+a.c||0},adminH:0,adminFlatH:0,adminFfsH:0,adminC:0,adminFlatC:0,addC:0,groups:0,grpC:0,grpHeadN:0,pns:0,sup:0,supValant:0,interimH:0,linked:true,annivOnly:true}); });
-  const RB=(function(){ try{ return ppuReimbBySid(); }catch(e){ return {}; } })();
-  rows.forEach(function(r){ r.prof=r.sid?(RB[r.sid]||0):0; if(r.sid) delete RB[r.sid]; });
-  Object.keys(RB).forEach(function(sid){ const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; rows.push({name:st['Clinician']||sid,sid:sid,ffs:0,bonus:0,parts:{diff:0,over:0,anniv:0},adminH:0,adminFlatH:0,adminFfsH:0,adminC:0,adminFlatC:0,addC:0,groups:0,grpC:0,grpHeadN:0,pns:0,sup:0,supValant:0,interimH:0,linked:true,prof:RB[sid],reimbOnly:true}); });
+  const RB=(function(){ try{ return ppuReimbBySid('prof'); }catch(e){ return {}; } })(), RBE=(function(){ try{ return ppuReimbBySid('exp'); }catch(e){ return {}; } })();
+  rows.forEach(function(r){ r.prof=r.sid?(RB[r.sid]||0):0; r.expR=r.sid?(RBE[r.sid]||0):0; if(r.sid){ delete RB[r.sid]; delete RBE[r.sid]; } });
+  Object.keys(RBE).forEach(function(sid){ if(RB[sid]==null) RB[sid]=0; });
+  Object.keys(RB).forEach(function(sid){ const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; rows.push({name:st['Clinician']||sid,sid:sid,ffs:0,bonus:0,parts:{diff:0,over:0,anniv:0},adminH:0,adminFlatH:0,adminFfsH:0,adminC:0,adminFlatC:0,addC:0,groups:0,grpC:0,grpHeadN:0,pns:0,sup:0,supValant:0,interimH:0,linked:true,prof:RB[sid]||0,expR:RBE[sid]||0,reimbOnly:true}); });
   rows.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
   return rows;
 }
@@ -15254,7 +15269,7 @@ function ppuPaychexReport(){
     const R=PPU.R; if(!R){ showToast('Nothing in this pay period yet'); return; }
     { const p0=PPU.periods[PPU.ppId]; if(!(p0&&p0.status==='closed')){ showToast('The Paychex report is ready once the pay period is closed'); return; } }
     const pp=ppuPP(PPU.ppId), p=PPU.periods[PPU.ppId], closed=!!(p&&p.status==='closed'), rows=ppuPaychexRows(R);
-    const T=rows.reduce(function(t,r){ ['ffs','bonus','adminH','adminC','groups','grpC','pns','sup','prof'].forEach(function(k){ t[k]+=(+r[k]||0); }); return t; },{ffs:0,bonus:0,adminH:0,adminC:0,groups:0,grpC:0,pns:0,sup:0,prof:0});
+    const T=rows.reduce(function(t,r){ ['ffs','bonus','adminH','adminC','groups','grpC','pns','sup','prof','expR'].forEach(function(k){ t[k]+=(+r[k]||0); }); return t; },{ffs:0,bonus:0,adminH:0,adminC:0,groups:0,grpC:0,pns:0,sup:0,prof:0,expR:0});
     const thr=(R.settings&&R.settings.threshold)||50;
     const bTitle=function(r){ const x=r.parts, b=[]; if(x.diff) b.push('Differentials '+ppuUsd(x.diff)); if(x.over) b.push('Over-'+thr+' bonus '+ppuUsd(x.over)); if(x.anniv) b.push('Anniversary '+ppuUsd(x.anniv)); return b.join(' + '); };
     const aTitle=function(r){ const b=[]; if(r.adminFlatH) b.push(ppuF(r.adminFlatH)+' hrs at $25/hr = '+ppuUsd(r.adminFlatC)); if(r.addC) b.push('CANS/additional comp '+ppuUsd(r.addC)); if(r.adminFfsH) b.push(ppuF(r.adminFfsH)+' hrs meetings at FFS rate'); return b.join(' + '); };
@@ -15268,10 +15283,10 @@ function ppuPaychexReport(){
       +'<div style="overflow-x:auto;margin-top:12px"><table class="px-t"><thead><tr><th class="l">Employee</th><th>FFS<small>hours · sessions</small></th><th>Bonus<small>$</small></th><th>Admin<small>hours · $</small></th><th>Groups<small>hours · $</small></th><th>Paid no shows<small>hours</small></th><th>Paid supervision<small>hours</small></th><th>Professional reimb.<small>$</small></th><th>Expense reimb.<small>$</small></th></tr></thead><tbody>'
       +(rows.length?rows.map(function(r){ return '<tr><td class="l">'+ppuEsc(r.name)+(r.linked?'':' <span class="px-flag">not linked</span>')+(r.annivOnly?' <span class="px-flag">anniversary only</span>':'')+(r.reimbOnly?' <span class="px-flag">reimbursement only</span>':'')+'</td>'
         +'<td>'+h(r.ffs)+'</td><td title="'+ppuEsc(bTitle(r))+'">'+(r.bonus?ppuUsd(r.bonus):'—')+'</td><td title="'+ppuEsc(aTitle(r))+'">'+(r.adminH||r.adminC?(r.adminH?ppuF(r.adminH):'0.00')+(r.adminC?' · '+ppuUsd(r.adminC):''):'—')+'</td>'
-        +'<td title="'+ppuEsc((r.groups?ppuF(r.groups)+' FFS hrs from group codes':'')+(r.grpC?(r.groups?' + ':'')+r.grpHeadN+' participants × $'+((R.settings&&R.settings.groupRate)||17)+' = '+ppuUsd(r.grpC):''))+'">'+(r.groups||r.grpC?(r.groups?ppuF(r.groups):'0.00')+(r.grpC?' · '+ppuUsd(r.grpC):''):'—')+'</td><td>'+h(r.pns)+'</td><td title="'+ppuEsc(sTitle(r))+'">'+h(r.sup)+'</td><td>'+(r.prof?ppuUsd(r.prof):'—')+'</td><td class="px-bm">—</td></tr>'; }).join('')
+        +'<td title="'+ppuEsc((r.groups?ppuF(r.groups)+' FFS hrs from group codes':'')+(r.grpC?(r.groups?' + ':'')+r.grpHeadN+' participants × $'+((R.settings&&R.settings.groupRate)||17)+' = '+ppuUsd(r.grpC):''))+'">'+(r.groups||r.grpC?(r.groups?ppuF(r.groups):'0.00')+(r.grpC?' · '+ppuUsd(r.grpC):''):'—')+'</td><td>'+h(r.pns)+'</td><td title="'+ppuEsc(sTitle(r))+'">'+h(r.sup)+'</td><td>'+(r.prof?ppuUsd(r.prof):'—')+'</td><td>'+(r.expR?ppuUsd(r.expR):'—')+'</td></tr>'; }).join('')
         :'<tr><td colspan="9" class="l" style="color:#6b7280">No pay to enter for this period.</td></tr>')
-      +'</tbody><tfoot><tr><td class="l">Total ('+rows.length+')</td><td>'+ppuF(T.ffs)+'</td><td>'+ppuUsd(T.bonus)+'</td><td>'+ppuF(T.adminH)+' · '+ppuUsd(T.adminC)+'</td><td>'+ppuF(T.groups)+' · '+ppuUsd(T.grpC)+'</td><td>'+ppuF(T.pns)+'</td><td>'+ppuF(T.sup)+'</td><td>'+ppuUsd(T.prof)+'</td><td class="px-bm">—</td></tr></tfoot></table></div>'
-      +'<div style="font-size:11.5px;color:#6b7280;margin-top:10px;line-height:1.55"><b>FFS</b> = FFS hours for sessions (not groups, no-shows, supervision or meetings). <b>Bonus</b> = evening/weekend differentials + over-'+thr+' bonus + anniversary. <b>Admin</b> = Meeting paid at FFS (hours) + Consultation Group / Team Meetings + Group Admin Time ($25/hr) + CANS/additional comp ($). <b>Groups</b> = FFS hours from group codes (G / GV) + per-participant group pay ($'+((R.settings&&R.settings.groupRate)||17)+' × headcount) for groups logged in Homebase. <b>Paid supervision</b> = paid supervision + interim supervision provided (paid at 1.25× FFS rate). <b>Professional reimbursement</b> = the Training Reimbursement tab. <b>Expense reimbursement</b> isn’t tracked in Homebase yet. Hover a cell for its breakdown.</div></div>';
+      +'</tbody><tfoot><tr><td class="l">Total ('+rows.length+')</td><td>'+ppuF(T.ffs)+'</td><td>'+ppuUsd(T.bonus)+'</td><td>'+ppuF(T.adminH)+' · '+ppuUsd(T.adminC)+'</td><td>'+ppuF(T.groups)+' · '+ppuUsd(T.grpC)+'</td><td>'+ppuF(T.pns)+'</td><td>'+ppuF(T.sup)+'</td><td>'+ppuUsd(T.prof)+'</td><td>'+ppuUsd(T.expR)+'</td></tr></tfoot></table></div>'
+      +'<div style="font-size:11.5px;color:#6b7280;margin-top:10px;line-height:1.55"><b>FFS</b> = FFS hours for sessions (not groups, no-shows, supervision or meetings). <b>Bonus</b> = evening/weekend differentials + over-'+thr+' bonus + anniversary. <b>Admin</b> = Meeting paid at FFS (hours) + Consultation Group / Team Meetings + Group Admin Time ($25/hr) + CANS/additional comp ($). <b>Groups</b> = FFS hours from group codes (G / GV) + per-participant group pay ($'+((R.settings&&R.settings.groupRate)||17)+' × headcount) for groups logged in Homebase. <b>Paid supervision</b> = paid supervision + interim supervision provided (paid at 1.25× FFS rate). <b>Professional reimbursement</b> = training &amp; licensure on the Reimbursements tab. <b>Expense reimbursement</b> = the other reimbursement categories (parking, mileage, supplies…). Hover a cell for its breakdown.</div></div>';
     m.classList.add('open');
   }catch(e){ console.error(e); showToast('⚠ Could not build the report'); }
 }
@@ -15280,7 +15295,7 @@ function ppuPaychexCsv(){
     const q=function(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }, d=function(c){ return (c/100).toFixed(2); };
     const out=[['Employee','FFS Hours (sessions)','Bonus $','Admin Hours','Admin $ ($25/hr + CANS/additional)','Groups Hours','Groups $ (per participant)','Paid No Shows Hours','Paid Supervision Hours','Professional Reimbursement $','Expense Reimbursement $',
       'Bonus: Differentials $','Bonus: Over-threshold $','Bonus: Anniversary $','Admin: $25/hr Hours','Admin: $25/hr $','Admin: Meetings at FFS Hours','Admin: CANS/Additional $','Supervision: Valant Hours','Supervision: Interim Provided Hours (1.25× FFS)']]
-      .concat(rows.map(function(r){ return [r.name,ppuF(r.ffs),d(r.bonus),ppuF(r.adminH),d(r.adminC),ppuF(r.groups),d(r.grpC||0),ppuF(r.pns),ppuF(r.sup),d(r.prof||0),'',
+      .concat(rows.map(function(r){ return [r.name,ppuF(r.ffs),d(r.bonus),ppuF(r.adminH),d(r.adminC),ppuF(r.groups),d(r.grpC||0),ppuF(r.pns),ppuF(r.sup),d(r.prof||0),d(r.expR||0),
         d(r.parts.diff),d(r.parts.over),d(r.parts.anniv),ppuF(r.adminFlatH),d(r.adminFlatC),ppuF(r.adminFfsH),d(r.addC),ppuF(r.supValant),ppuF(r.interimH)]; }));
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out.map(function(r){ return r.map(q).join(','); }).join('\n')],{type:'text/csv'})); a.download='paychex_entry_'+pp.id+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ console.error(e); }
@@ -15344,7 +15359,7 @@ function ppuTabsHtml(R,closed){
     +t('emps','👥','Employees',R?R.emps.length:null,'Valant results per person')
     +t('mtg','🕒','Meeting & Admin Time',nM,mtgSelfOpen()?'Staff entries + payroll additions':'Enter by hand until '+MTG_SELF_OPENS.slice(5).replace('-','/'))
     +t('groups','👪','Group sessions',nG+ppuGroupRecs().length,'Logged by clinicians — approve here')
-    +t('reimb','🎓','Training Reimbursement',(p.reimb||[]).length,'Approved trainings to pay back')+'</div>';
+    +t('reimb','🎓','Reimbursements',(p.reimb||[]).length,'Training, licensure & expenses to pay back')+'</div>';
 }
 function ppuGroupRecs(){
   const pp=ppuPP(PPU.ppId);
@@ -15534,9 +15549,11 @@ async function ppuMtgNameLink(key,sid,which){
   }catch(e){ console.error(e); showToast('⚠ Could not save the match'); }
 }
 // Look up one CSV name: saved link → automatic match by name → possible matches.
-function ppuImpNameLookup(name,links){
+function ppuImpNameLookup(name,links,email){
   const key=ppuMtgNameKey(name)||'(blank)', N={raw:name||'(blank)',count:0,sid:'',how:'',cands:[],auto:false};
-  if(name&&links[key]&&(STAFF||[]).some(function(x){ return x._id===links[key]; })){ N.sid=links[key]; N.how='saved link'; }
+  const em=String(email||'').trim().toLowerCase(), byEm=em?(STAFF||[]).find(function(x){ return String(x['Email Address']||'').trim().toLowerCase()===em; }):null;
+  if(byEm&&!(name&&links[key])){ N.sid=byEm._id; N.how='matched by APP email'; N.auto=true; }
+  else if(name&&links[key]&&(STAFF||[]).some(function(x){ return x._id===links[key]; })){ N.sid=links[key]; N.how='saved link'; }
   else if(name){ const m=ppuMatchStaff(name,''); if(m.sid){ N.sid=m.sid; N.how='matched by name ('+m.how+')'; N.auto=true; } else N.cands=m.cands||[]; }
   return N;
 }
@@ -15599,117 +15616,240 @@ async function ppuMtgImportApply(){
   }catch(e){ console.error(e); showToast('⚠ Import stopped — check the list and try again'); }
 }
 
-// ── Training reimbursement CSV upload ──
-// Same name matching as the meeting & admin time upload (saved links → match by name → pick).
-// Every row goes into THIS pay period as an unapproved reimbursement (still needs ✓ Approve).
-// Rows already in Homebase (same person, date, training and amount) or marked PAID in the file
-// start unticked; payroll can tick/untick any row before importing.
+// ── Reimbursements (Payroll Processing tab) ──
+// Categories follow the APP Check Request form. col = which Paychex column it pays through:
+// prof = Professional Reimbursement, exp = Expense Reimbursement. Rows marked vendor (Direct Check to
+// Vendor) are kept for the record but never paid through payroll.
+var REIMB_CATS=[
+  {k:'training',l:'Training & CEUs',col:'prof'},
+  {k:'license',l:'Licensure',col:'prof'},
+  {k:'program',l:'Program expense (EMDR / RST / Groups)',col:'exp'},
+  {k:'parking',l:'Parking',col:'exp'},
+  {k:'mileage',l:'Mileage',col:'exp'},
+  {k:'supplies',l:'Office supplies & facilities',col:'exp'},
+  {k:'food',l:'Food & team events',col:'exp'},
+  {k:'donation',l:'Donations & sponsorships',col:'exp'},
+  {k:'refund',l:'Refund to employee',col:'exp'},
+  {k:'other',l:'Other',col:'exp'}];
+function reimbCat(k){ return REIMB_CATS.find(function(c){ return c.k===k; })||REIMB_CATS[0]; }
+function reimbCatSelect(cur,onchange,style){ return '<select class="ppu-sel" style="'+(style||'')+'" onchange="'+onchange+'">'+REIMB_CATS.map(function(c){ return '<option value="'+c.k+'"'+(c.k===(cur||'training')?' selected':'')+'>'+ppuEsc(c.l)+'</option>'; }).join('')+'</select>'; }
+// Best guess from the form's "category of the expense", "type of check request" and description.
+function reimbGuessCat(cat,type,desc){
+  const c=String(cat||'').toLowerCase(), t=String(type||'').toLowerCase(), d=String(desc||'').toLowerCase(), cd=c+' '+d;
+  if(/parking/.test(c)||(!c&&/parking/.test(t))) return 'parking';
+  if(/mileage/.test(c)) return 'mileage';
+  if(/licen[cs]|licsw exam|lmhc exam|exam fee|board fee/.test(cd)) return 'license';
+  if(/donation|sponsor/.test(c)) return 'donation';
+  if(/program expense|theratapper/.test(c)) return 'program';
+  if(/team get together|get-together/.test(c)) return 'food';
+  if(/supplies|facilit|postage|planner|maintenance/.test(c)) return 'supplies';
+  if(/food/.test(c)) return 'food';
+  if(/training|professional|ceu|speaker|cans/.test(c)||/training/.test(t)) return 'training';
+  if(/parking/.test(d)) return 'parking';
+  if(!c&&/refund check to employee/.test(t)) return 'refund';
+  return c||t?'other':'training';
+}
+
+// ── CSV upload ──
+// Same name matching as the meeting & admin time upload (saved links → name/email match → pick).
+// Rows already paid (AP STATUS PAID or a payment date) go to the reimbursement history; rows not
+// paid yet are added to THIS pay period as unapproved. Duplicates and client refunds are skipped
+// (client names/addresses in the sheet are never read).
 var PPU_RIMP=null;
 function ppuReimbImportHtml(closed){
   if(closed) return '';
-  return '<div class="ppu-card" style="border-left:4px solid #122B67"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><b style="font-size:14.5px">⬆ Upload training reimbursements (CSV)</b>'
-    +'<div class="muted" style="font-size:12.5px;max-width:760px;margin-top:2px">The request form / sheet export. Needs a name column and an amount column; training date, training/course and notes are picked up if present. Ticked rows are added to <b>'+ppuEsc(ppuPP(PPU.ppId).short)+'</b> as unapproved reimbursements for you to check and approve.</div></div>'
+  return '<div class="ppu-card" style="border-left:4px solid #122B67"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><b style="font-size:14.5px">⬆ Upload reimbursements (CSV)</b>'
+    +'<div class="muted" style="font-size:12.5px;max-width:760px;margin-top:2px">The Check Request sheet export (or any sheet with a name and an amount column). <b>Already paid</b> rows go into the reimbursement history; <b>not paid yet</b> rows are added to <b>'+ppuEsc(ppuPP(PPU.ppId).short)+'</b> for you to approve. Each row is sorted into a category you can change.</div></div>'
     +'<input type="file" accept=".csv,text/csv" onchange="ppuReimbImportFile(this)"></div><div id="ppu-rimp">'+(PPU_RIMP&&PPU_RIMP.ppId===PPU.ppId?ppuReimbImportPreview():'')+'</div></div>';
 }
 function ppuReimbImportFile(inp){
   try{ const f=inp.files&&inp.files[0]; if(!f) return; const r=new FileReader();
     r.onload=function(){ try{ ppuReimbImportParse(String(r.result||'')); }catch(e){ console.error(e); showToast('⚠ Could not read that file'); } }; r.readAsText(f); }catch(e){ console.error(e); }
 }
-function ppuReimbKey(sid,date,desc,amountC){ return [sid,date||'',String(desc||'').toLowerCase().replace(/\s+/g,' ').trim(),amountC].join('|'); }
+function ppuReimbKey(sid,date,desc,amountC){ return [sid,date||'',String(desc||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,60),amountC].join('|'); }
+async function ppuReimbHistLoad(force){
+  if(PPU.rhist&&!force) return PPU.rhist;
+  try{ const d=await payStore.cfgDoc('reimbHistory'); PPU.rhist=(d&&d.rows)||[]; }catch(e){ PPU.rhist=[]; }
+  return PPU.rhist;
+}
 function ppuReimbResolve(I){
-  const seen={}; Object.keys(PPU.periods||{}).forEach(function(k){ ((PPU.periods[k]||{}).reimb||[]).forEach(function(r){ seen[ppuReimbKey(r.sid,r.date,r.desc,r.amountC)]=1; }); });
+  const seen={};
+  Object.keys(PPU.periods||{}).forEach(function(k){ ((PPU.periods[k]||{}).reimb||[]).forEach(function(r){ seen[ppuReimbKey(r.sid,r.date,r.desc,r.amountC)]=1; if(r.src) seen['src|'+r.src]=1; }); });
+  (PPU.rhist||[]).forEach(function(r){ seen[ppuReimbKey(r.sid,r.date,r.desc,r.amountC)]=1; if(r.src) seen['src|'+r.src]=1; });
   I.rows.forEach(function(r){ const N=I.names[r.key]||{}; r.sid=N.sid||''; const st=(STAFF||[]).find(function(x){ return x._id===r.sid; }); r.name=st?(st['Clinician']||r.rawName):r.rawName;
-    const k=ppuReimbKey(r.sid,r.date,r.desc,r.amountC), was=r.dup; r.dup=!!(r.sid&&seen[k]); if(r.sid&&!r.dup) seen[k]=1;
-    if(r.on==null||was!==r.dup) r.on=!r.dup&&!r.paid; });
+    const k=ppuReimbKey(r.sid,r.date,r.desc,r.amountC), was=r.dup;
+    r.src=r.ts?[r.sid,r.ts,r.amountC].join('|'):''; r.dup=!!(r.sid&&(seen[k]||(r.src&&seen['src|'+r.src]))); if(r.sid&&!r.dup){ seen[k]=1; if(r.src) seen['src|'+r.src]=1; }
+    if(r.on==null||was!==r.dup) r.on=!r.dup&&!(r.dest==='period'&&(r.question||r.vendor)); });
 }
 async function ppuReimbImportParse(text){
   const rows=capImpParseCSV(text); if(rows.length<2){ showToast('⚠ Need a header row plus data'); return; }
-  const hdr=rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
+  const hdr=rows[0].map(function(h){ return String(h).replace(/\s+/g,' ').trim().toLowerCase(); });
   const col=function(names,not){ for(const n of names){ const i=hdr.findIndex(function(h){ return h.indexOf(n)!==-1&&!(not||[]).some(function(x){ return h.indexOf(x)!==-1; }); }); if(i!==-1) return i; } return -1; };
-  const ci={name:col(['employee','therapist','clinician','staff','your name','full name','name'],['training','course','event','conference','certification']),
+  const ci={ts:col(['timestamp']),name:col(['your name','employee','therapist','clinician','staff name','full name','name'],['training','course','event','vendor','client','recipient','legal']),
+    email:col(['app email','your email','email']),type:col(['type of check request','type of request']),
+    cat:col(['category']),site:col(['site or program','site','program'],['category']),
     date:col(['training date','date of training','date of','date'],['payment','paid','timestamp','submitted']),
-    desc:col(['training','course','event','conference','certification','description'],['date','cost','amount']),
-    amt:col(['amount','cost','total','reimburse','price','fee'],['date']),
-    notes:col(['notes','comment']),status:col(['ap status','status'])};
+    desc:col(['description','details of expense','training','course'],['date','cost','amount','category']),
+    amt:col(['exact amount','amount','cost','total','reimburse','price','fee'],['date']),amt2:col(['amount of check']),
+    notes:col(['notes','comment']),status:col(['ap status','status']),payDate:col(['payment date']),method:col(['payment method','method'])};
+  if(ci.amt===ci.amt2) ci.amt2=-1;
   if(ci.name<0||ci.amt<0){ showToast('⚠ Couldn’t find the name and amount columns'); return; }
-  const links=await ppuMtgNamesLoad();
-  const out=[], names={}; let blank=0, noAmt=0;
+  await ppuMtgNamesLoad(); await ppuReimbHistLoad();
+  const links=PPU_MNAMES||{}, out=[], names={}; let blank=0, noAmt=0, clientRef=0;
   rows.slice(1).forEach(function(r){
     const g=function(i){ return i>=0?String(r[i]==null?'':r[i]).trim():''; };
-    const name=g(ci.name), amt=Math.round(parseFloat(g(ci.amt).replace(/[$,\s]/g,''))*100);
-    if(!name&&!g(ci.amt)&&!g(ci.desc)){ blank++; return; }
+    if(!r.some(function(x){ return String(x||'').trim(); })){ blank++; return; }
+    const type=g(ci.type);
+    if(/refund check to client/i.test(type)){ clientRef++; return; }   // client refunds aren't staff reimbursements (client data never read)
+    const name=g(ci.name), raw=g(ci.amt)||g(ci.amt2), amt=Math.round(parseFloat(raw.replace(/[$,\s]/g,''))*100);
     if(!(amt>0)){ noAmt++; return; }
     const key=ppuMtgNameKey(name)||'(blank)';
-    if(!names[key]) names[key]=ppuImpNameLookup(name,links);
+    if(!names[key]) names[key]=ppuImpNameLookup(name,links,g(ci.email));
     names[key].count++;
-    const st=g(ci.status).toUpperCase();
-    out.push({key:key,rawName:name,date:mtgParseDate(g(ci.date))||'',desc:(g(ci.desc)||'Training reimbursement').slice(0,200),amountC:amt,notes:g(ci.notes).slice(0,300),paid:/PAID/.test(st)&&!/UNPAID/.test(st)});
+    const st=g(ci.status).toUpperCase(), payDate=mtgParseDate(g(ci.payDate))||'', paid=(/PAID/.test(st)&&!/UNPAID/.test(st))||!!payDate;
+    const ts=g(ci.ts), tsDate=mtgParseDate(ts.split(' ')[0])||'', desc=(g(ci.desc)||g(ci.cat)||'Reimbursement').replace(/\s+/g,' ').slice(0,200);
+    out.push({key:key,rawName:name,ts:ts,date:mtgParseDate(g(ci.date))||tsDate,desc:desc,amountC:amt,notes:g(ci.notes).slice(0,300),
+      cat:reimbGuessCat(g(ci.cat),type,desc),catRaw:g(ci.cat).slice(0,80),site:g(ci.site).slice(0,80),paid:paid,payDate:payDate,method:g(ci.method).toUpperCase().slice(0,20),
+      question:/QUESTION/.test(st),vendor:/direct check to vendor/i.test(type),dest:paid?'hist':'period'});
   });
-  PPU_RIMP={ppId:PPU.ppId,rows:out,names:names,blank:blank,noAmt:noAmt,showAll:false};
+  PPU_RIMP={ppId:PPU.ppId,rows:out,names:names,blank:blank,noAmt:noAmt,clientRef:clientRef,showAll:false};
   ppuReimbResolve(PPU_RIMP); ppuImpRender('r');
 }
 function ppuReimbImpToggle(i,on){ try{ if(PPU_RIMP&&PPU_RIMP.rows[i]){ PPU_RIMP.rows[i].on=!!on; ppuImpRender('r'); } }catch(e){ console.error(e); } }
+function ppuReimbImpCat(i,v){ try{ if(PPU_RIMP&&PPU_RIMP.rows[i]){ PPU_RIMP.rows[i].cat=v; ppuImpRender('r'); } }catch(e){ console.error(e); } }
+function ppuReimbImpAll(dest,on){ try{ (PPU_RIMP.rows||[]).forEach(function(r){ if(r.dest===dest&&r.sid&&!r.dup) r.on=on; }); ppuImpRender('r'); }catch(e){ console.error(e); } }
 function ppuReimbImportPreview(){
   const I=PPU_RIMP; if(!I) return '';
   const ok=I.rows.filter(function(r){ return r.sid&&r.on; }), nom=I.rows.filter(function(r){ return !r.sid; }), dup=I.rows.filter(function(r){ return r.dup; });
-  const tot=ok.reduce(function(a,r){ return a+r.amountC; },0);
-  return '<div style="margin-top:12px;font-size:13px"><b>'+I.rows.length+'</b> reimbursement'+(I.rows.length===1?'':'s')+' in this file — <b style="color:#157a45">'+ok.length+' ticked to import ('+ppuUsd(tot)+')</b>'
+  const okH=ok.filter(function(r){ return r.dest==='hist'; }), okP=ok.filter(function(r){ return r.dest==='period'; });
+  const sumC=function(a){ return a.reduce(function(t,r){ return t+r.amountC; },0); };
+  const byCat={}; okH.concat(okP).forEach(function(r){ const b=byCat[r.cat]=byCat[r.cat]||{n:0,c:0}; b.n++; b.c+=r.amountC; });
+  const table=function(list,dest){ if(!list.length) return '<div class="muted" style="font-size:12.5px;padding:6px 0">None in this file.</div>';
+    return '<div style="margin:4px 0;font-size:12px"><button class="pr-linkbtn" onclick="ppuReimbImpAll(\''+dest+'\',true)">Tick all</button> · <button class="pr-linkbtn" onclick="ppuReimbImpAll(\''+dest+'\',false)">Untick all</button></div>'
+      +'<div class="ppu-tw"><table><thead><tr><th></th><th class="l">Employee</th><th class="l">'+(dest==='hist'?'Paid':'Requested')+'</th><th class="l">Category</th><th class="l">Description</th><th>Amount</th><th class="l">Site / program</th></tr></thead><tbody>'
+      +list.map(function(r){ const i=I.rows.indexOf(r);
+        return '<tr'+(r.on&&r.sid?'':' style="opacity:.55"')+'><td><input type="checkbox" '+(r.on?'checked ':'')+(r.sid?'':'disabled ')+'onchange="ppuReimbImpToggle('+i+',this.checked)"></td>'
+          +'<td class="l"><b>'+ppuEsc(r.name||'—')+'</b>'+(r.sid?'':' <span class="pill bad">pick name above</span>')+(r.dup?' <span class="pill grey">already in Homebase</span>':'')+(r.question?' <span class="pill warn">question</span>':'')+(r.vendor?' <span class="pill grey">direct to vendor</span>':'')+'</td>'
+          +'<td class="l">'+(dest==='hist'?(r.payDate?usDate(r.payDate):'—')+(r.method?' <span class="muted">'+ppuEsc(r.method)+'</span>':''):(r.date?usDate(r.date):'—'))+'</td>'
+          +'<td class="l">'+reimbCatSelect(r.cat,'ppuReimbImpCat('+i+',this.value)','font-size:12px;width:auto;min-width:0;max-width:190px')+(r.catRaw&&reimbCat(r.cat).l!==r.catRaw?'<div class="muted" style="font-size:11px;max-width:190px;white-space:normal">Form: '+ppuEsc(r.catRaw)+'</div>':'')+'</td>'
+          +'<td class="l" style="white-space:normal;max-width:300px">'+ppuEsc(r.desc)+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.site||'')+'</td></tr>'; }).join('')
+      +'</tbody></table></div>'; };
+  const H=I.rows.filter(function(r){ return r.dest==='hist'; }), P=I.rows.filter(function(r){ return r.dest==='period'; });
+  return '<div style="margin-top:12px;font-size:13px"><b>'+I.rows.length+'</b> reimbursement'+(I.rows.length===1?'':'s')+' in this file'
     +(dup.length?' · <span class="muted">'+dup.length+' already in Homebase</span>':'')+(nom.length?' · <b style="color:#b91c1c">'+nom.length+' waiting for a staff match</b>':'')
-    +(I.noAmt?' · <span class="muted">'+I.noAmt+' without an amount (skipped)</span>':'')
+    +(I.noAmt?' · <span class="muted">'+I.noAmt+' without an amount (skipped)</span>':'')+(I.clientRef?' · <span class="muted">'+I.clientRef+' client refund'+(I.clientRef===1?'':'s')+' (skipped — not staff reimbursements)</span>':'')
     +ppuImpNamesPanel(I,'r')
-    +'<div class="ppu-tw" style="margin-top:10px"><table><thead><tr><th></th><th class="l">Employee</th><th class="l">Training date</th><th class="l">Training / course</th><th>Amount</th><th class="l">Notes</th></tr></thead><tbody>'
-    +I.rows.map(function(r,i){ return '<tr'+(r.on&&r.sid?'':' style="opacity:.55"')+'><td><input type="checkbox" '+(r.on?'checked ':'')+(r.sid?'':'disabled ')+'onchange="ppuReimbImpToggle('+i+',this.checked)"></td>'
-      +'<td class="l"><b>'+ppuEsc(r.name||'—')+'</b>'+(r.sid?'':' <span class="pill bad">pick name above</span>')+(r.dup?' <span class="pill grey">already in Homebase</span>':'')+(r.paid?' <span class="pill grey">marked paid</span>':'')+'</td>'
-      +'<td class="l">'+(r.date?usDate(r.date):'—')+'</td><td class="l" style="white-space:normal">'+ppuEsc(r.desc)+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.notes||'')+'</td></tr>'; }).join('')
-    +'</tbody></table></div>'
-    +'<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" '+(ok.length?'':'disabled ')+'onclick="ppuReimbImportApply()">Add '+ok.length+' to '+ppuEsc(ppuPP(PPU.ppId).short)+'</button><button class="btn btn-secondary" onclick="PPU_RIMP=null;renderPPU()">Cancel</button>'
-    +(nom.length?'<span class="muted" style="font-size:12px">Rows with unmatched names can’t be added until you pick who they belong to.</span>':'')+'</div></div>';
+    +(Object.keys(byCat).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+REIMB_CATS.filter(function(c){ return byCat[c.k]; }).map(function(c){ return '<span class="pill grey">'+ppuEsc(c.l)+' · '+byCat[c.k].n+' · '+ppuUsd(byCat[c.k].c)+'</span>'; }).join('')+'</div>':'')
+    +'<div style="margin-top:12px"><b>Not paid yet → add to '+ppuEsc(ppuPP(PPU.ppId).short)+'</b> <span class="muted" style="font-size:12px">'+okP.length+' ticked · '+ppuUsd(sumC(okP))+' · added unapproved — approve each one below</span></div>'+table(P,'period')
+    +'<details style="margin-top:12px"'+(P.length?'':' open')+'><summary style="cursor:pointer"><b>Already paid → reimbursement history</b> <span class="muted" style="font-size:12px">'+okH.length+' ticked · '+ppuUsd(sumC(okH))+' · '+H.length+' rows — show</span></summary>'+table(H,'hist')+'</details>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" '+(ok.length?'':'disabled ')+'onclick="ppuReimbImportApply()">Import '+ok.length+' ('+okP.length+' to this pay period · '+okH.length+' to history)</button><button class="btn btn-secondary" onclick="PPU_RIMP=null;renderPPU()">Cancel</button>'
+    +(nom.length?'<span class="muted" style="font-size:12px">Rows with unmatched names can’t be imported until you pick who they belong to.</span>':'')+'</div></div>';
 }
 async function ppuReimbImportApply(){
   try{
     const I=PPU_RIMP; if(!I||I.ppId!==PPU.ppId) return;
     const todo=I.rows.filter(function(r){ return r.sid&&r.on; }); if(!todo.length) return;
-    const pp=ppuPP(PPU.ppId); let p=PPU.periods[PPU.ppId]; if(p&&p.status==='closed') return;
-    if(!p){ p={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,label:pp.short,status:'open',version:1,corrections:{},audit:[]}; }
-    const by=ppuWho(), at=ppuNow();
-    const add=todo.map(function(r,i){ return {id:'rb_'+Date.now().toString(36)+i.toString(36)+Math.random().toString(36).slice(2,5),sid:r.sid,date:r.date,desc:r.desc,amountC:r.amountC,notes:r.notes,by:by,at:at,approved:false,imported:true}; });
-    p.reimb=(p.reimb||[]).concat(add);
-    ppuAudit(p,{act:'reimb.import',row:add.length+' rows, '+(add.reduce(function(a,r){ return a+r.amountC; },0)/100).toFixed(2),reason:''});
-    if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; }
-    PPU.periods[PPU.ppId]=p; await ppuImpSaveAuto(I); PPU_RIMP=null;
-    showToast('📥 Added '+add.length+' reimbursement'+(add.length===1?'':'s')+' — approve them below'); renderPPU();
+    const by=ppuWho(), at=ppuNow(), uid=function(i){ return Date.now().toString(36)+i.toString(36)+Math.random().toString(36).slice(2,5); };
+    const toP=todo.filter(function(r){ return r.dest==='period'; }), toH=todo.filter(function(r){ return r.dest==='hist'; });
+    if(toP.length){
+      const pp=ppuPP(PPU.ppId); let p=PPU.periods[PPU.ppId]; if(p&&p.status==='closed'){ showToast('⚠ This pay period is closed'); return; }
+      if(!p){ p={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,label:pp.short,status:'open',version:1,corrections:{},audit:[]}; }
+      const add=toP.map(function(r,i){ return {id:'rb_'+uid(i),sid:r.sid,date:r.date,desc:r.desc,amountC:r.amountC,cat:r.cat,site:r.site,notes:r.notes,src:r.src,vendor:r.vendor||undefined,by:by,at:at,approved:false,imported:true}; });
+      p.reimb=(p.reimb||[]).concat(add);
+      ppuAudit(p,{act:'reimb.import',row:add.length+' rows, '+(add.reduce(function(a,r){ return a+r.amountC; },0)/100).toFixed(2),reason:''});
+      if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save to the pay period'); return; }
+      PPU.periods[PPU.ppId]=p;
+    }
+    if(toH.length){
+      const hist=(await ppuReimbHistLoad(true)).slice();
+      toH.forEach(function(r,i){ hist.push({id:'rh_'+uid(i),sid:r.sid,date:r.date,desc:r.desc,amountC:r.amountC,cat:r.cat,site:r.site,payDate:r.payDate,method:r.vendor?'TO VENDOR':r.method,src:r.src,by:by,at:at}); });
+      if(!(await payStore.setCfgDoc('reimbHistory',{rows:hist,updatedAt:at,updatedBy:by}))){ showToast('⚠ Could not save the history'); return; }
+      PPU.rhist=hist;
+    }
+    await ppuImpSaveAuto(I); PPU_RIMP=null;
+    showToast('📥 Imported '+todo.length+' — '+toP.length+' to this pay period, '+toH.length+' to history'); renderPPU();
   }catch(e){ console.error(e); showToast('⚠ Import stopped — check the list and try again'); }
 }
 
-// ── Training Reimbursement (Payroll Processing tab) ──
-// period doc .reimb = [{id,sid,date,desc,amountC,notes,by,at}] — feeds the Paychex report's
-// Professional Reimbursement column. Employees see a "coming soon" card on Meeting & Admin Time.
+// ── Reimbursement history (imported paid rows + every closed pay period's approved reimbursements) ──
+var RH={cat:'',yr:'',sid:'',open:false};
+function ppuReimbHistRows(){
+  const out=(PPU.rhist||[]).map(function(r){ return Object.assign({from:'hist'},r); });
+  Object.keys(PPU.periods||{}).forEach(function(k){ const p=PPU.periods[k]||{}; if(p.status!=='closed') return;
+    (p.reimb||[]).forEach(function(r){ if(r.approved===false) return; out.push(Object.assign({from:'pp',payDate:p.end,method:'PAYROLL',pp:p.label||k},r,{cat:r.cat||'training'})); }); });
+  return out.sort(function(a,b){ return String(b.payDate||b.date||'').localeCompare(String(a.payDate||a.date||'')); });
+}
+function ppuReimbHistHtml(){
+  if(!PPU.rhist){ ppuReimbHistLoad().then(function(){ if(PPU.view==='reimb') renderPPU(); }); return '<div class="ppu-card muted">Loading reimbursement history…</div>'; }
+  const all=ppuReimbHistRows(), nm=function(sid){ const s=(STAFF||[]).find(function(x){ return x._id===sid; }); return s?s['Clinician']||sid:sid; };
+  const yrs={}; all.forEach(function(r){ const y=String(r.payDate||r.date||'').slice(0,4); if(y) yrs[y]=1; });
+  const L=all.filter(function(r){ return (!RH.cat||r.cat===RH.cat)&&(!RH.yr||String(r.payDate||r.date||'').slice(0,4)===RH.yr)&&(!RH.sid||r.sid===RH.sid); });
+  const byCat={}; L.forEach(function(r){ const b=byCat[r.cat]=byCat[r.cat]||{n:0,c:0}; b.n++; b.c+=(+r.amountC||0); });
+  const tot=L.reduce(function(t,r){ return t+(+r.amountC||0); },0);
+  const ppl={}; all.forEach(function(r){ ppl[r.sid]=1; });
+  const f='font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff';
+  let h='<div class="ppu-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b style="font-size:14.5px">🗂 Reimbursement history</b> <span class="muted" style="font-size:12.5px">'+all.length+' paid · imported history plus every closed pay period</span></div>'
+    +'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="RH.open=!RH.open;renderPPU()">'+(RH.open?'Hide':'Show')+' history</button></div>';
+  if(!RH.open) return h+'</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">'
+    +'<select style="'+f+'" onchange="RH.cat=this.value;renderPPU()"><option value="">All categories</option>'+REIMB_CATS.map(function(c){ return '<option value="'+c.k+'"'+(RH.cat===c.k?' selected':'')+'>'+ppuEsc(c.l)+'</option>'; }).join('')+'</select>'
+    +'<select style="'+f+'" onchange="RH.yr=this.value;renderPPU()"><option value="">All years</option>'+Object.keys(yrs).sort().reverse().map(function(y){ return '<option'+(RH.yr===y?' selected':'')+'>'+y+'</option>'; }).join('')+'</select>'
+    +'<select style="'+f+';max-width:220px" onchange="RH.sid=this.value;renderPPU()"><option value="">Everyone</option>'+Object.keys(ppl).sort(function(a,b){ return nm(a).localeCompare(nm(b)); }).map(function(s){ return '<option value="'+ppuEsc(s)+'"'+(RH.sid===s?' selected':'')+'>'+ppuEsc(nm(s))+'</option>'; }).join('')+'</select>'
+    +'<b style="margin-left:auto">'+L.length+' · '+ppuUsd(tot)+'</b></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+REIMB_CATS.filter(function(c){ return byCat[c.k]; }).map(function(c){ return '<button class="pill '+(RH.cat===c.k?'info':'grey')+'" style="border:0;cursor:pointer" onclick="RH.cat=RH.cat===\''+c.k+'\'?\'\':\''+c.k+'\';renderPPU()">'+ppuEsc(c.l)+' · '+byCat[c.k].n+' · '+ppuUsd(byCat[c.k].c)+'</button>'; }).join('')+'</div>';
+  if(!L.length) return h+'<div class="muted" style="margin-top:10px">Nothing matches.</div></div>';
+  return h+'<div class="ppu-tw" style="margin-top:10px;max-height:520px;overflow:auto"><table><thead><tr><th class="l stk">Employee</th><th class="l">Paid</th><th class="l">Category</th><th class="l">Description</th><th>Amount</th><th class="l">Site / program</th><th class="l">How</th></tr></thead><tbody>'
+    +L.slice(0,500).map(function(r){ return '<tr><td class="l stk"><b>'+ppuEsc(nm(r.sid))+'</b></td><td class="l">'+(r.payDate?usDate(r.payDate):'—')+'</td>'
+      +'<td class="l">'+(r.from==='hist'?reimbCatSelect(r.cat,'ppuReimbHistCat(\''+ppuEsc(r.id)+'\',this.value)','font-size:12px;width:auto;min-width:0;max-width:190px'):ppuEsc(reimbCat(r.cat).l))+'</td>'
+      +'<td class="l" style="white-space:normal;max-width:320px">'+ppuEsc(r.desc||'')+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.site||'')+'</td>'
+      +'<td class="l muted">'+(r.from==='pp'?'Payroll · '+ppuEsc(r.pp||''):ppuEsc(r.method||'—'))+(r.from==='hist'?' <button class="me-x" style="color:#b91c1c" onclick="ppuReimbHistDel(\''+ppuEsc(r.id)+'\')">Remove</button>':'')+'</td></tr>'; }).join('')
+    +'</tbody></table></div>'+(L.length>500?'<div class="muted" style="font-size:12px;margin-top:4px">Showing the newest 500 — filter to see the rest.</div>':'')+'</div>';
+}
+async function ppuReimbHistSave(rows){
+  if(!(await payStore.setCfgDoc('reimbHistory',{rows:rows,updatedAt:ppuNow(),updatedBy:ppuWho()}))){ showToast('⚠ Could not save'); return false; }
+  PPU.rhist=rows; return true;
+}
+async function ppuReimbHistCat(id,v){ try{ const rows=(await ppuReimbHistLoad(true)).map(function(r){ return r.id===id?Object.assign({},r,{cat:v}):r; }); if(await ppuReimbHistSave(rows)) renderPPU(); }catch(e){ console.error(e); } }
+async function ppuReimbHistDel(id){ try{ if(!confirm('Remove this row from the reimbursement history?')) return; const rows=(await ppuReimbHistLoad(true)).filter(function(r){ return r.id!==id; }); if(await ppuReimbHistSave(rows)) renderPPU(); }catch(e){ console.error(e); } }
+
+// ── This pay period's reimbursements ──
+// period doc .reimb = [{id,sid,date,desc,amountC,cat,site,notes,by,at,approved}] — approved entries are paid
+// with the period: training & licensure in the Paychex Professional Reimbursement column, the other
+// categories in Expense Reimbursement. Employees see a "coming soon" card on Meeting & Admin Time.
 function ppuReimbHtml(closed){
   const p=PPU.periods[PPU.ppId]||{}, pp=ppuPP(PPU.ppId), list=(p.reimb||[]).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   const nm=function(sid){ const s=(STAFF||[]).find(function(x){ return x._id===sid; }); return s?s['Clinician']||sid:sid; };
   const ppl=(STAFF||[]).filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated'||list.some(function(r){ return r.sid===s._id; }); }).sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
   const f='font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;background:#fff';
   const tot=list.reduce(function(a,r){ return a+(+r.amountC||0); },0);
-  let h='<div class="ppu-card"><b style="font-size:14.5px">🎓 Training reimbursement</b><div class="muted" style="font-size:12.5px;max-width:760px;margin-top:2px">CEU trainings, conferences and certifications APP has agreed to reimburse. Add each one, check the receipt, then <b>Approve</b> it — the pay period can’t close with unapproved reimbursements. Approved entries are paid with '+ppuEsc(pp.short)+' and show in the <b>Professional Reimbursement</b> column of the Paychex entry report.</div>'
+  let h='<div class="ppu-card"><b style="font-size:14.5px">🎓 Reimbursements this pay period</b><div class="muted" style="font-size:12.5px;max-width:760px;margin-top:2px">Trainings, licensure and expenses APP has agreed to pay back. Add each one, check the receipt, then <b>Approve</b> it — the pay period can’t close with unapproved reimbursements. Approved entries are paid with '+ppuEsc(pp.short)+': training &amp; licensure in the <b>Professional Reimbursement</b> column of the Paychex report, everything else in <b>Expense Reimbursement</b>.</div>'
     +(closed?'':'<div class="ppu-gform"><label>Employee<select id="prb-sid" style="'+f+';min-width:200px"><option value="">Choose…</option>'+ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'">'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select></label>'
-      +'<label>Training date<input id="prb-date" type="date" style="'+f+'"></label>'
-      +'<label style="min-width:220px;flex:1">Training / course<input id="prb-desc" style="'+f+';width:100%" placeholder="e.g. EMDR Basic Training Part 1"></label>'
+      +'<label>Category<select id="prb-cat" style="'+f+'">'+REIMB_CATS.map(function(c){ return '<option value="'+c.k+'">'+ppuEsc(c.l)+'</option>'; }).join('')+'</select></label>'
+      +'<label>Date<input id="prb-date" type="date" style="'+f+'"></label>'
+      +'<label style="min-width:220px;flex:1">Description<input id="prb-desc" style="'+f+';width:100%" placeholder="e.g. EMDR Basic Training Part 1"></label>'
       +'<label>Amount ($)<input id="prb-amt" inputmode="decimal" style="'+f+';width:110px" placeholder="0.00"></label>'
       +'<label style="min-width:160px">Notes<input id="prb-notes" style="'+f+';width:100%" placeholder="Receipt, approval…"></label>'
       +'<button class="btn" style="align-self:flex-end" onclick="ppuReimbAdd()">+ Add</button></div>')+'</div>';
-  if(!list.length) return h+'<div class="ppu-card muted">No training reimbursements in this pay period.</div>';
-  return h+'<div class="ppu-tw"><table><thead><tr><th class="l stk">Employee</th><th class="l">Training date</th><th class="l">Training / course</th><th>Amount</th><th class="l">Notes</th><th class="l">Added by</th>'+(closed?'':'<th></th>')+'</tr></thead><tbody>'
-    +list.map(function(r){ return '<tr><td class="l stk"><b>'+ppuEsc(nm(r.sid))+'</b></td><td class="l">'+(r.date?usDate(r.date):'—')+'</td><td class="l" style="white-space:normal">'+ppuEsc(r.desc||'')+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.notes||'')+'</td><td class="l muted">'+ppuEsc(r.by||'')+'</td>'
+  if(!list.length) return h+'<div class="ppu-card muted">No reimbursements in this pay period.</div>'+ppuReimbHistHtml();
+  return h+'<div class="ppu-tw"><table><thead><tr><th class="l stk">Employee</th><th class="l">Date</th><th class="l">Category</th><th class="l">Description</th><th>Amount</th><th class="l">Notes</th><th class="l">Added by</th>'+(closed?'':'<th></th>')+'</tr></thead><tbody>'
+    +list.map(function(r){ return '<tr><td class="l stk"><b>'+ppuEsc(nm(r.sid))+'</b></td><td class="l">'+(r.date?usDate(r.date):'—')+'</td>'
+      +'<td class="l">'+(closed?ppuEsc(reimbCat(r.cat).l):reimbCatSelect(r.cat,'ppuReimbSetCat(\''+ppuEsc(r.id)+'\',this.value)','font-size:12px;width:auto;min-width:0;max-width:190px'))+'</td>'
+      +'<td class="l" style="white-space:normal">'+ppuEsc(r.desc||'')+(r.site?'<div class="muted" style="font-size:11.5px">'+ppuEsc(r.site)+'</div>':'')+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.notes||'')+'</td><td class="l muted">'+ppuEsc(r.by||'')+'</td>'
       +(closed?'':'<td style="white-space:nowrap">'+(r.approved===false?'<button class="btn btn-primary" style="font-size:11.5px;padding:4px 10px" onclick="ppuReimbApprove(\''+ppuEsc(r.id)+'\')">✓ Approve</button> ':'<span class="pill good">✓ Approved</span> ')+'<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px" onclick="ppuReimbDel(\''+ppuEsc(r.id)+'\')">Remove</button></td>')+'</tr>'; }).join('')
-    +'</tbody><tfoot><tr><td class="l" colspan="3"><b>Total ('+list.length+')</b></td><td><b>'+ppuUsd(tot)+'</b></td><td colspan="'+(closed?2:3)+'"></td></tr></tfoot></table></div>';
+    +'</tbody><tfoot><tr><td class="l" colspan="4"><b>Total ('+list.length+')</b></td><td><b>'+ppuUsd(tot)+'</b></td><td colspan="'+(closed?2:3)+'"></td></tr></tfoot></table></div>'+ppuReimbHistHtml();
+}
+async function ppuReimbSetCat(id,v){
+  try{ const p=PPU.periods[PPU.ppId]; if(!p||p.status==='closed') return;
+    p.reimb=(p.reimb||[]).map(function(r){ return r.id===id?Object.assign({},r,{cat:v}):r; }); ppuAudit(p,{act:'reimb.category',row:id+' '+v,reason:''});
+    if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; } renderPPU(); }catch(e){ console.error(e); }
 }
 async function ppuReimbAdd(){
   try{
     const g=function(k){ return String((document.getElementById(k)||{}).value||'').trim(); };
     const pp=ppuPP(PPU.ppId), amt=Math.round(parseFloat(g('prb-amt').replace(/[$,]/g,''))*100);
-    const e={sid:g('prb-sid'),date:g('prb-date'),desc:g('prb-desc').slice(0,200),amountC:amt,notes:g('prb-notes').slice(0,300)};
+    const e={sid:g('prb-sid'),cat:g('prb-cat')||'training',date:g('prb-date'),desc:g('prb-desc').slice(0,200),amountC:amt,notes:g('prb-notes').slice(0,300)};
     if(!e.sid){ showToast('⚠ Choose the employee'); return; }
-    if(!e.desc){ showToast('⚠ Name the training'); return; }
+    if(!e.desc){ showToast('⚠ Describe what it’s for'); return; }
     if(!(amt>0)){ showToast('⚠ Enter the amount'); return; }
     let p=PPU.periods[PPU.ppId]; if(p&&p.status==='closed') return;
     if(!p){ p={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,label:pp.short,status:'open',version:1,corrections:{},audit:[]}; }
@@ -15724,7 +15864,7 @@ async function ppuReimbDel(id){
     p.reimb=(p.reimb||[]).filter(function(x){ return x.id!==id; }); ppuAudit(p,{act:'reimb.remove',row:id,reason:''});
     if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; } renderPPU(); }catch(e){ console.error(e); }
 }
-function ppuReimbBySid(){ const p=PPU.periods[PPU.ppId]||{}, o={}; (p.reimb||[]).forEach(function(r){ if(r.approved===false) return; o[r.sid]=(o[r.sid]||0)+(+r.amountC||0); }); return o; }
+function ppuReimbBySid(col){ const p=PPU.periods[PPU.ppId]||{}, o={}; (p.reimb||[]).forEach(function(r){ if(r.approved===false||r.vendor) return; const c=reimbCat(r.cat).col; if(col&&c!==col) return; o[r.sid]=(o[r.sid]||0)+(+r.amountC||0); }); return o; }
 function ppuReimbPending(){ const p=PPU.periods[PPU.ppId]||{}; return (p.reimb||[]).filter(function(r){ return r.approved===false; }).length; }
 async function ppuReimbApprove(id){
   try{ const p=PPU.periods[PPU.ppId]; if(!p||p.status==='closed') return;
@@ -15911,7 +16051,7 @@ async function ppuClose(){
   try{
     const R=PPU.R, p=PPU.periods[PPU.ppId], pp=ppuPP(PPU.ppId); if(!R||!p||p.status==='closed') return;
     if(R.blocking){ showToast('⚠ Resolve the items listed first'); return; }
-    if(ppuReimbPending()){ showToast('⚠ Approve or remove the training reimbursements first'); return; }
+    if(ppuReimbPending()){ showToast('⚠ Approve or remove the reimbursements first'); return; }
     if(!confirm('Close '+pp.label+'?\n\nThis saves a frozen snapshot, publishes '+R.emps.filter(function(E){ return E.sid; }).length+' Pay Period Snapshots, marks Meeting and Admin Time paid, and writes clinical hours to the Capacity Dashboard.')) return;
     const v=p.version||1, at=ppuNow(), by=ppuWho(), snapId='ppu_'+PPU.ppId+'_v'+v;
     // provider links actually used (incl. confirmed suggestions)
@@ -16105,7 +16245,7 @@ function ppuStatementHtml(st,opt){
     +'<div class="ps-g2 ps-gap">'+sm('Paid No-Shows',hrs(n(S.pns)),'Paid at FFS rate · no capacity credit')
       +sm('Unpaid No-Shows',cnt(n(S.nsu),'session','sessions'),'Not paid · no capacity credit')+'</div>'
     +(n(S.grpN)?'<div class="ps-g2 ps-gap">'+sm('Group Sessions',cnt(n(S.grpN),'group','groups'),'Logged on Meeting and Admin Time')
-      +sm('Group Pay — Per Participant',ppuUsd(n(S.grpHeadC)),n(S.grpHeadN)+' participant'+(n(S.grpHeadN)===1?'':'s')+' × $'+(+(S.groupRate||17)).toFixed(2))+'</div>':'');
+      +(opt.noMoney?sm('Group Attendees',cnt(n(S.grpHeadN),'participant','participants'),'Marked as attending'):sm('Group Pay — Per Participant',ppuUsd(n(S.grpHeadC)),n(S.grpHeadN)+' participant'+(n(S.grpHeadN)===1?'':'s')+' × $'+(+(S.groupRate||17)).toFixed(2)))+'</div>':'');
   const rows=[]; PPU_HEADS.forEach(function(x){ if(x===PPU_NOSHOW_UNPAID||x===PPU_NOSHOW_PAID) return; const v=n((S.cats||{})[x]); if(v) rows.push([x,v]); });
   Object.keys(S.other||{}).forEach(function(k){ if(n(S.other[k])) rows.push([k,n(S.other[k])]); });
   if(rows.length){ const mx=Math.max.apply(null,rows.map(function(r){ return r[1]; }));
@@ -16124,6 +16264,12 @@ function ppuStatementHtml(st,opt){
   let ytdTot=null, ytdN=0;
   if(opt.ytd&&opt.ytd.length){ ytdTot=0; opt.ytd.forEach(function(x){ const XM=psMoney(x.summary||{}); ytdTot+=XM.total||0; ytdN++; }); }
   const rate=function(r){ return '$'+(+r).toFixed(2); };
+  if(opt.noMoney){
+    let ay=0; (opt.ytd||[]).forEach(function(x){ const A=(x.summary||{}).anniv; if(A) ay+=n(A.c); });
+    h+='<div class="ps-band bonus"><div class="ps-bh">⭐ Anniversary Bonus'+(ay?'<span class="ps-bht"><span><small>Year to date</small><b>'+ppuUsd(ay)+'</b></span></span>':'')+'</div><div class="ps-bb"><div class="ps-g2">'
+      +(S.anniv?sm('Anniversary Bonus',usd(M.anniv),S.anniv.years+' year'+(S.anniv.years===1?'':'s')+' at APP · anniversary '+usDate(S.anniv.date))
+        :'<div class="ps-st ps-soon"><span class="l">Anniversary Bonus</span><b>—</b><span>Paid the first pay period after your hire-date anniversary</span></div>')+'</div></div></div>';
+  } else {
   h+='<div class="ps-band bonus"><div class="ps-bh">⭐ Differentials and Bonuses'+(elig?'':' <small>Tracked only — not eligible</small>')+'<span class="ps-bht"><span><small>This pay period</small><b>'+usd(M.total)+'</b></span>'+(ytdTot!=null?'<span><small>Year to date</small><b>'+ppuUsd(ytdTot)+'</b></span>':'')+'</span></div><div class="ps-bb"><div class="ps-g4">'
     +sm('Evening/Weekend One-Hour Sessions',usd(M.diff),dN+' session'+(dN===1?'':'s')+(elig&&M.diffRate!=null?' × '+rate(M.diffRate):elig?'':' · tracked only'))
     +sm('Over '+thr+' Clinical Hours in a PP',usd(M.bonus),ppuF(n(S.bonus))+' hrs'+(elig&&M.bonusRate!=null?' × '+rate(M.bonusRate)+'/hr':elig?'':' · tracked only'))
@@ -16131,16 +16277,17 @@ function ppuStatementHtml(st,opt){
       :'<div class="ps-st ps-soon"><span class="l">Anniversary Bonus</span><b>$0.00</b><span>Paid the first pay period after your hire-date anniversary</span></div>')
     +'</div>';
   h+='</div></div>';
+  }
   // ── 3. Paid Time and Meetings ──
   const mFlat=Math.round(n(S.mtgFlatMins)*100/60), mFfs=Math.round(n(S.mtgFfsMins)*100/60);
   h+='<div class="ps-band paid"><div class="ps-bh">💵 Paid Time, Supervision and Meetings <small>Doesn’t count toward capacity</small></div><div class="ps-bb"><div class="ps-g4">'
     +sm('Supervision — Paid',hrs(n(S.sup)),'Paid at FFS rate')
     +sm('Supervision — Unpaid',cnt(n(S.supU),'session','sessions'),'Not paid')
-    +sm('Meetings & Admin — $25/hr',hrs(mFlat),ppuUsd(n(S.mtgFlatC))+' paid')
+    +(opt.noMoney?sm('Meetings & Admin — Hourly',hrs(mFlat),'Paid at the admin hourly rate'):sm('Meetings & Admin — $25/hr',hrs(mFlat),ppuUsd(n(S.mtgFlatC))+' paid'))
     +sm('Meetings & Admin — FFS Rate',hrs(mFfs),'Paid at FFS rate')
-    +sm('CANS & Additional Comp (admin pay)',usd(M.add),n(S.addN)+' unit'+(n(S.addN)===1?'':'s')+(M.add==null?' · $ not recorded for this period':''))
+    +(opt.noMoney?sm('CANS & Additional Comp (admin pay)',cnt(n(S.addN),'unit','units'),'Paid as admin pay'):sm('CANS & Additional Comp (admin pay)',usd(M.add),n(S.addN)+' unit'+(n(S.addN)===1?'':'s')+(M.add==null?' · $ not recorded for this period':'')))
     +(n(S.mtgInterimMins)?sm('Interim Supervision Provided',hrs(Math.round(n(S.mtgInterimMins)*100/60)),'Paid at 1.25× your FFS rate'):'')+'</div>';
-  if((st.meetings||[]).length) h+='<div style="overflow-x:auto;margin-top:12px;background:#fff;border:1px solid #cfe6e4;border-radius:10px;padding:4px 6px"><div class="ps-sub" style="color:#1d7479;margin:6px 4px">Meetings &amp; admin time paid</div>'+prMtgTable({mtg:{items:st.meetings.map(function(m){ return Object.assign({},m,{kind:m.kind==='none'?'':m.kind}); })}},'flat')+'</div>';
+  if((st.meetings||[]).length) h+='<div style="overflow-x:auto;margin-top:12px;background:#fff;border:1px solid #cfe6e4;border-radius:10px;padding:4px 6px"><div class="ps-sub" style="color:#1d7479;margin:6px 4px">Meetings &amp; admin time paid</div>'+prMtgTable({mtg:{items:st.meetings.map(function(m){ return Object.assign({},m,{kind:m.kind==='none'?'':m.kind}); })}},opt.noMoney?'none':'flat')+'</div>';
   else h+='<div style="font-size:12px;color:#6b7280;margin-top:8px">No meeting or admin time paid this pay period.</div>';
   if(n(S.ffsTot)) h+='<div style="font-size:12px;color:#4b5563;margin-top:10px">All FFS hours paid this pay period: <b>'+ppuF(n(S.ffsTot))+' hrs</b> <span style="color:#6b7280">(clinical '+ppuF(clinFfs)+' + supervision '+ppuF(n(S.sup))+' + meetings at FFS '+ppuF(mFfs)+')</span></div>';
   h+='</div></div>';
