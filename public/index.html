@@ -7359,6 +7359,16 @@ function capEfCollect(grid,p){
     if(r.notice&&r.term<r.notice){ showToast('⚠ The term date is before the notice date'); return false; }
   }
   if(nwRaw!==''&&!isNaN(nw)&&nw!==ow){ r.capFrom=v('ef-capfrom')||capISO(capPPStartFor()); }
+  // Date of Hire must be a real date (it drives the capacity goal and the new-hire ramp)
+  const hEl=grid.querySelector('#ef-hire'), hRaw=hEl?String(hEl.value||'').trim():String(p['Date of Hire']||'');
+  if(hEl&&hRaw&&!capDateOf(hRaw)){ showToast('⚠ Date of Hire isn’t a date Homebase can read — use M/D/YYYY'); return false; }
+  if(hEl&&hRaw){ const hd=capDateOf(hRaw); r.hireNorm=String(hd.getMonth()+1).padStart(2,'0')+'/'+String(hd.getDate()).padStart(2,'0')+'/'+hd.getFullYear(); }
+  if(r.capFrom){ const rc=capRampCheck(p,r.capFrom,hRaw); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return false; } if(rc.kind==='start') r.capStart=true; }
+  // A changed hire date can't leave an existing capacity change inside the new ramp
+  if(hEl&&hRaw&&capDateOf(hRaw)&&String(p['Date of Hire']||'')!==hRaw){
+    const bad=(Array.isArray(p._capHist)?p._capHist:[]).find(function(h){ return h.from&&capRampCheck(p,h.from,hRaw).kind==='inside'; });
+    if(bad){ showToast('⚠ With this hire date, the capacity change on '+capUS(capDateOf(bad.from))+' would fall inside the new-hire ramp. Remove it in Capacity adjustments first (Capacity Dashboard), or pick a different date.'); return false; }
+  }
   return r;
 }
 function capEfApply(p,r){
@@ -7372,7 +7382,8 @@ function capEfApply(p,r){
     p._leaves=(Array.isArray(p._leaves)?p._leaves:[]).map(function(l){ if(!done&&l.start&&(!l.end||l.end>=last)&&l.start<=last){ done=true; return {start:l.start,end:last}; } return l; });
   }
   if(r.term){ p['Term Date']=r.term; p['Notice Date']=r.notice||p['Notice Date']||''; }
-  if(r.capFrom){ capRecordCapacityChange(p,r.ow,r.nw,r.capFrom); }
+  if(r.hireNorm) p['Date of Hire']=r.hireNorm;
+  if(r.capFrom){ if(r.capStart) capSetStartingCapacity(p,r.nw); else capRecordCapacityChange(p,r.ow,r.nw,r.capFrom); }
 }
 function saveEdit(){
   const grid = document.getElementById('m-edit-grid');
@@ -8903,6 +8914,7 @@ function capAdjustNotes(s){
   const tl=capTimeline(s), out=[]; const today=capDateOf(new Date());
   if(capUsesRamp(s)) out.push('New-hire ramp from '+capUS(tl.hire)+': 25% of normal pace for days 1–15, 50% for 16–30, 75% for 31–45, then 100%.');
   if(tl.hist.length>1) out.push('Weekly Capacity: '+tl.hist.map(function(h,i){ return h.weekly+' hrs/wk'+(i===0?(h.from?' from '+capUS(h.from):' to start'):' from '+capUS(h.from)); }).join(' → ')+' — each part of the year is measured at the capacity in effect then.');
+  try{ tl.hist.forEach(function(h){ if(h.from&&capRampCheck(s,capISO(h.from)).kind==='inside') out.push('⚠ The capacity change on '+capUS(h.from)+' falls inside the new-hire ramp — remove it (or move it to '+capUS(capRampEnd(tl.hire))+' or later) so the ramp is measured correctly.'); }); }catch(e){}
   tl.leaves.forEach(function(l){ out.push('Leave '+capUS(l.start)+(l.end?' – '+capUS(l.end):' – (still on leave)')+': no hours expected.'); });
   if(tl.term) out.push('Offboarding'+(tl.notice?' (notice given '+capUS(tl.notice)+')':'')+': goal runs through the term date, '+capUS(tl.term)+', then stops.');
   if(normStatus(s['Employee Status'])==='On Leave' && !tl.leaves.some(function(l){ return !l.end||l.end>=today; })) out.push('⚠ Status is On Leave but no leave dates are entered — hours are still expected until HR adds them.');
@@ -10386,11 +10398,33 @@ function capRecordCapacityChange(s,oldW,newW,from){
   const last=parseFloat(hist[hist.length-1].weekly)||0;
   s['Weekly Capacity']=String(last); s['Biweekly Capacity']=String(Math.round(last*2));
 }
+// New-hire ramp guard: a Weekly Capacity change can't start inside the ramp (the day after the hire date
+// through day 45 — full pace from day 46). A change dated on/before the hire date is their STARTING
+// capacity: it replaces the base value and the ramp still applies from the hire date.
+function capRampEnd(hireD){ return hireD?new Date(hireD.getFullYear(),hireD.getMonth(),hireD.getDate()+45):null; }
+function capRampCheck(s,fromISO,hireRaw){
+  const hire=capDateOf(hireRaw!==undefined?hireRaw:(s&&s['Date of Hire'])), from=capDateOf(fromISO);
+  if(!hire||!from) return {kind:'after'};
+  const end=capRampEnd(hire);
+  if(from<=hire) return {kind:'start',hire:hire,end:end};
+  if(from<end) return {kind:'inside',hire:hire,end:end};
+  return {kind:'after',hire:hire,end:end};
+}
+function capRampMsg(c){ return '⚠ That date is inside the new-hire ramp ('+capUS(c.hire)+' – '+capUS(new Date(c.end.getFullYear(),c.end.getMonth(),c.end.getDate()-1))+'). Capacity changes can start on '+capUS(c.end)+' or later — or on the hire date to set their starting capacity.'; }
+// Set someone's STARTING capacity (from their hire date): drops history at/before the hire date; the ramp applies.
+function capSetStartingCapacity(s,w){
+  const hire=capDateOf(s['Date of Hire']); const hISO=capISO(hire);
+  let hist=(Array.isArray(s._capHist)?s._capHist:[]).filter(function(h){ return h.from&&h.from>hISO; });
+  if(hist.length){ hist=[{from:'',weekly:w}].concat(hist); s._capHist=hist; }
+  else { s._capHist=[]; s['Weekly Capacity']=String(w); s['Biweekly Capacity']=String(Math.round(w*2)); }
+}
 async function capAdjAddChange(id){
   const s=capAdjStaff(id); if(!s) return;
   const from=capAskDate('New Weekly Capacity starts on (defaults to the first day of the current pay period):',capPPStartFor()); if(!from) return;
-  const w=parseFloat(prompt('New Weekly Capacity (hrs/week):',s['Weekly Capacity']||'')); if(isNaN(w)||w<0){ showToast('⚠ Not a valid number'); return; }
-  capRecordCapacityChange(s,parseFloat(s['Weekly Capacity'])||0,w,from); await capAdjSave(s);
+  const rc=capRampCheck(s,from); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return; }
+  const w=parseFloat(prompt((rc.kind==='start'?'Starting Weekly Capacity from the hire date '+capUS(rc.hire)+' (the new-hire ramp still applies) — hrs/week:':'New Weekly Capacity (hrs/week):'),s['Weekly Capacity']||'')); if(isNaN(w)||w<0){ showToast('⚠ Not a valid number'); return; }
+  if(rc.kind==='start') capSetStartingCapacity(s,w); else capRecordCapacityChange(s,parseFloat(s['Weekly Capacity'])||0,w,from);
+  await capAdjSave(s);
 }
 async function capAdjDelChange(id,i){
   const s=capAdjStaff(id); if(!s||!Array.isArray(s._capHist)) return;

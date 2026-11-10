@@ -464,3 +464,7 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 
 ### Capacity Dashboard: hours before hire date warning (Nov 2026)
 - `capHoursBeforeHire(s)` = hours credited in pay periods that ended before Date of Hire. When present, the attainment callout is replaced: admins (and anyone viewing someone else) get "Hours credited before hire date — check the Date of Hire or provider link"; the person themself gets a neutral "being double-checked" note instead of the congratulations.
+
+### Capacity changes vs the new-hire ramp (Nov 2026)
+- `capRampCheck(s,fromISO,hireRaw)`: a Weekly Capacity change can't start inside the ramp (day after hire → hire+44; full pace from hire+45 = `capRampEnd`). A change dated on/before the hire date = starting capacity (`capSetStartingCapacity`), ramp still applies. Enforced in Capacity adjustments (`capAdjAddChange`) and the Employee File edit (`capEfCollect`).
+- Employee File: Date of Hire must parse (saved as MM/DD/YYYY); changing it is blocked if an existing capacity change would land inside the new ramp. `capAdjustNotes` flags any existing change inside the ramp.
