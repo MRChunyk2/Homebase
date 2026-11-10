@@ -446,3 +446,8 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 
 ### Suggestion box saves (Nov 10, 2026) — ⚠ rules
 - `submitSuggestion` writes to Firestore `suggestions` via `window.suggestStore`. Anonymous (default) saves no name or staff id; otherwise the signed-in person's name (the old pick-any-name list is gone). Super Admins: Homebase Settings → 📬 Suggestions (filter Open/New/Done/All, mark read/done, private note) + “N new suggestions” in Needs your attention (`homeLoadSuggAlert`). New rules block `match /suggestions/{id}` — deploy with the rest.
+
+### Payroll Processing CSV name matching (Nov 2026)
+- Meeting & Admin Time upload and the new Training Reimbursement upload match names like Valant provider links: saved link → `ppuMatchStaff` → pick from "Possible matches"/Everyone. Shared helpers `ppuImpNameLookup`, `ppuImpNamesPanel`, `ppuMtgNameLink(key,sid,'m'|'r')`, `ppuImpSaveAuto`.
+- Links saved in payrollConfig doc `ppuMtgNames` {map:{normalised name: staff id}}. Unmatched rows don't import until picked.
+- Reimbursement upload (`ppuReimbImport*`, `PPU_RIMP`): all rows go into the selected period as unapproved; duplicates and PAID rows start unticked.

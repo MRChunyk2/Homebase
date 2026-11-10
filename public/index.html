@@ -15182,7 +15182,7 @@ async function renderPPU(){
       +'<a href="#" class="ppu-setlink" onclick="showPage(\'coderules\');return false">⚙ Payroll Settings</a></div></div>';
     // upload / status card
     h+=ppuStepsHtml(R,p,pp,closed);
-    if(!R){ if(!closed){ if(PPU.view!=='groups'&&PPU.view!=='mtg'&&PPU.view!=='reimb'){ PPU.view='groups'; PPU.gForced=true; } h+=ppuTabsHtml(null,false)+(PPU.view==='mtg'?ppuMtgImportHtml(false)+ppuMtgFormHtml(false)+'<div class="ppu-card muted">No meeting &amp; admin time for this pay period yet.</div>':PPU.view==='reimb'?ppuReimbHtml(false):ppuGroupsHtml(false)); } body.innerHTML=h+(closed?'<div class="ppu-card">⚠ The snapshot for this period could not be loaded.</div>':'')+'</div>'; return; }
+    if(!R){ if(!closed){ if(PPU.view!=='groups'&&PPU.view!=='mtg'&&PPU.view!=='reimb'){ PPU.view='groups'; PPU.gForced=true; } h+=ppuTabsHtml(null,false)+(PPU.view==='mtg'?ppuMtgImportHtml(false)+ppuMtgFormHtml(false)+'<div class="ppu-card muted">No meeting &amp; admin time for this pay period yet.</div>':PPU.view==='reimb'?ppuReimbImportHtml(false)+ppuReimbHtml(false):ppuGroupsHtml(false)); } body.innerHTML=h+(closed?'<div class="ppu-card">⚠ The snapshot for this period could not be loaded.</div>':'')+'</div>'; return; }
     // remember name matches straight away, so next period they're already linked
     if(!closed){ const auto=R.emps.filter(function(E){ return E.autoMatched && E.sid && !PPU.links[E.pid]; });
       if(auto.length){ auto.forEach(function(E){ PPU.links[E.pid]=E.sid; }); payStore.setCfgDoc('ppuProviders',{map:PPU.links,updatedAt:ppuNow(),updatedBy:ppuWho()}).catch(function(){}); } }
@@ -15192,7 +15192,7 @@ async function renderPPU(){
     if(PPU.gForced){ PPU.gForced=false; if(PPU.rows&&PPU.rows.length) PPU.view='emps'; }
     h+=ppuTabsHtml(R,closed);
     if(PPU.view==='groups'){ h+=ppuGroupsHtml(closed); body.innerHTML=h+'</div>'; return; }
-    if(PPU.view==='reimb'){ h+=ppuReimbHtml(closed); body.innerHTML=h+'</div>'; return; }
+    if(PPU.view==='reimb'){ h+=ppuReimbImportHtml(closed)+ppuReimbHtml(closed); body.innerHTML=h+'</div>'; return; }
     if(PPU.view==='mtg'){ h+=ppuMtgImportHtml(closed)+ppuMtgFormHtml(closed)+ppuMtgMasterHtml(R,pp,closed); body.innerHTML=h+'</div>'; return; }
     h+=ppuTableHtml(R,closed);
     h+='<div id="ppu-drill"></div>';
@@ -15484,31 +15484,88 @@ function ppuMtgImportFile(inp){
   try{ const f=inp.files&&inp.files[0]; if(!f) return; const r=new FileReader();
     r.onload=function(){ try{ ppuMtgImportParse(String(r.result||'')); }catch(e){ console.error(e); showToast('⚠ Could not read that file'); } }; r.readAsText(f); }catch(e){ console.error(e); }
 }
-function ppuMtgImportParse(text){
+// Names in a meeting CSV are matched to staff the same way as Valant providers on the payroll sheet:
+// a saved link (remembered from earlier uploads) → automatic match by name (same name, nickname,
+// last name + initial, close spelling) → otherwise payroll picks from "possible matches" or everyone.
+// Links are remembered in payrollConfig/ppuMtgNames {map:{normalisedName: staffId}}.
+var PPU_MNAMES=null;
+function ppuMtgNameKey(n){ return String(n||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+async function ppuMtgNamesLoad(){ if(PPU_MNAMES) return PPU_MNAMES; try{ const d=await payStore.cfgDoc('ppuMtgNames'); PPU_MNAMES=(d&&d.map)||{}; }catch(e){ PPU_MNAMES={}; } return PPU_MNAMES; }
+function ppuMtgResolve(I){
+  const seen={}; (PPU.meetings||[]).forEach(function(m){ seen[[m.sid,String(m.date).slice(0,10),m.start||'',String(m.type||'').trim().toLowerCase()].join('|')]=1; });
+  I.rows.forEach(function(r){ const N=I.names[r.key]||{}; r.sid=N.sid||''; const st=(STAFF||[]).find(function(x){ return x._id===r.sid; }); r.name=st?(st['Clinician']||r.rawName):r.rawName;
+    const k=[r.sid,r.date,r.start,String(r.type||'').toLowerCase()].join('|'); r.dup=!!(r.sid&&seen[k]); if(r.sid&&!r.dup) seen[k]=1; });
+}
+async function ppuMtgImportParse(text){
   const rows=capImpParseCSV(text); if(rows.length<2){ showToast('⚠ Need a header row plus data'); return; }
   const pp=ppuPP(PPU.ppId), hdr=rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
   const col=function(names){ for(const n of names){ const i=hdr.findIndex(function(h){ return h.indexOf(n)!==-1; }); if(i!==-1) return i; } return -1; };
   const ci={ts:col(['timestamp']),name:col(['therapist name','employee','name']),type:col(['meeting or admin','meeting','type']),date:col(['date of meeting','date of','date']),
     start:col(['start']),end:col(['end']),notes:col(['notes']),status:col(['ap status','status']),payDate:col(['payment date']),method:col(['payment method','method'])};
   if(ci.name<0||ci.date<0){ showToast('⚠ Couldn’t find the name and date columns'); return; }
-  const seen={}; (PPU.meetings||[]).forEach(function(m){ seen[[m.sid,String(m.date).slice(0,10),m.start||'',String(m.type||'').trim().toLowerCase()].join('|')]=1; });
-  const out=[], outside={}, blank={n:0}, stats={rows:0};
+  const links=await ppuMtgNamesLoad();
+  const out=[], outside={}, blank={n:0}, names={};
   rows.slice(1).forEach(function(r){
     const g=function(i){ return i>=0?String(r[i]==null?'':r[i]).trim():''; };
     const name=g(ci.name), type=g(ci.type), date=mtgParseDate(g(ci.date));
-    if(!name&&!type&&!date){ blank.n++; return; } stats.rows++;
+    if(!name&&!type&&!date){ blank.n++; return; }
     if(!date){ (outside['no date']=(outside['no date']||0)+1); return; }
     if(date<pp.startISO||date>pp.endISO){ const i=mtgPPfor(date), k=ALL_PPS[i]?ALL_PPS[i].short||ALL_PPS[i].label:'outside the calendar'; outside[k]=(outside[k]||0)+1; return; }
-    const m=name?capImpMatch(name):null, start=mtgParseClock(g(ci.start)), end=mtgParseClock(g(ci.end));
-    const st=g(ci.status).toUpperCase(), paid=/PAID/.test(st)&&!/UNPAID/.test(st);
-    const it={rawName:name,name:m?m.name:name,sid:m?m.id:'',type:type||'(unspecified)',date:date,start:start,end:end,mins:(start&&end)?mtgMins(start,end):60,noTimes:!(start&&end),
-      notes:g(ci.notes).slice(0,500),paid:paid,payDate:mtgParseDate(g(ci.payDate)),payMethod:g(ci.method).toUpperCase(),createdAt:g(ci.ts)};
-    it.dup=!!(it.sid&&seen[[it.sid,date,start,type.toLowerCase()].join('|')]);
-    if(it.sid&&!it.dup) seen[[it.sid,date,start,type.toLowerCase()].join('|')]=1;
-    out.push(it);
+    const key=ppuMtgNameKey(name)||'(blank)';
+    if(!names[key]) names[key]=ppuImpNameLookup(name,links);
+    names[key].count++;
+    const start=mtgParseClock(g(ci.start)), end=mtgParseClock(g(ci.end)), st=g(ci.status).toUpperCase(), paid=/PAID/.test(st)&&!/UNPAID/.test(st);
+    out.push({key:key,rawName:name,type:type||'(unspecified)',date:date,start:start,end:end,mins:(start&&end)?mtgMins(start,end):60,noTimes:!(start&&end),
+      notes:g(ci.notes).slice(0,500),paid:paid,payDate:mtgParseDate(g(ci.payDate)),payMethod:g(ci.method).toUpperCase(),createdAt:g(ci.ts)});
   });
-  PPU_MIMP={ppId:PPU.ppId,rows:out,outside:outside,blank:blank.n};
+  PPU_MIMP={ppId:PPU.ppId,rows:out,outside:outside,blank:blank.n,names:names,showAll:false};
+  ppuMtgResolve(PPU_MIMP);
   const host=document.getElementById('ppu-mimp'); if(host) host.innerHTML=ppuMtgImportPreview();
+}
+// Pick (or change) who a CSV name belongs to; remembered for future uploads (shared by the
+// meeting & admin time and training reimbursement uploads). which: 'm' meetings, 'r' reimbursements.
+function ppuImpState(which){ return which==='r'?PPU_RIMP:PPU_MIMP; }
+function ppuImpRender(which){ const host=document.getElementById(which==='r'?'ppu-rimp':'ppu-mimp'); if(host) host.innerHTML=which==='r'?ppuReimbImportPreview():ppuMtgImportPreview(); }
+async function ppuMtgNameLink(key,sid,which){
+  try{ const I=ppuImpState(which); if(!I||!I.names[key]) return; const N=I.names[key]; N.sid=sid||''; N.how=sid?'picked':''; N.auto=false;
+    const links=await ppuMtgNamesLoad(); if(sid) links[key]=sid; else delete links[key];
+    await payStore.setCfgDoc('ppuMtgNames',{map:links,updatedAt:ppuNow(),updatedBy:ppuWho()});
+    if(which==='r') ppuReimbResolve(I); else ppuMtgResolve(I); ppuImpRender(which);
+  }catch(e){ console.error(e); showToast('⚠ Could not save the match'); }
+}
+// Look up one CSV name: saved link → automatic match by name → possible matches.
+function ppuImpNameLookup(name,links){
+  const key=ppuMtgNameKey(name)||'(blank)', N={raw:name||'(blank)',count:0,sid:'',how:'',cands:[],auto:false};
+  if(name&&links[key]&&(STAFF||[]).some(function(x){ return x._id===links[key]; })){ N.sid=links[key]; N.how='saved link'; }
+  else if(name){ const m=ppuMatchStaff(name,''); if(m.sid){ N.sid=m.sid; N.how='matched by name ('+m.how+')'; N.auto=true; } else N.cands=m.cands||[]; }
+  return N;
+}
+// After import, remember the automatic matches too so next time they come up as saved links.
+async function ppuImpSaveAuto(I){
+  try{ const links=await ppuMtgNamesLoad(); let ch=false; Object.keys(I.names).forEach(function(k){ const N=I.names[k]; if(N.sid&&N.auto&&links[k]!==N.sid){ links[k]=N.sid; ch=true; } });
+    if(ch) await payStore.setCfgDoc('ppuMtgNames',{map:links,updatedAt:ppuNow(),updatedBy:ppuWho()}); }catch(e){ console.error(e); }
+}
+function ppuMtgNameSelect(key,N,which){
+  const ppl=(STAFF||[]).slice().sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
+  const opt=function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===N.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+(normStatus(s['Employee Status'])==='Terminated'?' (former)':'')+'</option>'; };
+  const cands=(N.cands||[]).map(function(id){ return ppl.find(function(s){ return s._id===id; }); }).filter(Boolean);
+  return '<select class="ppu-sel" style="min-width:240px" onchange="ppuMtgNameLink(\''+ppuEsc(key).replace(/'/g,'&#39;')+'\',this.value,\''+(which||'m')+'\')"><option value="">— choose staff member —</option>'
+    +(cands.length?'<optgroup label="Possible matches">'+cands.map(opt).join('')+'</optgroup><optgroup label="Everyone">':'')+ppl.map(opt).join('')+(cands.length?'</optgroup>':'')+'</select>';
+}
+// The "Match names to staff" panel — same picking process as Valant provider links.
+function ppuImpNamesPanel(I,which){
+  const keys=Object.keys(I.names).sort(function(a,b){ return I.names[a].raw.localeCompare(I.names[b].raw); });
+  const un=keys.filter(function(k){ return !I.names[k].sid; }), auto=keys.filter(function(k){ return I.names[k].auto; });
+  const row=function(k){ const N=I.names[k];
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="min-width:220px"><b>'+ppuEsc(N.raw)+'</b> <span class="muted">'+N.count+' entr'+(N.count===1?'y':'ies')+'</span></span>'+ppuMtgNameSelect(k,N,which)
+      +(N.sid?' <span class="pill '+(N.auto?'info':'grey')+'">'+ppuEsc(N.how||'linked')+'</span>':(N.cands&&N.cands.length?' <span class="pill warn">'+N.cands.length+' possible matches — pick one</span>':' <span class="pill bad">no match — pick the staff member</span>'))+'</div>'; };
+  const st=which==='r'?'PPU_RIMP':'PPU_MIMP';
+  return '<div style="border:1px solid '+(un.length?'#fecaca':'#e5e7eb')+';background:'+(un.length?'#fff5f5':'#fafafa')+';border-radius:10px;padding:10px 12px;margin-top:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b>Match names to staff</b> <span class="muted" style="font-size:12px">'+keys.length+' name'+(keys.length===1?'':'s')+' in this file'+(auto.length?' · '+auto.length+' matched by name — check them':'')+' · your picks are remembered for next time</span></div>'
+      +'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="'+st+'.showAll=!'+st+'.showAll;ppuImpRender(\''+which+'\')">'+(I.showAll?'Hide matched names':'Check all '+keys.length)+'</button></div>'
+      +(un.length?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">'+un.map(row).join('')+'</div>':'<div class="muted" style="font-size:12px;margin-top:4px">✓ Every name is matched to a staff member.</div>')
+      +(I.showAll?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed #e5e7eb">'+keys.filter(function(k){ return I.names[k].sid; }).map(row).join('')+'</div>':'')
+    +'</div>';
 }
 function ppuMtgImportPreview(){
   const I=PPU_MIMP; if(!I) return '';
@@ -15516,12 +15573,14 @@ function ppuMtgImportPreview(){
   const byType={}; ok.forEach(function(r){ byType[r.type]=(byType[r.type]||0)+1; });
   const oKeys=Object.keys(I.outside).sort();
   return '<div style="margin-top:12px;font-size:13px"><b>'+I.rows.length+'</b> entries dated in this period — <b style="color:#157a45">'+ok.length+' ready</b> · <span class="muted">'+dup.length+' already in Homebase (skipped)</span>'
-    +(nom.length?' · <b style="color:#b91c1c">'+nom.length+' names not matched (skipped)</b><div style="font-size:12px;color:#b45309;margin-top:3px">Not matched: '+[...new Set(nom.map(function(r){ return r.rawName||'(blank)'; }))].slice(0,15).map(ppuEsc).join(', ')+' — check the name on their Employee File and upload again.</div>':'')
-    +(oKeys.length?'<div class="muted" style="font-size:12px;margin-top:4px">Ignored (other pay periods): '+oKeys.map(function(k){ return ppuEsc(k)+' '+I.outside[k]; }).join(' · ')+'</div>':'')
+    +(nom.length?' · <b style="color:#b91c1c">'+nom.length+' waiting for a staff match</b>':'')
+    +ppuImpNamesPanel(I,'m')
+    +(oKeys.length?'<div class="muted" style="font-size:12px;margin-top:6px">Ignored (other pay periods): '+oKeys.map(function(k){ return ppuEsc(k)+' '+I.outside[k]; }).join(' · ')+'</div>':'')
     +(Object.keys(byType).length?'<table style="margin-top:8px;font-size:12px;border-collapse:collapse">'+Object.keys(byType).sort().map(function(t){ const mt=mtgTypeOf(t), rate=mtgRateFor(t);
       return '<tr><td style="padding:2px 12px 2px 0">'+ppuEsc(t)+' <span class="muted">('+byType[t]+')</span></td><td style="padding:2px 0;font-weight:700;color:'+(mt||rate?'#157a45':'#b45309')+'">→ '+(mt?ppuEsc(mt.label):rate?(rate==='FFS'?'paid at FFS rate':'$'+rate+'/hr'):'needs a rate — Edit it after import')+'</td></tr>'; }).join('')+'</table>':'')
     +(ok.some(function(r){ return r.noTimes; })?'<div style="font-size:12px;color:#b45309;margin-top:4px">'+ok.filter(function(r){ return r.noTimes; }).length+' without start/end times will be counted as 1 hour.</div>':'')
-    +'<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" '+(ok.length?'':'disabled ')+'onclick="ppuMtgImportApply()">Import '+ok.length+' entries into '+ppuEsc(ppuPP(PPU.ppId).short)+'</button><button class="btn btn-secondary" onclick="PPU_MIMP=null;renderPPU()">Cancel</button></div></div>';
+    +'<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" '+(ok.length?'':'disabled ')+'onclick="ppuMtgImportApply()">Import '+ok.length+' entries into '+ppuEsc(ppuPP(PPU.ppId).short)+'</button><button class="btn btn-secondary" onclick="PPU_MIMP=null;renderPPU()">Cancel</button>'
+    +(nom.length?'<span class="muted" style="font-size:12px">'+nom.length+' entr'+(nom.length===1?'y':'ies')+' with unmatched names won’t import until you pick who they belong to.</span>':'')+'</div></div>';
 }
 async function ppuMtgImportApply(){
   try{
@@ -15534,8 +15593,91 @@ async function ppuMtgImportApply(){
         createdAt:r.createdAt||ppuNow(),imported:true,importedBy:by});
       if(id) ok++;
     }
+    await ppuImpSaveAuto(I);
     PPU_MIMP=null; try{ PPU.meetings=(await window.mtgStore.all())||PPU.meetings; MTG_ALL=null; MTG_MINE=null; MTG_BYSID={}; }catch(e){}
     showToast('📥 Imported '+ok+' of '+todo.length+' entries'); renderPPU();
+  }catch(e){ console.error(e); showToast('⚠ Import stopped — check the list and try again'); }
+}
+
+// ── Training reimbursement CSV upload ──
+// Same name matching as the meeting & admin time upload (saved links → match by name → pick).
+// Every row goes into THIS pay period as an unapproved reimbursement (still needs ✓ Approve).
+// Rows already in Homebase (same person, date, training and amount) or marked PAID in the file
+// start unticked; payroll can tick/untick any row before importing.
+var PPU_RIMP=null;
+function ppuReimbImportHtml(closed){
+  if(closed) return '';
+  return '<div class="ppu-card" style="border-left:4px solid #122B67"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><b style="font-size:14.5px">⬆ Upload training reimbursements (CSV)</b>'
+    +'<div class="muted" style="font-size:12.5px;max-width:760px;margin-top:2px">The request form / sheet export. Needs a name column and an amount column; training date, training/course and notes are picked up if present. Ticked rows are added to <b>'+ppuEsc(ppuPP(PPU.ppId).short)+'</b> as unapproved reimbursements for you to check and approve.</div></div>'
+    +'<input type="file" accept=".csv,text/csv" onchange="ppuReimbImportFile(this)"></div><div id="ppu-rimp">'+(PPU_RIMP&&PPU_RIMP.ppId===PPU.ppId?ppuReimbImportPreview():'')+'</div></div>';
+}
+function ppuReimbImportFile(inp){
+  try{ const f=inp.files&&inp.files[0]; if(!f) return; const r=new FileReader();
+    r.onload=function(){ try{ ppuReimbImportParse(String(r.result||'')); }catch(e){ console.error(e); showToast('⚠ Could not read that file'); } }; r.readAsText(f); }catch(e){ console.error(e); }
+}
+function ppuReimbKey(sid,date,desc,amountC){ return [sid,date||'',String(desc||'').toLowerCase().replace(/\s+/g,' ').trim(),amountC].join('|'); }
+function ppuReimbResolve(I){
+  const seen={}; Object.keys(PPU.periods||{}).forEach(function(k){ ((PPU.periods[k]||{}).reimb||[]).forEach(function(r){ seen[ppuReimbKey(r.sid,r.date,r.desc,r.amountC)]=1; }); });
+  I.rows.forEach(function(r){ const N=I.names[r.key]||{}; r.sid=N.sid||''; const st=(STAFF||[]).find(function(x){ return x._id===r.sid; }); r.name=st?(st['Clinician']||r.rawName):r.rawName;
+    const k=ppuReimbKey(r.sid,r.date,r.desc,r.amountC), was=r.dup; r.dup=!!(r.sid&&seen[k]); if(r.sid&&!r.dup) seen[k]=1;
+    if(r.on==null||was!==r.dup) r.on=!r.dup&&!r.paid; });
+}
+async function ppuReimbImportParse(text){
+  const rows=capImpParseCSV(text); if(rows.length<2){ showToast('⚠ Need a header row plus data'); return; }
+  const hdr=rows[0].map(function(h){ return String(h).trim().toLowerCase(); });
+  const col=function(names,not){ for(const n of names){ const i=hdr.findIndex(function(h){ return h.indexOf(n)!==-1&&!(not||[]).some(function(x){ return h.indexOf(x)!==-1; }); }); if(i!==-1) return i; } return -1; };
+  const ci={name:col(['employee','therapist','clinician','staff','your name','full name','name'],['training','course','event','conference','certification']),
+    date:col(['training date','date of training','date of','date'],['payment','paid','timestamp','submitted']),
+    desc:col(['training','course','event','conference','certification','description'],['date','cost','amount']),
+    amt:col(['amount','cost','total','reimburse','price','fee'],['date']),
+    notes:col(['notes','comment']),status:col(['ap status','status'])};
+  if(ci.name<0||ci.amt<0){ showToast('⚠ Couldn’t find the name and amount columns'); return; }
+  const links=await ppuMtgNamesLoad();
+  const out=[], names={}; let blank=0, noAmt=0;
+  rows.slice(1).forEach(function(r){
+    const g=function(i){ return i>=0?String(r[i]==null?'':r[i]).trim():''; };
+    const name=g(ci.name), amt=Math.round(parseFloat(g(ci.amt).replace(/[$,\s]/g,''))*100);
+    if(!name&&!g(ci.amt)&&!g(ci.desc)){ blank++; return; }
+    if(!(amt>0)){ noAmt++; return; }
+    const key=ppuMtgNameKey(name)||'(blank)';
+    if(!names[key]) names[key]=ppuImpNameLookup(name,links);
+    names[key].count++;
+    const st=g(ci.status).toUpperCase();
+    out.push({key:key,rawName:name,date:mtgParseDate(g(ci.date))||'',desc:(g(ci.desc)||'Training reimbursement').slice(0,200),amountC:amt,notes:g(ci.notes).slice(0,300),paid:/PAID/.test(st)&&!/UNPAID/.test(st)});
+  });
+  PPU_RIMP={ppId:PPU.ppId,rows:out,names:names,blank:blank,noAmt:noAmt,showAll:false};
+  ppuReimbResolve(PPU_RIMP); ppuImpRender('r');
+}
+function ppuReimbImpToggle(i,on){ try{ if(PPU_RIMP&&PPU_RIMP.rows[i]){ PPU_RIMP.rows[i].on=!!on; ppuImpRender('r'); } }catch(e){ console.error(e); } }
+function ppuReimbImportPreview(){
+  const I=PPU_RIMP; if(!I) return '';
+  const ok=I.rows.filter(function(r){ return r.sid&&r.on; }), nom=I.rows.filter(function(r){ return !r.sid; }), dup=I.rows.filter(function(r){ return r.dup; });
+  const tot=ok.reduce(function(a,r){ return a+r.amountC; },0);
+  return '<div style="margin-top:12px;font-size:13px"><b>'+I.rows.length+'</b> reimbursement'+(I.rows.length===1?'':'s')+' in this file — <b style="color:#157a45">'+ok.length+' ticked to import ('+ppuUsd(tot)+')</b>'
+    +(dup.length?' · <span class="muted">'+dup.length+' already in Homebase</span>':'')+(nom.length?' · <b style="color:#b91c1c">'+nom.length+' waiting for a staff match</b>':'')
+    +(I.noAmt?' · <span class="muted">'+I.noAmt+' without an amount (skipped)</span>':'')
+    +ppuImpNamesPanel(I,'r')
+    +'<div class="ppu-tw" style="margin-top:10px"><table><thead><tr><th></th><th class="l">Employee</th><th class="l">Training date</th><th class="l">Training / course</th><th>Amount</th><th class="l">Notes</th></tr></thead><tbody>'
+    +I.rows.map(function(r,i){ return '<tr'+(r.on&&r.sid?'':' style="opacity:.55"')+'><td><input type="checkbox" '+(r.on?'checked ':'')+(r.sid?'':'disabled ')+'onchange="ppuReimbImpToggle('+i+',this.checked)"></td>'
+      +'<td class="l"><b>'+ppuEsc(r.name||'—')+'</b>'+(r.sid?'':' <span class="pill bad">pick name above</span>')+(r.dup?' <span class="pill grey">already in Homebase</span>':'')+(r.paid?' <span class="pill grey">marked paid</span>':'')+'</td>'
+      +'<td class="l">'+(r.date?usDate(r.date):'—')+'</td><td class="l" style="white-space:normal">'+ppuEsc(r.desc)+'</td><td><b>'+ppuUsd(r.amountC)+'</b></td><td class="l muted" style="white-space:normal">'+ppuEsc(r.notes||'')+'</td></tr>'; }).join('')
+    +'</tbody></table></div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" '+(ok.length?'':'disabled ')+'onclick="ppuReimbImportApply()">Add '+ok.length+' to '+ppuEsc(ppuPP(PPU.ppId).short)+'</button><button class="btn btn-secondary" onclick="PPU_RIMP=null;renderPPU()">Cancel</button>'
+    +(nom.length?'<span class="muted" style="font-size:12px">Rows with unmatched names can’t be added until you pick who they belong to.</span>':'')+'</div></div>';
+}
+async function ppuReimbImportApply(){
+  try{
+    const I=PPU_RIMP; if(!I||I.ppId!==PPU.ppId) return;
+    const todo=I.rows.filter(function(r){ return r.sid&&r.on; }); if(!todo.length) return;
+    const pp=ppuPP(PPU.ppId); let p=PPU.periods[PPU.ppId]; if(p&&p.status==='closed') return;
+    if(!p){ p={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,label:pp.short,status:'open',version:1,corrections:{},audit:[]}; }
+    const by=ppuWho(), at=ppuNow();
+    const add=todo.map(function(r,i){ return {id:'rb_'+Date.now().toString(36)+i.toString(36)+Math.random().toString(36).slice(2,5),sid:r.sid,date:r.date,desc:r.desc,amountC:r.amountC,notes:r.notes,by:by,at:at,approved:false,imported:true}; });
+    p.reimb=(p.reimb||[]).concat(add);
+    ppuAudit(p,{act:'reimb.import',row:add.length+' rows, '+(add.reduce(function(a,r){ return a+r.amountC; },0)/100).toFixed(2),reason:''});
+    if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; }
+    PPU.periods[PPU.ppId]=p; await ppuImpSaveAuto(I); PPU_RIMP=null;
+    showToast('📥 Added '+add.length+' reimbursement'+(add.length===1?'':'s')+' — approve them below'); renderPPU();
   }catch(e){ console.error(e); showToast('⚠ Import stopped — check the list and try again'); }
 }
 
