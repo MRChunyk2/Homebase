@@ -7170,7 +7170,8 @@ function buildRosterEditForm(p){
       {id:'ef-captier',  label:'Capacity Tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
       {id:'ef-weekly',   label:'Weekly Capacity',    html:inp('ef-weekly','Weekly Capacity'),key:'Weekly Capacity'},
       {id:'ef-capfrom-x',label:'', html:capEfCapFromHtml(p), full:true, extra:true},
-      {id:'ef-biweekly', label:'Biweekly Capacity',  html:inp('ef-biweekly','Biweekly Capacity'), key:'Biweekly Capacity'},
+      {id:'ef-biweekly', label:'Biweekly Capacity (2 × weekly)',  html:inp('ef-biweekly','Biweekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#6b7280" '), key:'Biweekly Capacity'},
+      {id:'ef-caphist-x',label:'', html:capEfHistHtml(p), full:true},
       {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
       {id:'ef-diffelig', label:'Differential & bonus', html:(function(){ const d=payEligDefault(p), v=String(p['Diff Bonus Eligible']||'');
         return '<select id="ef-diffelig" data-key="Diff Bonus Eligible"><option value=""'+(v===''?' selected':'')+'>Default — '+(d.ok?'eligible':'not eligible ('+hesc(d.why)+')')+'</option><option value="Yes"'+(v==='Yes'?' selected':'')+'>Eligible</option><option value="No"'+(v==='No'?' selected':'')+'>Not eligible</option></select>'; })(), key:'Diff Bonus Eligible'},
@@ -7240,6 +7241,7 @@ function buildRosterEditForm(p){
     grid.dataset.origStatus=normStatus(p['Employee Status']); grid.dataset.origWeekly=String(parseFloat(p['Weekly Capacity'])||0);
     const es=grid.querySelector('#ef-status'), ew=grid.querySelector('#ef-weekly');
     if(es) es.addEventListener('change',capEfSync); if(ew) ew.addEventListener('input',capEfSync);
+    grid.querySelectorAll('input[name=ef-capwhen]').forEach(function(r){ r.addEventListener('change',capEfSync); });
     capEfSync();
   }catch(e){ console.error(e); }
 }
@@ -7321,10 +7323,43 @@ function capEfStatusHtml(p){
     +'<div id="ef-off-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">🚪 Offboarding — the capacity goal runs through the term date, then stops</div>'
       +f('ef-notice','Date notice was given *',iso(p['Notice Date'])||today)+f('ef-term','Term date (last day) *',iso(p['Term Date']))+'</div>';
 }
+// Employee File → Weekly Capacity uses the same capacity timeline as Capacity Dashboard → Capacity
+// adjustments: a change must say WHEN it starts (hire date = starting capacity with the ramp, this pay
+// period, or a date), the live effect on the goal is shown, and the recorded changes are listed.
 function capEfCapFromHtml(p){
-  return '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">'
-    +'<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:11px;font-weight:700;color:#6b7280">New Weekly Capacity starts *</span><input type="date" id="ef-capfrom" value="'+capISO(capPPStartFor())+'"></div>'
-    +'<div style="flex:1;min-width:200px;font-size:11.5px;color:#64748b">Earlier days keep the old capacity; the new goal starts from this date. Defaults to the first day of the current pay period.</div></div>';
+  const hire=capDateOf(p['Date of Hire']), pp=capPPStartFor();
+  const opt=function(v,label,sub){ return '<div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;cursor:pointer;text-transform:none;letter-spacing:normal;color:#1f2937" onclick="if(event.target.tagName!==\'INPUT\'){ var r=this.querySelector(\'input\'); r.checked=true; capEfSync(); }"><input type="radio" name="ef-capwhen" value="'+v+'" style="margin-top:3px;width:auto"><span><b style="font-weight:700">'+label+'</b>'+(sub?'<br><span style="color:#64748b;font-size:11.5px;font-weight:400">'+sub+'</span>':'')+'</span></div>'; };
+  return '<div style="display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">'
+    +'<div style="font-size:12px;font-weight:700;color:#334155">When does the new Weekly Capacity start? *</div>'
+    +(hire?opt('hire','From the hire date ('+capUS(hire)+')','Corrects their starting capacity — the whole goal is recalculated and the new-hire ramp still applies.'):'')
+    +opt('pp','From this pay period ('+capUS(pp)+')','Earlier days keep the old capacity.')
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+opt('date','From another date','')+'<input type="date" id="ef-capfrom" style="font-size:12.5px" onchange="var r=document.querySelector(\'input[name=ef-capwhen][value=date]\'); if(r) r.checked=true; capEfSync()"></div>'
+    +'<div id="ef-capeffect" style="font-size:12px;color:#1e3a8a;background:#eff6ff;border-radius:8px;padding:6px 10px;display:none"></div>'
+    +'</div>';
+}
+// The recorded capacity timeline, shown under the Weekly Capacity field.
+function capEfHistHtml(p){
+  try{
+    const tl=capTimeline(p); const notes=[];
+    if(tl.hist.length>1) notes.push(tl.hist.map(function(h,i){ return '<b>'+h.weekly+'</b> hrs/wk'+(i===0?(h.from?' from '+capUS(h.from):' to start'):' from '+capUS(h.from)); }).join(' → '));
+    if(capUsesRamp(p)&&tl.hire) notes.push('New-hire ramp '+capUS(tl.hire)+' – '+capUS(new Date(capRampEnd(tl.hire).getTime()-CAP_DAY_MS))+' (capacity changes can start '+capUS(capRampEnd(tl.hire))+' or later)');
+    if(!notes.length) return '';
+    return '<div style="font-size:11.5px;color:#475569;line-height:1.5">'+notes.join('<br>')+'<br><span style="color:#94a3b8">Remove a change in Capacity Dashboard → ⚙ Capacity adjustments.</span></div>';
+  }catch(e){ return ''; }
+}
+function capEfWhen(grid){ const r=(grid||document).querySelector('input[name=ef-capwhen]:checked'); return r?r.value:''; }
+// Goal effect of the pending change (copy of the record; nothing saved).
+function capEfEffect(p,nw,when,dateISO){
+  try{
+    const from=when==='hire'?capISO(capDateOf(p['Date of Hire'])):when==='pp'?capISO(capPPStartFor()):dateISO; if(!from) return '';
+    const rc=capRampCheck(p,from); if(rc.kind==='inside') return '<span style="color:#b91c1c">'+capRampMsg(rc).replace('⚠ ','')+'</span>';
+    const c=JSON.parse(JSON.stringify(p)); c._id='__efprev'; delete CAP_GOAL_CACHE['__efprev'];
+    if(rc.kind==='start') capSetStartingCapacity(c,nw); else capRecordCapacityChange(c,parseFloat(p['Weekly Capacity'])||0,nw,from);
+    const today=capDateOf(new Date()), ye=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+CAP_YEAR_WEEKS*7);
+    const f=function(x){ return Math.round(x); };
+    const a0=capGoalTo(p,today), a1=capGoalTo(c,today), y0=capGoalTo(p,ye); delete CAP_GOAL_CACHE['__efprev']; const y1=capGoalTo(c,ye); delete CAP_GOAL_CACHE['__efprev'];
+    return 'Effect on the capacity goal: goal to date <b>'+f(a0)+' → '+f(a1)+' hrs</b> · '+CAP_YEAR+' goal <b>'+f(y0)+' → '+f(y1)+' hrs</b>';
+  }catch(e){ return ''; }
 }
 function capEfSync(){
   try{
@@ -7337,6 +7372,11 @@ function capEfSync(){
     show('ef-leave-blk',leaveNew); show('ef-return-blk',back); show('ef-off-blk',off);
     show('ef-st-extra',leaveNew||back||off,'block');
     show('ef-capfrom-x',ew&&String(ew.value).trim()!==''&&nw!==ow,'block');
+    const bw=grid.querySelector('#ef-biweekly'); if(bw&&ew&&String(ew.value).trim()!==''&&!isNaN(nw)) bw.value=String(Math.round(nw*2));
+    const eff=document.getElementById('ef-capeffect');
+    if(eff){ const p=STAFF.find(function(x){ return x._id===currentId; }); const when=capEfWhen(grid);
+      const html=(p&&when&&nw!==ow&&!isNaN(nw))?capEfEffect(p,nw,when,(document.getElementById('ef-capfrom')||{}).value||''):'';
+      eff.innerHTML=html; eff.style.display=html?'block':'none'; }
   }catch(e){}
 }
 function capEfCollect(grid,p){
@@ -7358,7 +7398,12 @@ function capEfCollect(grid,p){
     if(ns==='Off Boarding'&&!r.notice){ showToast('⚠ Enter the date notice was given'); return false; }
     if(r.notice&&r.term<r.notice){ showToast('⚠ The term date is before the notice date'); return false; }
   }
-  if(nwRaw!==''&&!isNaN(nw)&&nw!==ow){ r.capFrom=v('ef-capfrom')||capISO(capPPStartFor()); }
+  if(nwRaw!==''&&!isNaN(nw)&&nw!==ow){
+    const when=capEfWhen(grid);
+    if(!when){ showToast('⚠ Choose when the new Weekly Capacity starts'); return false; }
+    r.capFrom=when==='hire'?capISO(capDateOf(p['Date of Hire'])):when==='pp'?capISO(capPPStartFor()):v('ef-capfrom');
+    if(!r.capFrom){ showToast('⚠ Pick the date the new Weekly Capacity starts'); return false; }
+  }
   // Date of Hire must be a real date (it drives the capacity goal and the new-hire ramp)
   const hEl=grid.querySelector('#ef-hire'), hRaw=hEl?String(hEl.value||'').trim():String(p['Date of Hire']||'');
   if(hEl&&hRaw&&!capDateOf(hRaw)){ showToast('⚠ Date of Hire isn’t a date Homebase can read — use M/D/YYYY'); return false; }
@@ -7455,6 +7500,7 @@ function saveEdit(){
     }
   });
   if(currentMode==='roster' && capEf){ try{ capEfApply(p,capEf); }catch(e){ console.error(e); } }
+  try{ delete CAP_GOAL_CACHE[p._id]; const cp=document.getElementById('page-capacity'); if(currentMode==='roster'&&cp&&cp.classList.contains('active')) setTimeout(function(){ try{ renderCapacity(); }catch(e){} },0); }catch(e){}
   if(currentMode==='roster' && p['Weekly Capacity'])
     p['Biweekly Capacity']=String(Math.round(parseFloat(p['Weekly Capacity']||0)*2));
   const wfEl=document.getElementById('e-wf');

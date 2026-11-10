@@ -468,3 +468,7 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 ### Capacity changes vs the new-hire ramp (Nov 2026)
 - `capRampCheck(s,fromISO,hireRaw)`: a Weekly Capacity change can't start inside the ramp (day after hire → hire+44; full pace from hire+45 = `capRampEnd`). A change dated on/before the hire date = starting capacity (`capSetStartingCapacity`), ramp still applies. Enforced in Capacity adjustments (`capAdjAddChange`) and the Employee File edit (`capEfCollect`).
 - Employee File: Date of Hire must parse (saved as MM/DD/YYYY); changing it is blocked if an existing capacity change would land inside the new ramp. `capAdjustNotes` flags any existing change inside the ramp.
+
+### Employee File Weekly Capacity = same timeline as Capacity adjustments (Nov 2026)
+- Changing Weekly Capacity on the Employee File now requires choosing when it starts (`ef-capwhen`): hire date (= starting capacity via `capSetStartingCapacity`, ramp applies), this pay period, or a date (ramp guard applies). Live effect line (`capEfEffect`: goal to date and year goal before → after). Biweekly is read-only (2 × weekly). `capEfHistHtml` lists recorded changes + ramp window. Saving clears the goal cache and re-renders the Capacity Dashboard if open.
+- Previously the date box silently defaulted to the current pay period, so the YTD goal barely moved — that's why edits "didn't impact the dashboard".
