@@ -6751,7 +6751,7 @@ function openRoster(id){
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
   const demoPanel =
-    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity')+row('Biweekly Capacity',p['Biweekly Capacity'])+(isAdminView()?row('Differential & Bonus',payEligible(p)?'Eligible':'Not eligible'+(p['Diff Bonus Eligible']==='No'?'':' ('+hesc(payEligDefault(p).why)+')')):''):'')+capProfileRows(p)
+    sec('Employee Profile')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team')+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity',(p['Weekly Capacity']||'')+((isAdminView()||hbCan('edit-profiles'))?' <button class="me-x" style="color:#122B67;font-weight:700" onclick="capDlgOpen(\''+p._id+'\')">📈 Change capacity</button>':''))+row('Biweekly Capacity',p['Biweekly Capacity'])+(isAdminView()?row('Differential & Bonus',payEligible(p)?'Eligible':'Not eligible'+(p['Diff Bonus Eligible']==='No'?'':' ('+hesc(payEligDefault(p).why)+')')):''):'')+capProfileRows(p)
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     ;
 
@@ -6834,7 +6834,7 @@ function profileAdminBarHtml(p,hasCap){
     hbCan('edit-profiles')&&it('🗑','Delete record…',"promptDeleteRecord()",'danger')]);
   g('Alerts',[hbCan('issue-alerts')&&it('🔔','Issue an alert',"saOpen("+q+")"),
     hbCan('issue-alerts')&&it('📋','Manage their alerts',"saOpen("+q+")")]);
-  g('Employment & capacity',[hasCap&&hbCan('edit-profiles')&&it('📈','Record a capacity change',"capAdjAddChange("+q+")"),
+  g('Employment & capacity',[hasCap&&hbCan('edit-profiles')&&it('📈','Change capacity…',"capDlgOpen("+q+")"),
     hasCap&&hbCan('edit-profiles')&&it('🌴','Add leave dates',"capAdjAddLeave("+q+")"),
     hasCap&&hbCan('edit-profiles')&&it('🚪','Offboarding dates…',"capAdjSetOffboard("+q+")")]);
   g('Files & records',[it('🎓','Training & CEU',"switchRosterTab('ceu')"),
@@ -7168,8 +7168,7 @@ function buildRosterEditForm(p){
     ]},
     {label:'Capacity & Format', clinical:true, fields:[
       {id:'ef-captier',  label:'Capacity Tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
-      {id:'ef-weekly',   label:'Weekly Capacity',    html:inp('ef-weekly','Weekly Capacity'),key:'Weekly Capacity'},
-      {id:'ef-capfrom-x',label:'', html:capEfCapFromHtml(p), full:true, extra:true},
+      {id:'ef-weekly',   label:'Weekly Capacity',    html:'<div style="display:flex;gap:8px;align-items:center">'+inp('ef-weekly','Weekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#374151;flex:1" ')+'<button type="button" class="btn btn-secondary" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="capDlgOpen(\''+p._id+'\')">📈 Change…</button></div>',key:'Weekly Capacity'},
       {id:'ef-biweekly', label:'Biweekly Capacity (2 × weekly)',  html:inp('ef-biweekly','Biweekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#6b7280" '), key:'Biweekly Capacity'},
       {id:'ef-caphist-x',label:'', html:capEfHistHtml(p), full:true},
       {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
@@ -10464,13 +10463,91 @@ function capSetStartingCapacity(s,w){
   if(hist.length){ hist=[{from:'',weekly:w}].concat(hist); s._capHist=hist; }
   else { s._capHist=[]; s['Weekly Capacity']=String(w); s['Biweekly Capacity']=String(Math.round(w*2)); }
 }
-async function capAdjAddChange(id){
-  const s=capAdjStaff(id); if(!s) return;
-  const from=capAskDate('New Weekly Capacity starts on (defaults to the first day of the current pay period):',capPPStartFor()); if(!from) return;
-  const rc=capRampCheck(s,from); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return; }
-  const w=parseFloat(prompt((rc.kind==='start'?'Starting Weekly Capacity from the hire date '+capUS(rc.hire)+' (the new-hire ramp still applies) — hrs/week:':'New Weekly Capacity (hrs/week):'),s['Weekly Capacity']||'')); if(isNaN(w)||w<0){ showToast('⚠ Not a valid number'); return; }
-  if(rc.kind==='start') capSetStartingCapacity(s,w); else capRecordCapacityChange(s,parseFloat(s['Weekly Capacity'])||0,w,from);
-  await capAdjSave(s);
+async function capAdjAddChange(id){ capDlgOpen(id); }
+// ── Capacity change dialog — the ONE place Weekly Capacity is changed ──
+// Opened from Employee File → Admin actions → Change capacity, the Employee File edit form, and Capacity
+// Dashboard → Capacity adjustments. Every change is dated (hire date = starting capacity with the ramp,
+// this pay period, or a date after the ramp), recorded on the capacity timeline, and the goal is
+// recalculated day by day from that date (a lower capacity lowers the goal from then on).
+var CAPDLG={id:null};
+function capDlgOpen(id){
+  try{
+    const s=capAdjStaff(id); if(!s) return; CAPDLG.id=id;
+    let ov=document.getElementById('capdlg'); if(ov) ov.remove();
+    ov=document.createElement('div'); ov.id='capdlg';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto';
+    ov.onclick=function(e){ if(e.target===ov) capDlgClose(); };
+    ov.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="capdlg-h" style="background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);padding:18px 20px">'+capDlgBody(s)+'</div>';
+    document.body.appendChild(ov);
+    const w=document.getElementById('capdlg-w'); if(w) w.focus();
+    capDlgSync();
+  }catch(e){ console.error(e); showToast('⚠ Could not open the capacity change'); }
+}
+function capDlgClose(){ const ov=document.getElementById('capdlg'); if(ov) ov.remove(); }
+function capDlgBody(s){
+  const hire=capDateOf(s['Date of Hire']), pp=capPPStartFor(), cur=parseFloat(s['Weekly Capacity'])||0;
+  const opt=function(v,label,sub,checked){ return '<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;margin:4px 0"><input type="radio" name="capdlg-when" value="'+v+'"'+(checked?' checked':'')+' onchange="capDlgSync()" style="margin-top:3px"><span><b>'+label+'</b>'+(sub?'<br><span style="color:#64748b;font-size:12px">'+sub+'</span>':'')+'</span></label>'; };
+  const tl=capTimeline(s);
+  const hist=tl.hist.length>1?'<div style="font-size:12.5px;margin-top:4px">'+tl.hist.map(function(h,i){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid #f1f2f4"><span><b>'+h.weekly+'</b> hrs/wk '+(i===0?(h.from?'from '+capUS(h.from):'to start'):'from '+capUS(h.from))+'</span>'+(i>0?'<button class="me-x" style="color:#b91c1c" onclick="capDlgDel('+i+')">Remove</button>':'')+'</div>'; }).join('')+'</div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">'+cur+' hrs/wk — no changes recorded.</div>';
+  return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="capdlg-h" style="margin:0;font-size:17px;color:#122B67">📈 Change capacity — '+hesc(s['Clinician']||'')+'</h3><button class="pr-x" onclick="capDlgClose()" aria-label="Close" style="font-size:20px;background:none;border:0;cursor:pointer">×</button></div>'
+    +'<div style="font-size:12.5px;color:#475569;margin-top:4px">Currently <b>'+cur+' hrs/wk</b>'+(hire?' · hired '+capUS(hire):'')+(hire&&capUsesRamp(s)?' · new-hire ramp '+capUS(hire)+' – '+capUS(new Date(capRampEnd(hire).getTime()-CAP_DAY_MS)):'')+'</div>'
+    +'<div style="display:flex;gap:12px;align-items:flex-end;margin-top:14px"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">New Weekly Capacity (hrs/week)<input id="capdlg-w" type="number" min="0" step="0.5" value="'+cur+'" oninput="capDlgSync()" style="font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px;width:150px"></label><span id="capdlg-bw" class="muted" style="font-size:12px;padding-bottom:9px"></span></div>'
+    +'<div style="margin-top:12px;font-size:12px;font-weight:700;color:#334155">When does it start? *</div>'
+    +(hire?opt('hire','From the hire date ('+capUS(hire)+')','Their starting capacity — the whole goal is recalculated; the new-hire ramp still applies.',false):'')
+    +opt('pp','From this pay period ('+capUS(pp)+')','Earlier days keep the old capacity.',false)
+    +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;margin:4px 0"><input type="radio" name="capdlg-when" value="date" onchange="capDlgSync()"><b>From another date</b><input type="date" id="capdlg-d" onchange="var r=document.querySelector(\'input[name=capdlg-when][value=date]\'); if(r) r.checked=true; capDlgSync()" style="font:inherit;font-size:13px;padding:5px 7px;border:1px solid #d1d5db;border-radius:7px"></label>'
+    +'<div id="capdlg-eff" style="font-size:12.5px;border-radius:8px;padding:8px 10px;margin-top:8px;display:none"></div>'
+    +'<div style="margin-top:14px;font-size:12px;font-weight:700;color:#334155">Recorded capacity</div>'+hist
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn btn-secondary" onclick="capDlgClose()">Cancel</button><button class="btn btn-primary" id="capdlg-save" onclick="capDlgSave()" disabled>Save change</button></div>';
+}
+function capDlgRead(){
+  const s=capAdjStaff(CAPDLG.id); if(!s) return null;
+  const w=parseFloat((document.getElementById('capdlg-w')||{}).value), r=document.querySelector('input[name=capdlg-when]:checked'), when=r?r.value:'';
+  const from=when==='hire'?capISO(capDateOf(s['Date of Hire'])):when==='pp'?capISO(capPPStartFor()):when==='date'?((document.getElementById('capdlg-d')||{}).value||''):'';
+  return {s:s,w:w,when:when,from:from};
+}
+function capDlgSync(){
+  try{
+    const x=capDlgRead(); if(!x) return; const eff=document.getElementById('capdlg-eff'), btn=document.getElementById('capdlg-save'), bw=document.getElementById('capdlg-bw');
+    if(bw) bw.textContent=isNaN(x.w)?'':'= '+Math.round(x.w*2)+' hrs per pay period';
+    let msg='', ok=false, bad=false;
+    if(isNaN(x.w)||x.w<0){ msg='Enter the new weekly capacity.'; }
+    else if(!x.when){ msg='Choose when it starts.'; }
+    else if(!x.from){ msg='Pick the start date.'; }
+    else { const rc=capRampCheck(x.s,x.from);
+      if(rc.kind==='inside'){ msg=capRampMsg(rc).replace('⚠ ',''); bad=true; }
+      else { const cur=parseFloat(x.s['Weekly Capacity'])||0; msg=capEfEffect(x.s,x.w,x.when,x.from)||''; ok=(x.w!==cur)||x.when==='hire'||(capTimeline(x.s).hist.length>1);
+        if(!msg) msg='Ready to save.'; } }
+    if(eff){ eff.innerHTML=msg; eff.style.display=msg?'block':'none'; eff.style.background=bad?'#fef2f2':'#eff6ff'; eff.style.color=bad?'#b91c1c':'#1e3a8a'; }
+    if(btn) btn.disabled=!ok;
+  }catch(e){ console.error(e); }
+}
+async function capDlgSave(){
+  try{
+    const x=capDlgRead(); if(!x||isNaN(x.w)||x.w<0||!x.from) return;
+    const rc=capRampCheck(x.s,x.from); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return; }
+    if(rc.kind==='start') capSetStartingCapacity(x.s,x.w); else capRecordCapacityChange(x.s,parseFloat(x.s['Weekly Capacity'])||0,x.w,x.from);
+    delete CAP_GOAL_CACHE[x.s._id];
+    try{ await persistStaff(); }catch(e){}
+    capDlgClose(); capRefreshViews(x.s._id); showToast('✅ Capacity changed — goal recalculated');
+  }catch(e){ console.error(e); showToast('⚠ Could not save the capacity change'); }
+}
+async function capDlgDel(i){
+  try{ const s=capAdjStaff(CAPDLG.id); if(!s||!Array.isArray(s._capHist)) return;
+    const tl=capTimeline(s), h=tl.hist[i]; if(!h||!confirm('Remove the change to '+h.weekly+' hrs/wk from '+capUS(h.from)+'?')) return;
+    const iso=capISO(h.from); const rest=s._capHist.filter(function(x){ return x.from!==iso; });
+    const srt=rest.slice().sort(function(a,b){ return String(a.from).localeCompare(String(b.from)); });
+    const now=srt.length?(parseFloat(srt[srt.length-1].weekly)||0):(parseFloat(s['Weekly Capacity'])||0);
+    s._capHist=rest.length<=1?[]:rest; s['Weekly Capacity']=String(now); s['Biweekly Capacity']=String(Math.round(now*2));
+    delete CAP_GOAL_CACHE[s._id]; try{ await persistStaff(); }catch(e){}
+    capRefreshViews(s._id); capDlgOpen(s._id);
+  }catch(e){ console.error(e); }
+}
+// Re-render whatever is showing this person's capacity.
+function capRefreshViews(id){
+  try{ const cp=document.getElementById('page-capacity'); if(cp&&cp.classList.contains('active')) renderCapacity(); }catch(e){}
+  try{ const m=document.getElementById('m-view'); if(typeof currentId!=='undefined'&&currentId===id&&m&&m.offsetParent!==null&&typeof openRoster==='function') openRoster(id); }catch(e){}
+  try{ if(document.getElementById('page-roster')&&document.getElementById('page-roster').classList.contains('active')) renderRoster(); }catch(e){}
 }
 async function capAdjDelChange(id,i){
   const s=capAdjStaff(id); if(!s||!Array.isArray(s._capHist)) return;
@@ -14826,7 +14903,7 @@ var PPU_HEADS=['Individual Session','Intake Session','No Show Unpaid','Couples/F
 var PPU_NOSHOW_PAID='No Show Paid', PPU_NOSHOW_UNPAID='No Show Unpaid', PPU_SUP_PAID='Paid Supervision', PPU_SUP_UNPAID='Unpaid Supervision';
 // Supervision: paid = 1 hr at FFS (in the Paychex total), never clinical credit; unpaid = tracked count only.
 var PPU_DELIVERY=['In person','Virtual','Not specified','Not applicable'];
-var PPU_DEF_SETTINGS={diffRate:5, bonusRate:20, threshold:50, eveStart:'17:00', weekends:true, anniv:true, annivRate:100, annivStart:'2027-01-01', groupRate:17, groupHeadCodes:'G 90853, GV 90853, G PP 60, GV PP 60'};
+var PPU_DEF_SETTINGS={diffRate:5, bonusRate:20, threshold:50, eveStart:'17:00', weekends:true, anniv:true, annivRate:100, annivStart:'2027-01-01', groupRate:17, groupClinPer:0.33, groupHeadCodes:'G 90853, GV 90853, G PP 60, GV PP 60'};
 // ── Anniversary bonus: $annivRate × years at APP, paid in the first pay period that STARTS AFTER the
 // hire-date anniversary (an anniversary on a pay period's first day → the next pay period).
 // Everyone gets it (not tied to differential/bonus eligibility); staff whose Term Date is before
@@ -14937,7 +15014,7 @@ var PPU_SEED=[["Group program", "G 90791", "Group (Intake, Check-Ins, Sessions)"
 ["Couples/family", "V-90847", "Couples/Family/Relationship", false, "Couples/family therapy — virtual, client present, 60-min appointment", "Virtual", "90847", 1.0, 1.0, null]];
 
 var PPU={view:'emps', loaded:false, loading:false, rules:null, links:{}, periods:{}, ppId:null, rows:null, rowsFor:null, imp:null, snap:null, meetings:[], sel:null, tab:'appts', err:null};
-var CR={draft:null, dirty:false, q:'', notice:'', tab:'settings'};
+var CR={draft:null, dirty:false, q:'', cat:'', eff:null, notice:'', tab:'settings'};
 
 function ppuEsc(v){ return hesc(v); }
 function ppuSeedRules(){ return {version:1, rows:PPU_SEED.map(function(a){ return {cat:a[0],id:a[1],head:a[2],diff:!!a[3],desc:a[4],delivery:a[5],cpt:a[6],clin:a[7],ffs:a[8],add:a[9]}; }),
@@ -14947,6 +15024,27 @@ function ppuHeadCodes(S){ return String((S||{}).groupHeadCodes||'').split(/[,;\n
 function ppuIsHeadCode(code,S){ return ppuHeadCodes(S).indexOf(ppuNormId(code))>=0; }
 function ppuSettings(r){ return Object.assign({},PPU_DEF_SETTINGS,(r||PPU.rules||{}).settings||{}); }
 function ppuNormId(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().replace(/^'+/,'').replace(/^(\d+)\.0+$/,'$1').toUpperCase(); }
+// ── Effective-dated rule changes ──
+// rules.rows / rules.settings hold the CURRENT values. rules.changes = [{id:normId|'__settings', k:field,
+// old, v, from:'YYYY-MM-DD' (a pay-period start), at, by, ver}] records each change with the pay period it
+// takes effect from. A pay period uses the values in effect on its start date: for each changed field,
+// the newest change dated on/before that date, otherwise the value before the first change ("old").
+// A change saved "for all pay periods" drops the field's dated history (it applies everywhere).
+var CR_DATED_KEYS=['cat','head','diff','diffAny','desc','delivery','cpt','clin','ffs','add'];
+function ppuRulesAt(rules,dateISO){
+  const ch=(rules&&rules.changes)||[]; if(!ch.length||!dateISO) return rules;
+  const out=Object.assign({},rules,{rows:(rules.rows||[]).map(function(r){ return Object.assign({},r); }),settings:Object.assign({},rules.settings||{}),effAt:dateISO});
+  const rowMap={}; out.rows.forEach(function(r){ const k=ppuNormId(r.id); if(k&&!rowMap[k]) rowMap[k]=r; });
+  const by={}; ch.forEach(function(c){ (by[c.id+'|'+c.k]=by[c.id+'|'+c.k]||[]).push(c); });
+  Object.keys(by).forEach(function(key){
+    const L=by[key].slice().sort(function(a,b){ return a.from<b.from?-1:a.from>b.from?1:0; });
+    const hit=L.filter(function(c){ return c.from<=dateISO; }).pop(), val=hit?hit.v:L[0].old, c0=L[0];
+    if(c0.id==='__settings'){ if(val==null) delete out.settings[c0.k]; else out.settings[c0.k]=val; }
+    else { const r=rowMap[c0.id]; if(r) r[c0.k]=val; }
+  });
+  return out;
+}
+function ppuRulesForPP(ppId){ try{ return ppuRulesAt(PPU.rules,ppuPP(ppId).startISO); }catch(e){ return PPU.rules; } }
 function ppuRuleMap(rules){ const m={}; ((rules&&rules.rows)||[]).forEach(function(r){ const k=ppuNormId(r.id); if(k&&!m[k]) m[k]=r; }); return m; }
 function ppuH(x){ return Math.round((+x||0)*100); }                   // hours → hundredths
 function ppuF(h){ return (Math.round(h)/100).toFixed(2); }            // hundredths → "0.00"
@@ -15077,10 +15175,16 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
       if(!rule||rule.clin==null||rule.ffs==null){ L.status='unknown'; L.why='Group code not in the Service Code Workbook'; block('Unknown group code',E.prov||'',usDate(d)+' · '+(m.code||'(no code)')); E.flags++; return; }
       L.head=rule.head||'';
       if(ppuIsHeadCode(m.code,S)){
-        const clin=ppuH(rule.clin), c=Math.round(hc*(+S.groupRate||0)*100);
+        // Per-participant group codes: capacity credit = attendees × clinical hours per attendee (Payroll
+        // Settings, default .33) — not the workbook's per-session value.
+        const per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, clin=ppuH(hc*per), c=Math.round(hc*(+S.groupRate||0)*100);
         E.clin+=clin; L.clin+=clin; L.headC=c; E.grpHeadC=(E.grpHeadC||0)+c; E.grpHeadN=(E.grpHeadN||0)+hc; E.grpN=(E.grpN||0)+1;
         if(!hc) warn('Group with no headcount',E.prov||'',usDate(d)+' · '+(m.group||m.code)+' — add the number of participants to pay it');
-      } else { addRule(E,rule,L,false); E.grpN=(E.grpN||0)+1; }
+      } else {
+        addRule(E,rule,L,false); E.grpN=(E.grpN||0)+1; E.grpHeadN=(E.grpHeadN||0)+hc;
+        // Any logged group with attendees: capacity credit = attendees × clinical hours per attendee (pay stays by the workbook row)
+        if(hc>0){ const per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, dlt=ppuH(hc*per)-ppuH(rule.clin); E.clin+=dlt; L.clin+=dlt; }
+      }
     }catch(e){}
   });
   if(grpPend) block('Group sessions awaiting approval','',grpPend+' logged group session'+(grpPend===1?'':'s')+' — approve or remove on the Group sessions tab');
@@ -15271,7 +15375,7 @@ function ppuStepsHtml(R,p,pp,closed){
     closed?'All approved.':s3open?'Everything below must be approved (or removed) before the pay period can close.':(R?'Everything is approved.':'Staff-logged meetings, group sessions and training reimbursements show up here for approval.'),
     '',todo.length?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">'+todo.join('')+'</div>':'');
   // 4 · close
-  if(closed){ h+=step(4,'done','Close the pay period','Closed '+new Date(p.closedAt).toLocaleDateString()+' by '+ppuEsc(p.closedBy||'')+' · version '+(p.version||1)+'. The result is frozen; Pay Period Snapshots were published and the Capacity Dashboard updated.','<button class="btn btn-secondary" style="font-size:12.5px" onclick="ppuReopen()">Reopen…</button>'); }
+  if(closed){ h+=step(4,'done','Close the pay period','Closed '+new Date(p.closedAt).toLocaleDateString()+' by '+ppuEsc(p.closedBy||'')+' · version '+(p.version||1)+'. The result is frozen; Pay Period Snapshots were published and the Capacity Dashboard updated.','<button class="btn btn-secondary" style="font-size:12.5px" onclick="ppuReopen()">Reopen…</button><button class="btn btn-secondary" style="margin-left:6px" onclick="ppuBulkOpen()" title="Reopen and re-close several pay periods with the current rules">↻ Re-close several…</button>'); }
   else {
     const left=(R?R.blocking:0)+rPend, ready=!!(R&&imp&&!left&&!(R.emps.filter(function(E){ return E.pid.indexOf('staff:')!==0&&!E.sid; }).length));
     h+=step(4,ready?'ready':'wait','Close the pay period',ready?'Saves a frozen copy, publishes everyone’s Pay Period Snapshot, marks meetings, groups and reimbursements paid, and updates the Capacity Dashboard.'
@@ -15295,7 +15399,7 @@ async function renderPPU(){
     const pp=ppuPP(PPU.ppId), p=PPU.periods[PPU.ppId]||null, closed=!!(p&&p.status==='closed');
     let R;
     if(closed){ R=PPU.snap?PPU.snap.result:null; }
-    else { R=ppuCompute(PPU.rows||[],PPU.rules,(p&&p.corrections)||{},PPU.links,PPU.meetings,pp,(p&&p.manualGroups)||[]); if(!R.emps.length) R=null; }
+    else { R=ppuCompute(PPU.rows||[],ppuRulesForPP(PPU.ppId),(p&&p.corrections)||{},PPU.links,PPU.meetings,pp,(p&&p.manualGroups)||[]); if(!R.emps.length) R=null; }
     PPU.R=R||null;
     const optList=ALL_PPS.filter(function(x){ return appPPInMenu(x)||x.id===PPU.ppId; }).slice().reverse();
     const optYears=[]; optList.forEach(function(x){ const y=x.id.slice(0,4); if(optYears.indexOf(y)<0) optYears.push(y); });
@@ -15479,7 +15583,7 @@ function ppuGroupRecs(){
     return d<=pp.endISO&&(m.status!=='PAID'||m.paidPeriod==='ppu_'+PPU.ppId); }).sort(function(a,b){ return String(a.date+a.start).localeCompare(String(b.date+b.start)); });
 }
 function ppuGroupsHtml(closed){
-  const p=PPU.periods[PPU.ppId]||{}, pp=ppuPP(PPU.ppId), S=ppuSettings(PPU.rules), map=ppuRuleMap(PPU.rules);
+  const p=PPU.periods[PPU.ppId]||{}, pp=ppuPP(PPU.ppId), RA=ppuRulesForPP(PPU.ppId), S=ppuSettings(RA), map=ppuRuleMap(RA);
   const recs=ppuGroupRecs(), legacy=(p.manualGroups||[]).slice();
   const byId={}; (STAFF||[]).forEach(function(s){ byId[s._id]=s; });
   const md=function(iso){ const x=String(iso||'').slice(0,10).split('-'); return x.length===3?(+x[1])+'/'+(+x[2]):''; };
@@ -15501,7 +15605,7 @@ function ppuGroupsHtml(closed){
       return '<tr'+(pending?' class="flag"':'')+'><td class="l" style="white-space:nowrap">'+act+'</td>'
         +'<td class="l" style="white-space:normal;min-width:150px"><b>'+ppuEsc(s['Clinician']||m.name||'(former staff)')+'</b><div style="font-size:12.5px">'+ppuEsc(m.group||'')+'</div>'+(m.notes?'<div class="muted" style="font-size:11.5px">'+ppuEsc(m.notes)+'</div>':'')+'</td>'
         +'<td class="l" style="white-space:nowrap">'+md(m.date)+' · '+t12(m.start)+(String(m.date)<pp.startISO?'<div><span class="pill info" style="font-size:10.5px">earlier period</span></div>':'')+'</td>'
-        +'<td class="l" style="white-space:nowrap"><b>'+ppuEsc(m.code||'—')+'</b>'+(r?'<div class="muted" style="font-size:11px">cap credit '+ppuF(ppuH(r.clin))+'</div>':'<div><span class="pill bad">not in workbook</span></div>')+'</td>'
+        +'<td class="l" style="white-space:nowrap"><b>'+ppuEsc(m.code||'—')+'</b>'+(r?'<div class="muted" style="font-size:11px">cap credit '+(head||hc>0?ppuF(ppuH(hc*(S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33)))+' <span title="attendees × clinical hours per attendee">('+hc+' × '+(S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33)+')</span>':ppuF(ppuH(r.clin)))+'</div>':'<div><span class="pill bad">not in workbook</span></div>')+'</td>'
         +'<td>'+(head||m.headcount!==''&&m.headcount!=null?hc:'—')+'</td>'
         +'<td class="l" style="white-space:nowrap">'+(head?'<b>'+ppuUsd(c)+'</b>':(r?ppuF(ppuH(r.ffs))+' FFS hr':'—'))+'</td>'
         +(closed?'':'<td><button title="Remove this entry" aria-label="Remove" style="border:0;background:none;color:#9ca3af;cursor:pointer;font-size:15px" onclick="ppuMtgDel(\''+ppuEsc(m.__id)+'\')">✕</button></td>')+'</tr>'; }).join('');
@@ -16088,7 +16192,7 @@ function ppuDrill(){
           +'<td class="l muted">'+(L.signed?usDate(L.signed)+(lt>3?' <span class="pill warn">+'+lt+'d</span>':''):'—')+'</td><td class="l">'+st+'</td>'+act+'</tr>';
       }).join('')+'</tbody></table></div><div class="muted" style="font-size:12px;margin-top:6px">Signing dates are shown for later reporting; they don’t affect payroll. Corrections need a reason and are kept with the closed period.</div>';
   } else if(PPU.tab==='codes'){
-    const rules=closed&&PPU.snap?PPU.snap.rules:PPU.rules; const map=ppuRuleMap(rules); const cnt={};
+    const rules=closed&&PPU.snap?PPU.snap.rules:ppuRulesForPP(PPU.ppId); const map=ppuRuleMap(rules); const cnt={};
     lines.forEach(function(L){ [L.tx].concat(L.addons||[]).forEach(function(c){ cnt[c]=(cnt[c]||0)+1; }); });
     h+='<div class="muted" style="font-size:12px;margin-bottom:8px">Rules version '+((rules||{}).version||'?')+(closed?' — frozen with this closed period.':' — edit in the Service Code Workbook (Payroll Settings).')+'</div><div class="ppu-tw"><table><thead><tr><th class="l">Valant service ID</th><th class="l">Display heading</th><th>Clinical hrs</th><th>% of FFS</th><th class="l">After-5 / weekend</th><th>Add’l comp</th><th>Rows</th></tr></thead><tbody>'
       +Object.keys(cnt).sort().map(function(cd){ const m=map[ppuNormId(cd)];
@@ -16159,21 +16263,23 @@ function ppuExportCsv(){
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='pay_period_'+pp.id+(PPU.periods[pp.id]&&PPU.periods[pp.id].status==='closed'?'_closed_v'+PPU.periods[pp.id].version:'_preview')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ console.error(e); showToast('⚠ Could not build the CSV'); }
 }
-async function ppuClose(){
+// o.silent (bulk re-close): no confirm, no final toast/render; returns true when closed.
+async function ppuClose(o){
+  o=o||{};
   try{
-    const R=PPU.R, p=PPU.periods[PPU.ppId], pp=ppuPP(PPU.ppId); if(!R||!p||p.status==='closed') return;
-    if(R.blocking){ showToast('⚠ Resolve the items listed first'); return; }
-    if(ppuReimbPending()){ showToast('⚠ Approve or remove the reimbursements first'); return; }
-    if(!confirm('Close '+pp.label+'?\n\nThis saves a frozen snapshot, publishes '+R.emps.filter(function(E){ return E.sid; }).length+' Pay Period Snapshots, marks Meeting and Admin Time paid, and writes clinical hours to the Capacity Dashboard.')) return;
+    const R=PPU.R, p=PPU.periods[PPU.ppId], pp=ppuPP(PPU.ppId); if(!R||!p||p.status==='closed') return false;
+    if(R.blocking){ if(!o.silent) showToast('⚠ Resolve the items listed first'); return false; }
+    if(ppuReimbPending()){ if(!o.silent) showToast('⚠ Approve or remove the reimbursements first'); return false; }
+    if(!o.silent&&!confirm('Close '+pp.label+'?\n\nThis saves a frozen snapshot, publishes '+R.emps.filter(function(E){ return E.sid; }).length+' Pay Period Snapshots, marks Meeting and Admin Time paid, and writes clinical hours to the Capacity Dashboard.')) return false;
     const v=p.version||1, at=ppuNow(), by=ppuWho(); let snapId='ppu_'+PPU.ppId+'_v'+v;
     // provider links actually used (incl. confirmed suggestions)
     const used={}; R.emps.forEach(function(E){ if(E.sid&&E.pid.indexOf('staff:')!==0) used[E.pid]=E.sid; });
     Object.keys(used).forEach(function(k){ PPU.links[k]=used[k]; }); await payStore.setCfgDoc('ppuProviders',{map:PPU.links,updatedAt:at,updatedBy:by});
     const result={emps:R.emps, lines:R.lines, exc:R.exc, blocking:0, settings:R.settings};
     const snap={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,version:v,closedAt:at,closedBy:by,importId:p.importId,importMeta:p.importMeta||null,
-      rules:{version:PPU.rules.version,rows:PPU.rules.rows,settings:ppuSettings(PPU.rules)},links:used,corrections:p.corrections||{},result:JSON.parse(JSON.stringify(result))};
+      rules:(function(){ const RA=ppuRulesForPP(PPU.ppId); return {version:PPU.rules.version,rows:RA.rows,settings:ppuSettings(RA),effAt:pp.startISO}; })(),links:used,corrections:p.corrections||{},result:JSON.parse(JSON.stringify(result))};
     const got=await payStore.createSnapshot(snapId,snap);
-    if(!got){ showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return; }
+    if(!got){ if(o.silent) o.err='could not save the snapshot'+(payStore.lastError?' ('+payStore.lastError+')':''); else showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return false; }
     if(typeof got==='string') snapId=got;
     // Pay Period Snapshot for each linked employee (hours only; $ only for $25/hr meetings; clients by code)
     const stmts=R.emps.filter(function(E){ return E.sid; }).map(function(E){ return ppuStatement(E,R,pp,v,at); });
@@ -16192,8 +16298,65 @@ async function ppuClose(){
     ppuAudit(p,{act:'close',detail:'v'+v+' · '+R.emps.length+' employees · '+nPaid+' meeting entries paid'});
     await payStore.setPeriod('ppu_'+PPU.ppId,p);
     PPU.snap=null; PPU.meetings=window.mtgStore?(await window.mtgStore.all()||[]):[];
-    showToast('✓ '+pp.short+' closed (v'+v+')'); renderPPU();
-  }catch(e){ console.error(e); showToast('⚠ Close failed: '+(e.message||e)); }
+    if(!o.silent){ showToast('✓ '+pp.short+' closed (v'+v+')'); renderPPU(); }
+    return true;
+  }catch(e){ console.error(e); if(o.silent) o.err=String(e.message||e); else showToast('⚠ Close failed: '+(e.message||e)); return false; }
+}
+// ── Bulk re-close: reopen each chosen closed pay period and close it again with the current rules
+// (each period uses the rules in effect on its start date). Every period gets a new version, its
+// Pay Period Snapshots are republished and the Capacity Dashboard is rewritten. A period that can't
+// close cleanly (new issues, pending approvals, unlinked providers) is left OPEN and reported.
+var PBR={sel:{},reason:'',running:false,log:[]};
+function ppuBulkCandidates(){ return Object.keys(PPU.periods||{}).filter(function(k){ const p=PPU.periods[k]; return p&&p.status==='closed'&&ALL_PPS.some(function(x){ return x.id===k; }); }).sort(); }
+function ppuBulkOpen(fromISO){
+  try{ PBR.log=[]; PBR.sel={};
+    ppuBulkCandidates().forEach(function(k){ if(!fromISO||ppuPP(k).startISO>=fromISO) PBR.sel[k]=true; });
+    const pg=document.getElementById('page-coderules');
+    if(pg&&pg.classList.contains('active')){ CR.tab='reclose'; crRender(); }
+    else { CR.tab='reclose'; showPage('coderules',document.getElementById('nav-coderules')); }
+  }catch(e){ console.error(e); }
+}
+function ppuBulkHtml(){
+  const L=ppuBulkCandidates(), n=L.filter(function(k){ return PBR.sel[k]; }).length;
+  let h='<div class="ppu-card"><b style="font-size:14.5px">↻ Re-close pay periods with the current rules</b><div class="muted" style="font-size:12.5px;max-width:820px;margin-top:2px">Use after a rule fix. Each chosen period is reopened and closed again in one go, using the rules in effect on its start date (the “Effective from” you pick when saving a change). Each gets a new version, Pay Period Snapshots are republished and the Capacity Dashboard is updated. A period that can’t close cleanly is <b>left open</b> and listed below so you can finish it by hand.</div>';
+  if(!L.length) return h+'<div class="muted" style="margin-top:10px">No closed pay periods yet.</div></div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+L.map(function(k){ const pp=ppuPP(k), p=PPU.periods[k];
+      return '<label class="pill '+(PBR.sel[k]?'info':'grey')+'" style="cursor:pointer;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" '+(PBR.sel[k]?'checked ':'')+(PBR.running?'disabled ':'')+'onchange="PBR.sel[\''+k+'\']=this.checked;crRender()" style="width:auto">'+ppuEsc(pp.short)+' <span style="opacity:.7">v'+(p.version||1)+'</span></label>'; }).join('')+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px"><button class="btn btn-secondary" style="font-size:12px" '+(PBR.running?'disabled ':'')+'onclick="ppuBulkCandidates().forEach(function(k){PBR.sel[k]=true;});crRender()">Select all</button><button class="btn btn-secondary" style="font-size:12px" '+(PBR.running?'disabled ':'')+'onclick="PBR.sel={};crRender()">Clear</button>'
+    +'<input id="pbr-reason" placeholder="Reason (required) — e.g. G 90853 clinical hours fixed" value="'+ppuEsc(PBR.reason)+'" oninput="PBR.reason=this.value" style="flex:1;min-width:260px;font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px" '+(PBR.running?'disabled':'')+'>'
+    +'<button class="btn btn-primary" '+(PBR.running||!n?'disabled ':'')+'onclick="ppuBulkRun()">'+(PBR.running?'Working…':'Re-close '+n+' pay period'+(n===1?'':'s'))+'</button></div>';
+  if(PBR.log.length) h+='<div style="margin-top:12px;font-size:12.5px">'+PBR.log.map(function(x){ return '<div style="padding:4px 0;border-top:1px solid #f1f2f4"><b>'+ppuEsc(x.pp)+'</b> — '+(x.ok?'<span style="color:#157a45">✓ closed again (v'+x.v+')</span>':x.state==='working'?'<span class="muted">working…</span>':x.state==='wait'?'<span class="muted">waiting</span>':'<span style="color:#b91c1c">⚠ '+ppuEsc(x.msg)+'</span>')+'</div>'; }).join('')+'</div>';
+  return h+'</div>';
+}
+async function ppuBulkRun(){
+  if(PBR.running) return;
+  const ids=ppuBulkCandidates().filter(function(k){ return PBR.sel[k]; }); if(!ids.length) return;
+  const reason=String(PBR.reason||'').trim(); if(!reason){ showToast('⚠ Enter a reason — it’s kept with each period'); return; }
+  if(!confirm('Re-close '+ids.length+' pay period'+(ids.length===1?'':'s')+' with the current rules?\n\nEach is reopened and closed again: new version, Pay Period Snapshots republished, Capacity Dashboard updated. Any that can’t close cleanly are left open for you to finish.')) return;
+  PBR.running=true; PBR.log=ids.map(function(k){ return {id:k,pp:ppuPP(k).short,state:'wait'}; }); crRender();
+  const keep=PPU.ppId;
+  try{ if(window.mtgStore) PPU.meetings=(await window.mtgStore.all())||PPU.meetings||[]; }catch(e){}
+  for(let i=0;i<ids.length;i++){
+    const id=ids[i], row=PBR.log[i]; row.state='working'; crRender();
+    try{
+      const p=PPU.periods[id]; if(!p||p.status!=='closed'){ row.msg='not closed — skipped'; continue; }
+      PPU.ppId=id; PPU.rows=null; PPU.rowsFor=null; PPU.snap=null; PPU.R=null;
+      p.status='open'; p.version=(p.version||1)+1; ppuAudit(p,{act:'reopen',reason:'Bulk re-close: '+reason});
+      if(!(await payStore.setPeriod('ppu_'+id,p))){ p.status='closed'; p.version--; row.msg='could not reopen — still closed'; continue; }
+      await ppuLoadPeriodData();
+      const pp=ppuPP(id), R=ppuCompute(PPU.rows||[],ppuRulesForPP(id),p.corrections||{},PPU.links,PPU.meetings,pp,p.manualGroups||[]);
+      PPU.R=R.emps.length?R:null;
+      const unl=R.emps.filter(function(E){ return E.pid.indexOf('staff:')!==0&&!E.sid; }).length, rp=ppuReimbPending();
+      if(!PPU.R){ row.msg='left open — no Valant data found for it'; continue; }
+      if(R.blocking||rp||unl){ row.msg='left open — '+[R.blocking?R.blocking+' issue'+(R.blocking===1?'':'s')+' to resolve':'',rp?rp+' reimbursement'+(rp===1?'':'s')+' to approve':'',unl?unl+' provider'+(unl===1?'':'s')+' to link':''].filter(Boolean).join(', ')+' (open it in Payroll Processing)'; continue; }
+      const o={silent:true}; const ok=await ppuClose(o);
+      if(ok){ row.ok=true; row.v=PPU.periods[id].version; } else row.msg='left open — '+(o.err||'could not close');
+    }catch(e){ console.error(e); row.msg='stopped — '+String(e.message||e); }
+    finally{ if(!row.ok&&!row.msg) row.msg='left open'; row.state='done'; crRender(); }
+  }
+  PPU.ppId=keep; PPU.rows=null; PPU.rowsFor=null; PPU.snap=null; PPU.R=null; PBR.running=false; PBR.sel={};
+  const ok=PBR.log.filter(function(x){ return x.ok; }).length;
+  showToast('↻ Re-closed '+ok+' of '+ids.length+' pay period'+(ids.length===1?'':'s')); crRender();
 }
 async function ppuReopen(){
   try{
@@ -16416,7 +16579,7 @@ function ppuStatementHtml(st,opt){
 // ── Small single-series bar chart (one bar per pay period). pts=[{k,label,v,txt}], sel=k highlighted.
 
 // ══ SERVICE CODE RULES page (the Cap Hours Formula sheet, editable) ═══════════════════════
-var CR_COLS=[['cat','Category','text',130],['id','Valant service ID','text',140],['head','Display Headings','head',190],['diff','After 5pm S/S Differential Eligible ($5 per appt)','bool',90],['desc','Cleaned description','text',300],
+var CR_COLS=[['cat','Category','cat',140],['id','Valant service ID','text',140],['head','Display Headings','head',190],['diff','After 5pm S/S Differential Eligible ($5 per appt)','bool',90],['desc','Cleaned description','text',300],
   ['delivery','Delivery','delivery',120],['cpt','Current CPT / HCPCS','text',90],['clin','Clinical Hours Count for Cap','num',90],['ffs','% of FFS Rate Paid','pct',80],['add','Additional Comp per 1 Unit ($)','money',90]];
 function crUnsaved(){ try{ const pg=document.getElementById('page-coderules'); return !!(pg&&pg.classList.contains('active')&&CR.dirty); }catch(e){ return false; } }
 async function renderCodeRules(){
@@ -16450,31 +16613,36 @@ function crRender(){
     const id='cr-'+i+'-'+c[0], v=r[c[0]], on='onchange="crSet('+i+',\''+c[0]+'\',this)"';
     if(c[2]==='bool') return '<input type="checkbox" id="'+id+'"'+(v?' checked':'')+' '+on+' style="width:16px;height:16px;accent-color:#122b67">';
     if(c[2]==='head'){ const o=headOpts.slice(); if(v&&o.indexOf(v)<0) o.push(v); return '<select id="'+id+'" '+on+'><option value="">(none)</option>'+o.map(function(x){ return '<option'+(x===v?' selected':'')+'>'+ppuEsc(x)+'</option>'; }).join('')+'<option value="__other">Other…</option></select>'; }
+    if(c[2]==='cat'){ const o=crCats(); if(v&&o.indexOf(v)<0) o.push(v); return '<select id="'+id+'" '+on+' style="width:'+(c[3]-12)+'px"><option value="">(none)</option>'+o.map(function(x){ return '<option'+(x===v?' selected':'')+'>'+ppuEsc(x)+'</option>'; }).join('')+'<option value="__other">New category…</option></select>'; }
     if(c[2]==='delivery'){ const o=PPU_DELIVERY.slice(); if(v&&o.indexOf(v)<0) o.push(v); return '<select id="'+id+'" '+on+'><option value=""></option>'+o.map(function(x){ return '<option'+(x===v?' selected':'')+'>'+ppuEsc(x)+'</option>'; }).join('')+'</select>'; }
     const val=c[2]==='pct'?(v==null?'':Math.round(v*10000)/100):c[2]==='num'||c[2]==='money'?(v==null?'':v):(v||'');
     return '<input id="'+id+'" value="'+ppuEsc(val)+'" '+on+(c[2]!=='text'?' inputmode="decimal" style="width:'+(c[3]-16)+'px;text-align:right"':' style="width:'+(c[3]-16)+'px"')+'>'+(c[2]==='pct'?'%':'');
   };
-  let h=ppuCss()+'<style>.crt td{padding:4px 6px!important}.crt input,.crt select{font:inherit;font-size:12px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;background:#fff}.crt tr.bad td{background:#fef2f2}.crt tr.warn td{background:#fffbeb}</style>'
+  let h=ppuCss()+'<style>.crt td{padding:4px 6px!important}.crt input,.crt select{font:inherit;font-size:12px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;background:#fff}.crt tr.bad td{background:#fef2f2}.crt tr.warn td{background:#fffbeb}.crt th:nth-child(-n+3),.crt td:nth-child(-n+3){position:sticky;background:#fff;z-index:2}.crt thead th:nth-child(-n+3){background:#f8fafc;z-index:3}.crt th:nth-child(1),.crt td:nth-child(1){left:0;width:34px;min-width:34px;max-width:34px}.crt th:nth-child(2),.crt td:nth-child(2){left:34px;width:156px;min-width:156px;max-width:156px}.crt th:nth-child(3),.crt td:nth-child(3){left:190px;width:156px;min-width:156px;max-width:156px;box-shadow:2px 0 0 #e5e7eb}.crt tr.bad td:nth-child(-n+3){background:#fef2f2}.crt tr.warn td:nth-child(-n+3){background:#fffbeb}.crt thead th{position:sticky;top:0;background:#f8fafc;z-index:1}.cr-scroll{max-height:70vh;overflow:auto}</style>'
     +'<div class="ppu"><div class="ppu-top"><div style="font-size:13px;color:#4b5563;max-width:760px">The pay rules Payroll Processing uses: <b>differentials &amp; bonuses</b> and the <b>Service Code Workbook</b> (the Cap Hours Formula sheet — how each Valant code counts). Saving creates a new version for open pay periods; a closed period keeps the version it used.</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill '+(CR.dirty?'warn':'good')+'">'+(CR.dirty?'Unsaved changes':'Saved · v'+(PPU.rules.version||1))+'</span>'
-    +'<button class="btn" onclick="crSave()"'+(CR.dirty?'':' disabled')+'>Save changes</button><button class="btn btn-secondary" onclick="crDiscard()"'+(CR.dirty?'':' disabled')+'>Discard</button></div></div>'
+    +(CR.dirty?crEffHtml():'')+'<button class="btn" onclick="crSave()"'+(CR.dirty?'':' disabled')+'>Save changes</button><button class="btn btn-secondary" onclick="crDiscard()"'+(CR.dirty?'':' disabled')+'>Discard</button></div></div>'
     +(CR.notice?'<div class="ppu-card" style="border-left:4px solid #18A9B6">'+CR.notice+'</div>':'')
     +'<div class="ppu-tabs" style="margin:2px 0 12px"><button class="ppu-tab'+(CR.tab==='settings'?' on':'')+'" onclick="crTab(\'settings\')">⭐ Differentials &amp; Bonuses</button>'
     +'<button class="ppu-tab'+(CR.tab==='workbook'?' on':'')+'" onclick="crTab(\'workbook\')">📐 Service Code Workbook ('+d.rows.length+')</button>'
-    +'<button class="ppu-tab'+(CR.tab==='history'?' on':'')+'" onclick="crTab(\'history\')">🕘 Version history</button></div>';
+    +'<button class="ppu-tab'+(CR.tab==='history'?' on':'')+'" onclick="crTab(\'history\')">🕘 Version history</button>'
+    +'<button class="ppu-tab'+(CR.tab==='reclose'?' on':'')+'" onclick="crTab(\'reclose\')">↻ Re-close pay periods</button></div>';
+  if(CR.tab==='reclose'){ body.innerHTML=h+ppuBulkHtml()+'</div>'; return; }
   if(CR.tab==='settings'){ body.innerHTML=h+crSettingsHtml(d,S)+'</div>'; return; }
-  if(CR.tab==='history'){ body.innerHTML=h+'<div class="ppu-card"><b>Version history</b><div style="font-size:12.5px;margin-top:6px">'+((PPU.rules.history||[]).slice().reverse().slice(0,40).map(function(x){ return '<div style="padding:3px 0;border-top:1px solid #f1f2f4">v'+x.v+' · '+new Date(x.at).toLocaleString()+' · '+ppuEsc(x.by||'')+(x.note?' — '+ppuEsc(x.note):'')+'</div>'; }).join('')||'<span class="muted">No saved versions yet.</span>')+'</div></div></div>'; return; }
+  if(CR.tab==='history'){ body.innerHTML=h+crDatedHtml()+'<div class="ppu-card"><b>Version history</b><div style="font-size:12.5px;margin-top:6px">'+((PPU.rules.history||[]).slice().reverse().slice(0,40).map(function(x){ return '<div style="padding:3px 0;border-top:1px solid #f1f2f4">v'+x.v+' · '+new Date(x.at).toLocaleString()+' · '+ppuEsc(x.by||'')+(x.note?' — '+ppuEsc(x.note):'')+'</div>'; }).join('')||'<span class="muted">No saved versions yet.</span>')+'</div></div></div>'; return; }
   h+=''
     +(nBad?'<div class="ppu-card ppu-exc"><b style="color:#b91c1c">'+nBad+' row'+(nBad>1?'s need':' needs')+' fixing before saving</b> — highlighted in red below.</div>':'')
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><input type="search" placeholder="Search codes, headings, descriptions…" value="'+ppuEsc(CR.q)+'" oninput="CR.q=this.value;crRender();var e=this;setTimeout(function(){var x=document.querySelector(\'#coderules-body input[type=search]\');if(x){x.focus();x.setSelectionRange(x.value.length,x.value.length);}},0)" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid #d1d5db;border-radius:9px;min-width:300px">'
+    +'<select onchange="CR.cat=this.value;crRender()" style="font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px"><option value="">All categories</option>'+crCats().map(function(x){ const n=d.rows.filter(function(r){ return (r.cat||'')===x; }).length; return '<option value="'+ppuEsc(x)+'"'+(CR.cat===x?' selected':'')+'>'+ppuEsc(x)+' ('+n+')</option>'; }).join('')+(d.rows.some(function(r){ return !r.cat; })?'<option value="__none"'+(CR.cat==='__none'?' selected':'')+'>(no category)</option>':'')+'</select>'
     +'<span class="muted" style="font-size:12px">'+d.rows.length+' codes</span><span style="margin-left:auto;display:flex;gap:8px"><button class="btn btn-secondary" onclick="crAdd()">+ Add code</button><button class="btn btn-secondary" onclick="crExport()">Download sheet (CSV)</button>'
     +'<label class="btn btn-secondary" style="cursor:pointer;position:relative;overflow:hidden">Replace from CSV…<input type="file" accept=".csv,text/csv" onchange="crImport(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></span></div>'
-    +'<div class="ppu-tw"><table class="crt"><thead><tr><th>#</th>'+CR_COLS.map(function(c){ return '<th class="l" style="white-space:normal;min-width:'+c[3]+'px">'+ppuEsc(c[1])+'</th>'; }).join('')+'<th class="l">Check</th><th></th></tr></thead><tbody>'
+    +'<div class="ppu-tw cr-scroll"><table class="crt"><thead><tr><th>#</th>'+CR_COLS.map(function(c){ return '<th class="l" style="white-space:normal;min-width:'+c[3]+'px">'+ppuEsc(c[1])+'</th>'; }).join('')+'<th class="l">Check</th><th></th></tr></thead><tbody>'
     +d.rows.map(function(r,i){
       if(q && (r.cat+' '+r.id+' '+r.head+' '+r.desc+' '+r.cpt).toLowerCase().indexOf(q)<0) return '';
+      if(CR.cat && (CR.cat==='__none'?!!r.cat:(r.cat||'')!==CR.cat)) return '';
       const is=iss[i]||[], lvl=is.some(function(x){ return x.lvl==='bad'; })?'bad':is.length?'warn':'';
       return '<tr class="'+lvl+'"><td class="muted">'+(i+1)+'</td>'+CR_COLS.map(function(c){ return '<td class="l">'+cell(r,i,c)+'</td>'; }).join('')
-        +'<td class="l" style="white-space:normal;min-width:180px;font-size:11.5px;color:'+(lvl==='bad'?'#b91c1c':'#b45309')+'">'+is.map(function(x){ return ppuEsc(x.msg); }).join('<br>')+'</td>'
+        +'<td class="l" style="white-space:normal;min-width:180px;font-size:11.5px;color:'+(lvl==='bad'?'#b91c1c':'#b45309')+'">'+is.map(function(x){ return ppuEsc(x.msg); }).join('<br>')+crRowDatedNote(r)+'</td>'
         +'<td><button class="btn btn-secondary" style="font-size:11px;padding:3px 8px" onclick="crDel('+i+')" title="Remove this code">×</button></td></tr>'; }).join('')
     +'</tbody></table></div>'
     +'</div>';
@@ -16484,6 +16652,58 @@ function crRender(){
 // Everything here saves with the workbook as one versioned settings document (Save changes / Discard
 // at the top); closed pay periods keep the version they were closed with.
 function crTab(t){ CR.tab=t; crRender(); }
+function crCats(){ const o={}; ((CR.draft&&CR.draft.rows)||[]).forEach(function(r){ if(r.cat) o[r.cat]=1; }); return Object.keys(o).sort(); }
+// "Effective from" picker shown while there are unsaved changes: all pay periods, or a pay period start.
+function crEffDefault(){ try{ return capISO(capPPStartFor()); }catch(e){ return ''; } }
+function crEffHtml(){
+  if(CR.eff===null) CR.eff=crEffDefault();
+  const yr=String(CAP_YEAR), list=ALL_PPS.filter(function(x){ return String(x.startISO).slice(0,4)>=yr||String(x.endISO).slice(0,4)>=yr; }).slice(0,40);
+  return '<label style="font-size:12px;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px">Effective from <select onchange="CR.eff=this.value" style="font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;max-width:260px">'
+    +'<option value=""'+(CR.eff===''?' selected':'')+'>All pay periods (fix — applies to history)</option>'
+    +list.map(function(x){ return '<option value="'+x.startISO+'"'+(CR.eff===x.startISO?' selected':'')+'>'+ppuEsc(x.short||x.label)+' · '+usDate(x.startISO)+' onward</option>'; }).join('')+'</select></label>';
+}
+function crFmtVal(k,v){ if(v==null||v==='') return '(blank)'; if(k==='ffs') return Math.round(v*10000)/100+'%'; if(typeof v==='boolean') return v?'yes':'no'; return String(v); }
+function crKeyLabel(k){ const c=CR_COLS.find(function(x){ return x[0]===k; }); return c?c[1]:k==='diffAny'?'Differential any time':k; }
+function crRowDatedNote(r){
+  try{ const id=ppuNormId(r.id), L=((PPU.rules&&PPU.rules.changes)||[]).filter(function(c){ return c.id===id; }); if(!L.length) return '';
+    return '<div style="color:#1e3a8a;margin-top:2px">'+L.slice().sort(function(a,b){ return a.from<b.from?-1:1; }).map(function(c){ return '🕘 '+ppuEsc(crKeyLabel(c.k))+': '+ppuEsc(crFmtVal(c.k,c.old))+' → '+ppuEsc(crFmtVal(c.k,c.v))+' from '+usDate(c.from); }).join('<br>')+'</div>'; }catch(e){ return ''; }
+}
+function crDatedHtml(){
+  const L=((PPU.rules&&PPU.rules.changes)||[]).slice().sort(function(a,b){ return a.from<b.from?1:a.from>b.from?-1:0; });
+  return '<div class="ppu-card"><b>Dated changes</b> <span class="muted" style="font-size:12px">changes that only apply from a pay period onward — earlier pay periods keep the old value</span>'
+    +(L.length?'<div style="font-size:12.5px;margin-top:6px">'+L.map(function(c){ return '<div style="padding:3px 0;border-top:1px solid #f1f2f4"><b>'+usDate(c.from)+'</b> · '+ppuEsc(c.id==='__settings'?'Differentials & bonuses':c.id)+' · '+ppuEsc(crKeyLabel(c.k))+': '+ppuEsc(crFmtVal(c.k,c.old))+' → '+ppuEsc(crFmtVal(c.k,c.v))+' <span class="muted">· v'+c.ver+' · '+ppuEsc(c.by||'')+'</span> <button class="me-x" style="color:#122B67" title="Make this value apply to every pay period, including earlier ones" onclick="crDatedAll(\''+ppuEsc(c.id)+'\',\''+ppuEsc(c.k)+'\',\''+c.from+'\')">Apply to all pay periods</button></div>'; }).join('')+'</div>'
+      :'<div class="muted" style="font-size:12.5px;margin-top:6px">None — every rule applies to all pay periods.</div>')+'</div>';
+}
+// What changed between the saved rules and the draft (existing codes + settings; added/removed codes aren't dated).
+function crDiffs(prev,d){
+  const out=[], pm=ppuRuleMap(prev), dm=ppuRuleMap(d), nz=function(x){ return x===undefined||x===''?null:x; };
+  Object.keys(dm).forEach(function(id){ const a=pm[id], b=dm[id]; if(!a) return;
+    CR_DATED_KEYS.forEach(function(k){ if(JSON.stringify(nz(a[k]))!==JSON.stringify(nz(b[k]))) out.push({id:id,k:k,v:nz(b[k])}); }); });
+  const sa=Object.assign({},PPU_DEF_SETTINGS,prev.settings||{}), sb=Object.assign({},PPU_DEF_SETTINGS,d.settings||{}); const keys={}; Object.keys(sa).concat(Object.keys(sb)).forEach(function(k){ keys[k]=1; });
+  Object.keys(keys).forEach(function(k){ if(JSON.stringify(nz(sa[k]))!==JSON.stringify(nz(sb[k]))) out.push({id:'__settings',k:k,v:nz(sb[k])}); });
+  return out;
+}
+// Drop one dated change so its value applies to every pay period (a fix that should reach history).
+async function crDatedAll(id,k,from){
+  try{
+    if(CR.dirty){ showToast('⚠ Save or discard your other changes first'); return; }
+    const d=JSON.parse(JSON.stringify(PPU.rules)); const before=(d.changes||[]).length;
+    d.changes=(d.changes||[]).filter(function(c){ return !(c.id===id&&c.k===k&&c.from===from); });
+    // older dated entries for the same field would still hold earlier periods back — drop them too
+    d.changes=d.changes.filter(function(c){ return !(c.id===id&&c.k===k&&c.from<from); });
+    if(d.changes.length===before) return;
+    if(!confirm('Apply '+(id==='__settings'?'this setting':id)+' · '+crKeyLabel(k)+' to every pay period, including ones before '+usDate(from)+'?')) return;
+    d.version=(PPU.rules.version||1)+1; d.updatedAt=ppuNow(); d.updatedBy=ppuWho();
+    d.history=(PPU.rules.history||[]).concat({v:d.version,at:d.updatedAt,by:d.updatedBy,note:(id==='__settings'?'Setting':id)+' · '+crKeyLabel(k)+' now applies to all pay periods'}).slice(-200);
+    if(!(await payStore.setCfgDoc('codeRules',d))){ showToast('⚠ Could not save the rules'); return; }
+    PPU.rules=d; CR.draft=JSON.parse(JSON.stringify(d)); CR.dirty=false;
+    const aff=ppuBulkCandidates().filter(function(x){ return ppuPP(x).startISO<from; });
+    CR.notice='✓ Saved as version '+d.version+' — '+ppuEsc((id==='__settings'?'setting':id)+' · '+crKeyLabel(k))+' now applies to all pay periods.'
+      +(aff.length?' <b>'+aff.length+' closed pay period'+(aff.length===1?'':'s')+'</b> before '+usDate(from)+' would change. <button class="btn btn-primary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="ppuBulkOpen(\'\');PBR.sel={};ppuBulkCandidates().forEach(function(x){ if(ppuPP(x).startISO<\''+from+'\') PBR.sel[x]=true; });crRender()">↻ Re-close them…</button>':'');
+    crRender();
+  }catch(e){ console.error(e); showToast('⚠ Could not save the rules'); }
+}
+function crDayBefore(iso){ const d=capDateOf(iso); return capISO(new Date(d.getFullYear(),d.getMonth(),d.getDate()-1)); }
 function crRowSet(i,k,v){ try{ const r=CR.draft.rows[i]; if(!r) return; r[k]=v; if(k==='diff'&&!v) r.diffAny=false; CR.dirty=true; CR.notice=''; crRender(); }catch(e){ console.error(e); } }
 function crRowAdd(i,el){ try{ const v=crNum(el.value); if(Number.isNaN(v)){ showToast('⚠ Not a number'); el.value=''; return; } crRowSet(i,'add',v); }catch(e){ console.error(e); } }
 function crIsPP60(r){ const t=(r.id+' '+r.desc+' '+r.cat); return /private[\s-]*pay|(^|[\s-])V?PP([\s-]|$)/i.test(t) && /60/.test(r.id+' '+r.desc) && !/group/i.test(r.cat+' '+r.head+' '+r.desc); }
@@ -16542,8 +16762,9 @@ function crSettingsHtml(d,S){
   h+=card('👪','Group Sessions','logged by clinicians on Meeting and Admin Time (Valant can’t export groups) · approved on Payroll Processing → Group sessions · no differential',
     '<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">'
       +fld('$ per participant','<span>$ <input id="cr-s-groupRate" value="'+S.groupRate+'" inputmode="decimal" style="'+inp+'" onchange="crSetS(\'groupRate\',this)"></span>','e.g. 6 participants → $'+(6*(+S.groupRate||0)).toFixed(2))
+      +fld('Clinical hours per attendee','<input id="cr-s-groupClinPer" value="'+(S.groupClinPer!=null?S.groupClinPer:0.33)+'" inputmode="decimal" style="'+inp+'" onchange="crSetS(\'groupClinPer\',this)">','e.g. 6 attended → '+(Math.round(6*(S.groupClinPer!=null?+S.groupClinPer:0.33)*100)/100).toFixed(2)+' clinical hrs toward capacity')
       +fld('Codes paid per participant','<input id="cr-s-groupHeadCodes" value="'+ppuEsc(S.groupHeadCodes||'')+'" style="'+inp+';width:360px" onchange="crSetGroupCodes(this.value)">','comma-separated Valant codes')+'</div>'
-      +'<div class="muted" style="font-size:12px;margin-top:6px">Those codes pay $ per participant instead of FFS hours. Every other group code (e.g. G 90837) pays by its row in the workbook. Capacity credit always comes from the workbook.</div>');
+      +'<div class="muted" style="font-size:12px;margin-top:6px">Those codes pay $ per participant instead of FFS hours. Every other group code pays by its row in the workbook. Capacity credit for every logged group with attendees is attendees × clinical hours per attendee.</div>');
   return h;
 }
 function crSetGroupCodes(v){ const S=CR.draft.settings=Object.assign({},PPU_DEF_SETTINGS,CR.draft.settings||{}); S.groupHeadCodes=String(v||'').split(/[,;\n]/).map(function(x){ return x.replace(/\s+/g,' ').trim(); }).filter(Boolean).join(', '); CR.dirty=true; crRender(); }
@@ -16556,18 +16777,19 @@ function crSet(i,k,el){
     const r=CR.draft.rows[i]; if(!r) return; const c=CR_COLS.find(function(x){ return x[0]===k; });
     let v;
     if(c[2]==='bool') v=!!el.checked;
+    else if(c[2]==='cat'&&el.value==='__other'){ v=(prompt('New category name:')||'').trim(); if(!v){ crRender(); return; } }
     else if(c[2]==='head'&&el.value==='__other'){ v=(prompt('Display heading (it will have no column of its own; its FFS hours go to “Other”):')||'').trim(); if(!v){ crRender(); return; } }
     else if(c[2]==='num'||c[2]==='money'){ v=crNum(el.value); if(Number.isNaN(v)){ showToast('⚠ Not a number'); el.value=r[k]==null?'':r[k]; return; } }
     else if(c[2]==='pct'){ v=crNum(el.value); if(Number.isNaN(v)){ showToast('⚠ Not a number'); return; } v=v==null?null:Math.round(v*100)/10000; }
     else v=String(el.value||'').trim();
     r[k]=v; CR.dirty=true; CR.notice='';
-    if(c[2]==='head'||c[0]==='id'||c[0]==='clin'||c[0]==='ffs'){ crRender(); } else { const pill=document.querySelector('#coderules-body .pill'); if(pill){ pill.className='pill warn'; pill.textContent='Unsaved changes'; } document.querySelectorAll('#coderules-body .ppu-top .btn').forEach(function(b){ b.disabled=false; }); }
+    if(c[2]==='head'||c[2]==='cat'||c[0]==='id'||c[0]==='clin'||c[0]==='ffs'){ crRender(); } else { const pill=document.querySelector('#coderules-body .pill'); if(pill){ pill.className='pill warn'; pill.textContent='Unsaved changes'; } document.querySelectorAll('#coderules-body .ppu-top .btn').forEach(function(b){ b.disabled=false; }); }
   }catch(e){ console.error(e); }
 }
 function crSetS(k,el){ const S=CR.draft.settings=Object.assign({},PPU_DEF_SETTINGS,CR.draft.settings||{}); if(k==='eveStart') S[k]=el.value||'17:00'; else { const v=crNum(el.value); if(v==null||Number.isNaN(v)){ showToast('⚠ Not a number'); el.value=S[k]; return; } S[k]=v; } CR.dirty=true; crRender(); }
 function crAdd(){ CR.draft.rows.unshift({cat:'',id:'',head:'',diff:false,desc:'',delivery:'',cpt:'',clin:null,ffs:null,add:null}); CR.dirty=true; CR.q=''; crRender(); try{ document.getElementById('cr-0-id').focus(); }catch(e){} }
 function crDel(i){ const r=CR.draft.rows[i]; if(!r) return; if(!confirm('Remove '+(r.id||'this row')+' from the rules? Uploads with this code will show “Unknown service code” until it’s added back.')) return; CR.draft.rows.splice(i,1); CR.dirty=true; crRender(); }
-function crDiscard(){ if(!confirm('Discard your unsaved changes?')) return; CR.draft=JSON.parse(JSON.stringify(PPU.rules)); CR.dirty=false; CR.notice=''; crRender(); }
+function crDiscard(){ if(!confirm('Discard your unsaved changes?')) return; CR.draft=JSON.parse(JSON.stringify(PPU.rules)); CR.dirty=false; CR.notice=''; CR.eff=null; crRender(); }
 async function crSave(){
   try{
     const iss=crIssues(CR.draft); const bad=Object.keys(iss).filter(function(i){ return iss[i].some(function(x){ return x.lvl==='bad'; }); });
@@ -16575,11 +16797,27 @@ async function crSave(){
     const note=prompt('What changed? (kept in the version history)','')||'';
     const d=JSON.parse(JSON.stringify(CR.draft)); d.rows=d.rows.filter(function(r){ return ppuNormId(r.id); });
     d.version=(PPU.rules.version||1)+1; d.updatedAt=ppuNow(); d.updatedBy=ppuWho();
-    d.history=(PPU.rules.history||[]).concat({v:d.version,at:d.updatedAt,by:d.updatedBy,note:note}).slice(-200);
+    // dated changes: each changed field applies from CR.eff (a pay-period start) — or everywhere when ''
+    const prev=PPU.rules, eff=CR.eff===null?crEffDefault():CR.eff, diffs=crDiffs(prev,d);
+    let kept=((prev.changes)||[]).slice();
+    diffs.forEach(function(df){
+      if(!eff){ kept=kept.filter(function(c){ return !(c.id===df.id&&c.k===df.k); }); return; }
+      const before=ppuRulesAt(Object.assign({},prev,{changes:kept}),crDayBefore(eff));
+      const ov=df.id==='__settings'?(before.settings||{})[df.k]:(ppuRuleMap(before)[df.id]||{})[df.k];
+      kept=kept.filter(function(c){ return !(c.id===df.id&&c.k===df.k&&c.from>=eff); });
+      kept.push({id:df.id,k:df.k,old:ov===undefined||ov===''?null:ov,v:df.v,from:eff,at:d.updatedAt,by:d.updatedBy,ver:d.version});
+    });
+    d.changes=kept;
+    const effTxt=diffs.length?(eff?' (effective from '+usDate(eff)+')':' (all pay periods)'):'';
+    d.history=(PPU.rules.history||[]).concat({v:d.version,at:d.updatedAt,by:d.updatedBy,note:note+effTxt}).slice(-200);
     if(!(await payStore.setCfgDoc('codeRules',d))){ showToast('⚠ Could not save the rules'); return; }
     PPU.rules=d; CR.draft=JSON.parse(JSON.stringify(d)); CR.dirty=false; try{ hbClearDirty(); }catch(e){}
     try{ await ppuPublishGuide(d,true); CGUIDE.data=null; }catch(e){}
-    CR.notice='✓ Saved as version '+d.version+'. Open pay periods recalculate with it; closed periods keep the version they used.'; crRender();
+    CR.eff=null;
+    const aff=diffs.length?ppuBulkCandidates().filter(function(k){ return !eff||ppuPP(k).startISO>=eff; }):[];
+    CR.notice='✓ Saved as version '+d.version+effTxt+'. Open pay periods recalculate with it; closed periods keep the rules they were closed with'
+      +(aff.length?' — <b>'+aff.length+' closed pay period'+(aff.length===1?'':'s')+'</b> '+(eff?'from '+usDate(eff)+' ':'')+'would change. <button class="btn btn-primary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="ppuBulkOpen(\''+(eff||'')+'\')">↻ Re-close them…</button>':'.');
+    crRender();
   }catch(e){ console.error(e); showToast('⚠ Could not save the rules'); }
 }
 function crExport(){
