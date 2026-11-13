@@ -481,3 +481,31 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 
 ### Group capacity credit = attendees × .33 (Nov 2026)
 - Every logged group session with a headcount (any group code): clinical-hours credit = headcount × `settings.groupClinPer` (default 0.33, editable in Payroll Settings → Differentials & Bonuses, dated like other settings). Pay is unchanged (headcount × groupRate). Other group codes still use their workbook row.
+
+### Group share on capacity dashboards (Nov 2026)
+- The "Group Clinical Hours" widgets read `GROUP_CREDIT_DATA` (kv/app_group_credit, per year) = each person's group-session credit per pay period, written by `ppuWriteCapacity` from `E.grpClin` (logged groups: attendees × .33; Valant rows with a group-session code: any 90853 or per-participant code — `ppuIsGroupSession`). It's already inside CLINICAL_HOURS_DATA, so `capRealHours` moves it from individual to group (total unchanged). Legacy GROUP_HOURS_DATA (raw × 0.333) still adds. Populated when a period closes → re-close earlier periods to fill history.
+
+### Staff roles & titles editor; missing-info detail (Nov 12 2026)
+- Homebase Settings → Roles & permissions → **Staff roles & titles** (`rtHtml`, ADMIN_TAB 'rt'): add / rename / delete roles (CONFIG.roleOpts) and job titles (CONFIG.jobTitleOpts). Rename/merge or delete migrates every staff record (`rtMigrate`); delete asks where to move people. Locked roles used by code: `RT_LOCKED`. Saved to kv/app_config with `removedRoleOpts` / `removedJobTitleOpts` so deleted built-ins aren't re-added by `cfgApply`.
+- Deleting a custom access role (`permDel`) now asks where to move its people (another custom role or built-in access).
+- Employee profile "Alerts & flags": the missing chip lists the fields ("❗ Missing: Email, Phone, … +N more") and opens the fill-in list (`showMissPopover`).
+
+### Payroll Processing fixes (Nov 12 2026)
+- Step 3 lists every blocking problem with direct buttons (`ppuProblemsHtml`): Open it → (`ppuGoLine` jumps to and highlights the appointment row `#ppu-L-<key>`), Change code…, Not a duplicate, Exclude…, Fix in Payroll Settings → (`ppuGoRule` opens the workbook searched to that code), or the Groups/Meetings tab / step-2 links.
+- Meeting & Admin Time entries are only PAID when their period closes. `ppuMtgInPP(m,pp)` decides membership (unpaid & unclaimed or claimed by this period; PAID only in its period). Opening an open/reopened period runs `ppuMtgUnpayOpen` (PAID→UNPAID for entries tied to it) so they stay editable; the CSV import no longer marks PAID (keeps `csvStatus`/`csvPayDate`) and ties rows to the period via `paidPeriod`. `ppuMtgEdit` blocks only entries paid in another period.
+- Closing shows a full-screen spinner with step text (`ppuBusy`).
+- 'Screening' added to `PPU_HEADS` (its own column) — it used to raise a "No display column" note (e.g. Judge, Anjali).
+
+### Report Center (Nov 12 2026)
+- `renderReportCenter` (RC state). Super Admin: per pay period, reads the Valant rows (`payStore.rows`) and re-runs `ppuCompute` with `ppuRulesForPP`, the period's corrections, current links and logged groups → cached counted lines {sid, date, st, en, tx, cat, head, del, fac, clin} (`rcLoadPP`). Admins: hours from CLINICAL_HOURS_DATA (no code filters, no Office Utilization).
+- Dates: presets `RC_PRESETS` (this/last pay period, MTD, last month, QTD, last quarter, YTD, last 30/90 days, custom) via `rcDates()`; `rcRange()` = pay periods overlapping; lines filtered by date; goals by exact dates (`rcGoalBetween`); chart buckets by pay period / month / week (`rcBuckets`).
+- **Clinical Hours Analysis:** filters (dates, site/Team, role, format, title, staff status, category, code, delivery); KPIs; hours vs goal per pay period (SVG bars + dashed goal); hours vs goal by site; breakdown by site / license level / format / title / tier / clinician (CSV); hours by code / category / heading. Goal = `capGoalBetween` per person per period.
+- **Office Utilization:** approved bookings (`obOn`) vs in-person sessions by the booked clinician at that site overlapping the booked hours; KPIs, by site, weekday×hour heatmap, by office, by clinician; in-person sessions with no booking; virtual hours inside booked slots. Valant FacilityID → site map guessed (`rcFacSite`) and editable, saved in kv/app_rc_facmap.
+
+### Report Center additions; Homebase logo; welcome + tour (Nov 12 2026)
+- Report Center → **Sessions & Peak Times** (`rcSessionsHtml`): all counted appointments (in person + virtual) by home site + entire practice (CSV), stacked in-person/virtual bars, where in-person sessions happened (by facility), peak start-hour line chart (`rcLineHours`), sessions by weekday.
+- Office Utilization → **Office grid** (`rcRoomGrid`): one row per office, one column per hour, cell = used/booked hours, weekday filter (`RC.ou.dow`).
+- Brand: public/homebase-logo.png (wordmark cropped from the brand kit, used as is), favicon.png (180, house mark), favicon-32.png, favicon.ico. `LOGO_SRC`/`HB_LOGO_SRC` = /homebase-logo.png. Sidebar shows the logo on a white tile; sign-in card shows it. Title "Homebase — Let's Work Together".
+- **Welcome** after sign-in (`hbWelcomeMaybe` from the auth module, once per browser session; "Don't show this" = localStorage hb_welcome_off): logo + tagline, "Take the tour" / "Continue to site".
+- **Tour** (`hbTourStart`, `HB_TOUR_STEPS`): spotlights the sidebar items the person can see, Next/Back/Skip, arrows/Esc; positions divide by the body zoom (1.35). "🧭 Take the tour" under the logo.
+- **Clinician walkthrough** (`HB_TT_STEPS`, `hbTTStart/hbTTShow/hbTTDraw`): for therapists/supervisors (and clinicians in other views except admin roles) "Take the tour" runs a chaptered, page-by-page walkthrough — Welcome → start page widgets → Meeting & Admin Time form → Capacity Dashboard → Office Bookings → Clinical Profile for Intake → Pay Period Snapshot → Employee File / policies → done. It navigates pages, waits for each target, spotlights it, glows the menu item (`.nav-item.hbt-on`), shows chapter progress; missing targets are skipped; ends back on My Homebase. Admin roles get the menu tour (`hbTourStart('menu')` forces it).

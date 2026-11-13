@@ -4,8 +4,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APP Homebase — Let’s Work Together</title>
-<link rel="icon" type="image/png" href="/favicon.png">
+<title>Homebase — Let’s Work Together</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="180x180" href="/favicon.png">
 <link rel="apple-touch-icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,6 +47,7 @@ html,body{margin:0;padding:0}body{overflow:hidden;font-size:13px;-webkit-font-sm
 .sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:4px}
 .sidebar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--coral),var(--orange),var(--gold),var(--teal),var(--aqua))}
 .sidebar-logo{padding:18px 16px 14px}
+.nav-item.hbt-on{position:relative;z-index:99997;background:#F2A54B!important;color:#122B67!important;border-radius:8px}
 .nav-item{display:flex;align-items:center;cursor:pointer;transition:background .14s,color .14s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-family:inherit}
 .nav-item.active,.nav-item:focus{background:rgba(255,255,255,.13);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 var(--gold)}
 .nav-badge{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:9px;font-weight:600}
@@ -768,13 +771,13 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
 <nav class="sidebar">
   <div class="sidebar-scroll">
     <div class="sidebar-logo">
-      <div style="display:flex;align-items:center;gap:10px">
-        <img id="sidebar-logo-img" alt="APP" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#eef0f8;line-height:1.2">Advance Psychotherapy</div>
-          <div style="font-size:9px;color:#9aa3d2;text-transform:uppercase;letter-spacing:.1em;margin-top:1px">Let&rsquo;s Work Together</div>
-        </div>
+      <div style="background:#fff;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:center">
+        <img id="sidebar-logo-img" src="/homebase-logo.png" alt="homebase" style="width:100%;max-width:210px;height:auto;display:block">
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:8px">
+        <div style="font-size:9.5px;color:#9aa3d2;text-transform:uppercase;letter-spacing:.1em;line-height:1.5">Advance Psychotherapy<br>Let&rsquo;s Work Together</div>
+      </div>
+      <button onclick="hbTourStart()" style="margin-top:8px;background:none;border:1px solid #4a5a7c;color:#cfd6ee;border-radius:8px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer" title="A quick walk through the menu">🧭 Take the tour</button>
     </div>
     <!-- Nav sections hide themselves when every item in them is hidden for
          the current role (applyRoleVisibility). Page access = canSeePage(). -->
@@ -1508,7 +1511,9 @@ function executeDelete(){
 // ── DATA ──
 // The APP mark, served from public/. Also used as the favicon (favicon.png,
 // the same artwork at 180px) via the <link rel="icon"> tags in <head>.
-const LOGO_SRC = "/logo.png";
+const LOGO_SRC = "/homebase-logo.png";
+// Homebase brand logo (Nov 2026): full wordmark for the sidebar, sign-in and welcome; the house mark is the favicon.
+const HB_LOGO_SRC = "/homebase-logo.png";
 
 function periodDays(start, end) {
   const today=new Date(); today.setHours(0,0,0,0);
@@ -1734,6 +1739,8 @@ const CONFIG_DEFAULTS = {
   roleOpts: ['Psychotherapist I','Psychotherapist II','Clinical Supervisor','Supervisor','Interim Hourly Supervisor','Clinical Team Manager (CTM)','Program Manager','Senior Leadership','Marketing'],
   // ONE job title per person (Title field). Titles already on records are offered too; "Other" adds a new one.
   jobTitleOpts: ['Psychotherapist','Clinical Supervisor','Clinical Team Manager','Program Manager','Clinical Director','Executive Director','Social Media Specialist'],
+  // Built-in roles / titles an admin deleted (Homebase Settings) — not re-added from the defaults.
+  removedRoleOpts: [], removedJobTitleOpts: [],
   // Legacy Role values hidden from the form and dropped on the next save.
   retiredRoleValues: ['Service Provider'],
   // Old Title values fully replaced by role data (e.g. plain "Psychotherapist"
@@ -1907,7 +1914,8 @@ function cfgApply(stored){
   // saved order, then add back any built-in entry it is missing so every site is selectable.
   ['teamOpts','primaryProgramOpts','programOpts','siteOrder','roleOpts','jobTitleOpts','reportsToRoles'].forEach(k=>{
     if(!Array.isArray(next[k]) || next[k]===CONFIG_DEFAULTS[k]) return;
-    (CONFIG_DEFAULTS[k]||[]).forEach(o=>{ if(next[k].indexOf(o)<0) next[k].push(o); });
+    const rm=k==='roleOpts'?(next.removedRoleOpts||[]):k==='jobTitleOpts'?(next.removedJobTitleOpts||[]):[];
+    (CONFIG_DEFAULTS[k]||[]).forEach(o=>{ if(next[k].indexOf(o)<0&&rm.indexOf(o)<0) next[k].push(o); });
   });
   // Social Media Specialist is a TITLE, not a role (Nov 2026) — its role is Marketing.
   if(Array.isArray(next.roleOpts)) next.roleOpts=next.roleOpts.filter(o=>o!=='Social Media Specialist');
@@ -6874,7 +6882,8 @@ async function pfLoadFlags(sid){
   try{ const exp=p['Lic Exp Date']||p['License Expiration']||''; if(exp&&String(p['License']||'').trim()){ const d=new Date(exp); if(!isNaN(d)){ d.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); const n=Math.round((d-t)/864e5);
     if(n<0) chips.push(chip('red','License lapsed '+(-n)+' days ago',"switchRosterTab('cred')")); else if(n<=60) chips.push(chip(n<=30?'red':'amber','License expires in '+n+' days',"switchRosterTab('cred')")); } } }catch(e){}
   try{ const st=effectiveStatus(p); if(st==='On Leave') chips.push(chip('navy','On leave',null)); if(st==='Off Boarding') chips.push(chip('amber','Offboarding'+(p['Term Date']?' · last day '+usDate(p['Term Date']):''),null)); if(st==='Onboarding') chips.push(chip('navy','Onboarding',null)); }catch(e){}
-  try{ const m=missingInfo(p); if(m.length) chips.push(chip('amber',m.length+' missing item'+(m.length===1?'':'s'),"switchRosterTab('demo')",m.map(function(x){ return x.label; }).join(', '))); }catch(e){}
+  try{ const m=missingInfo(p); if(m.length){ const names=m.map(function(x){ return x.label; });
+    chips.push('<button class="pf-chip amber" title="'+hesc(names.join(', '))+' — click to fill in" onclick="event.stopPropagation();showMissPopover(\''+sid+'\',this)">❗ Missing: '+hesc(names.slice(0,4).join(', '))+(names.length>4?' +'+(names.length-4)+' more':'')+'</button>'); } }catch(e){}
   try{ if(parseFloat(p['Weekly Capacity']||0)>=5){ const c=capCompute(p); if(c&&c.tierReview) chips.push(chip('red','Capacity tier review',"rosterViewCapacity('"+sid+"')")); else if(c&&c.hasData!==false&&c.attainPct!=null&&c.attainPct<90) chips.push(chip('amber','Behind on capacity · '+c.attainPct+'%',"rosterViewCapacity('"+sid+"')")); } }catch(e){}
   el.innerHTML='<span class="pf-fh">Alerts &amp; flags'+(chips.length?' <b>'+chips.length+'</b>':'')+'</span>'+(chips.length?chips.join(''):'<span class="pf-none">✓ Nothing open for '+hesc((p['Clinician']||'').split(' ')[0])+'</span>');
 }
@@ -9337,12 +9346,26 @@ async function permSave(){
     PERM.edit=null; showToast('✓ Saved “'+nm+'”'+(lv?' · access level updated for '+lv:'')); renderAdmin(); try{ applyRoleVisibility(); }catch(_){}
   }catch(err){ console.error(err); showToast('⚠ Could not save the role'); }
 }
+// Delete a custom access role. When people are in it, ask where to move them: another custom role,
+// or back to their built-in access level.
 async function permDel(id){
   const r=permRoleById(id); if(!r) return;
-  const n=Object.keys(PERM.assign).filter(function(k){ return PERM.assign[k]===id; }).length;
-  if(!confirm('Delete the role “'+r.name+'”?'+(n?' '+n+' people go back to their built-in access ('+'their access level stays as it is).':''))) return;
-  PERM.roles=PERM.roles.filter(function(x){ return x.id!==id; }); Object.keys(PERM.assign).forEach(function(k){ if(PERM.assign[k]===id) delete PERM.assign[k]; });
-  await savePermRoles(); renderAdmin(); try{ applyRoleVisibility(); }catch(_){}
+  const ppl=Object.keys(PERM.assign).filter(function(k){ return PERM.assign[k]===id; });
+  if(!ppl.length){ if(!confirm('Delete the role “'+r.name+'”? Nobody is in it.')) return; return permDelCommit(id,''); }
+  const names=ppl.map(function(k){ const s=(STAFF||[]).find(function(x){ return x._id===k; }); return s?s['Clinician']:k; });
+  hbmModal('Delete “'+hesc(r.name)+'”','<div style="font-size:13px;margin-bottom:8px"><b>'+ppl.length+'</b> '+(ppl.length===1?'person is':'people are')+' in this role: '+names.map(hesc).join(', ')+'</div>'
+    +hbmL('Move them to','<select id="perm-del-to" style="font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px"><option value="">— their built-in access level (no custom role) —</option>'
+      +PERM.roles.filter(function(x){ return x.id!==id; }).map(function(x){ return '<option value="'+hesc(x.id)+'">'+hesc(x.name)+' ('+hesc(ROLES[x.base]?ROLES[x.base].label:x.base)+')</option>'; }).join('')+'</select>')
+    +'<div class="muted" style="font-size:12px;margin-top:6px">Their account’s access level stays as it is; only the pages and abilities from the custom role change.</div>',
+    'permDelCommit(\''+hesc(id)+'\',document.getElementById(\'perm-del-to\').value)','Delete and move');
+}
+async function permDelCommit(id,to){
+  try{
+    PERM.roles=PERM.roles.filter(function(x){ return x.id!==id; });
+    Object.keys(PERM.assign).forEach(function(k){ if(PERM.assign[k]===id){ if(to) PERM.assign[k]=to; else delete PERM.assign[k]; } });
+    await savePermRoles(); try{ hbmClose(); }catch(e){} renderAdmin(); try{ applyRoleVisibility(); }catch(_){}
+    showToast('✅ Role deleted'+(to?' — people moved':''));
+  }catch(e){ console.error(e); showToast('⚠ Could not delete the role'); }
 }
 
 async function persistRoles(){
@@ -9549,11 +9572,12 @@ function capRealHours(s){
   const data = (typeof CLINICAL_HOURS_DATA!=='undefined') ? CLINICAL_HOURS_DATA : null;
   const arr = (data && data.byId && data.byId[s._id]) || null;
   const gArr = (typeof GROUP_HOURS_DATA!=='undefined' && GROUP_HOURS_DATA.byId && GROUP_HOURS_DATA.byId[s._id]) || null;
+  const cArr = (typeof GROUP_CREDIT_DATA!=='undefined' && GROUP_CREDIT_DATA.byId && GROUP_CREDIT_DATA.byId[s._id]) || null;
   if(!arr && !gArr) return {ytd:0, qtd:0, hasData:false, indYtd:0, indQtd:0, grpRawYtd:0, grpRawQtd:0, grpWtdYtd:0, grpWtdQtd:0};
   const P = capPeriodInfo();
   // ind* = individual / couples / family hours (full credit)
   // grpRaw* = raw group hours; grpWtd* = group hours after the 0.333 factor.
-  let indYtd=0, indQtd=0, grpRawYtd=0, grpRawQtd=0, any=false;
+  let indYtd=0, indQtd=0, grpRawYtd=0, grpRawQtd=0, grpCrYtd=0, grpCrQtd=0, any=false;
   const periods = (data && data.periodQuarter) ? data.periodQuarter.length : (arr?arr.length:(gArr?gArr.length:0));
   for(let i=0;i<periods;i++){
     const pq = data ? data.periodQuarter[i] : 0;
@@ -9562,9 +9586,12 @@ function capRealHours(s){
     if(v!==null && v!==undefined){ any=true; indYtd += v; if(pq===P.quarter) indQtd += v; }
     const g = gArr ? gArr[i] : null;
     if(g!==null && g!==undefined){ any=true; grpRawYtd += g; if(pq===P.quarter) grpRawQtd += g; }
+    // group-session credit from Payroll Processing: already inside the clinical total → move it to the group share
+    const cr = (cArr && v!==null && v!==undefined) ? (+cArr[i]||0) : 0;
+    if(cr){ grpCrYtd += cr; indYtd -= cr; if(pq===P.quarter){ grpCrQtd += cr; indQtd -= cr; } }
   }
-  const grpWtdYtd = grpRawYtd * GROUP_HOUR_FACTOR;
-  const grpWtdQtd = grpRawQtd * GROUP_HOUR_FACTOR;
+  const grpWtdYtd = grpRawYtd * GROUP_HOUR_FACTOR + grpCrYtd;
+  const grpWtdQtd = grpRawQtd * GROUP_HOUR_FACTOR + grpCrQtd;
   const r1 = x => Math.round(x*10)/10;
   return {
     ytd: r1(indYtd + grpWtdYtd),   // total capacity-credited hours
@@ -9572,7 +9599,7 @@ function capRealHours(s){
     hasData: any,
     indYtd: r1(indYtd),     indQtd: r1(indQtd),
     grpRawYtd: r1(grpRawYtd), grpRawQtd: r1(grpRawQtd),
-    grpWtdYtd: r1(grpWtdYtd), grpWtdQtd: r1(grpWtdQtd),
+    grpWtdYtd: r1(grpWtdYtd), grpWtdQtd: r1(grpWtdQtd), grpCrYtd: r1(grpCrYtd),
   };
 }
 
@@ -9618,6 +9645,14 @@ async function capPersistGroupHours(){
   try { await window.storage.set(CAP_GROUP_STORE_KEY, JSON.stringify(GROUP_HOURS_DATA)); } catch(e){}
 }
 
+// Group-session capacity credit written by Payroll Processing at close (hours already credited — e.g.
+// attendees × .33 — and already INCLUDED in CLINICAL_HOURS_DATA). Kept separately only so dashboards can
+// show the group share: individual = clinical total − group credit. kv/app_group_credit (per year).
+var GROUP_CREDIT_DATA = {byId:{}};
+const CAP_GROUP_CREDIT_KEY = capStoreKey('app_group_credit');
+async function capLoadGroupCredit(){
+  try{ const r=await window.storage.get(CAP_GROUP_CREDIT_KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.byId) GROUP_CREDIT_DATA=d; } }catch(e){}
+}
 async function capLoadPersistedGroupHours(){
   try {
     const r = await window.storage.get(CAP_GROUP_STORE_KEY);
@@ -9939,7 +9974,7 @@ function renderCapacity(){
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#7c3aed">
             <span style="width:10px;height:10px;border-radius:2px;background:#7c3aed;display:inline-block"></span>Group Clinical Hours (at the rate of .33)</div>
           <div style="font-size:22px;font-weight:800;margin-top:2px">${sumGrpWtd} hrs</div>
-          <div style="font-size:11px;color:#888">${sumGrpRaw} group hrs × ${Math.round(GROUP_HOUR_FACTOR*1000)/1000} · ${grpSharePW}% of total</div>
+          <div style="font-size:11px;color:#888">group sessions (90853 &amp; private-pay groups) · ${grpSharePW}% of total</div>
         </div>
         <div style="flex:1;min-width:150px">
           <div style="font-size:11px;font-weight:700;color:#555">Total Clinical Hours (YTD)</div>
@@ -9947,7 +9982,7 @@ function renderCapacity(){
           <div style="font-size:11px;color:#888">across all therapists</div>
         </div>
       </div>
-      <div style="font-size:10.5px;color:#aaa;margin-top:10px;padding-top:8px;border-top:1px dashed #eee">Group sessions serve several clients at once, so each group hour counts as ${Math.round(GROUP_HOUR_FACTOR*1000)/1000} of a clinical hour toward capacity.</div>
+      <div style="font-size:10.5px;color:#aaa;margin-top:10px;padding-top:8px;border-top:1px dashed #eee">Group sessions serve several clients at once, so each group counts as attendees × .33 of a clinical hour (Payroll Settings) — the old rate was ${Math.round(GROUP_HOUR_FACTOR*1000)/1000} of a clinical hour toward capacity.</div>
     </div>`;
 
   // ── Sort bar ──
@@ -10010,6 +10045,7 @@ async function capDeletePeriod(i){
     // The typed DELETE confirmation above is the guard.
     Object.keys(CLINICAL_HOURS_DATA.byId||{}).forEach(function(k){ const a=CLINICAL_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
     if(typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId) Object.keys(GROUP_HOURS_DATA.byId).forEach(function(k){ const a=GROUP_HOURS_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; });
+    try{ if(typeof GROUP_CREDIT_DATA!=='undefined'&&GROUP_CREDIT_DATA.byId){ Object.keys(GROUP_CREDIT_DATA.byId).forEach(function(k){ const a=GROUP_CREDIT_DATA.byId[k]; if(Array.isArray(a)&&i<a.length) a[i]=null; }); window.storage.set(CAP_GROUP_CREDIT_KEY,JSON.stringify(GROUP_CREDIT_DATA)); } }catch(e){}
     if(typeof PAYROLL_DETAIL!=='undefined'&&PAYROLL_DETAIL) Object.keys(PAYROLL_DETAIL).forEach(function(k){ if(PAYROLL_DETAIL[k]) delete PAYROLL_DETAIL[k][i]; });
     CLINICAL_HOURS_DATA._version=CAP_DATA_VERSION;
     if(typeof GROUP_HOURS_DATA!=='undefined') GROUP_HOURS_DATA._version=CAP_DATA_VERSION;
@@ -10237,7 +10273,105 @@ let adminFilter='';
 let adminExpanded=null;   // supervisor id whose supervisee editor is open
 var ADMIN_TAB='people';
 function adminTabsHtml(){ const t=function(k,l){ return '<button class="hb-subtab'+(ADMIN_TAB===k?' on':'')+'" onclick="ADMIN_TAB=\''+k+'\';PERM.edit=null;renderAdmin()">'+l+'</button>'; };
-  return '<div class="hb-subtabs">'+t('people','People & access levels')+t('roles','Roles & page access'+(PERM.roles.length?' ('+PERM.roles.length+')':''))+'</div>'; }
+  return '<div class="hb-subtabs">'+t('people','People & access levels')+t('roles','Roles & page access'+(PERM.roles.length?' ('+PERM.roles.length+')':''))+t('rt','Staff roles & titles')+'</div>'; }
+// ── Homebase Settings → Roles & permissions → Staff roles & titles ──
+// Add, rename and delete the staff ROLES (checkboxes, 'Service Types') and job TITLES (one per person,
+// 'Title'). Renaming or deleting one that people hold asks where to move them and updates every
+// record. Roles Homebase relies on (supervisor access, CTM office approvals, Psychotherapist I/II,
+// pay eligibility) are locked. Saved to kv/app_config (roleOpts, jobTitleOpts + removed* so built-in
+// defaults that were deleted don't come back).
+var RT_LOCKED={
+  'Psychotherapist I':'License level — used for credentialing and the clinical profile',
+  'Psychotherapist II':'License level — used for credentialing and the clinical profile',
+  'Clinical Supervisor':'Gives Supervisor access and lists them as a clinical supervisor',
+  'Supervisor':'Lists them in “Reports To”',
+  'Interim Hourly Supervisor':'Interim supervision pay',
+  'Clinical Team Manager (CTM)':'Approves office bookings for their site',
+  'Program Manager':'Not eligible for differentials & bonuses',
+  'Senior Leadership':'Not eligible for differentials & bonuses'};
+function rtPeopleWithRole(r){ return (STAFF||[]).filter(function(s){ return staffRolesOf(s).indexOf(r)>=0; }); }
+function rtPeopleWithTitle(t){ return (STAFF||[]).filter(function(s){ return staffTitleOf(s)===t; }); }
+function rtCount(list){ const cur=list.filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated'; }).length, old=list.length-cur;
+  return list.length?'<b>'+cur+'</b> '+(cur===1?'person':'people')+(old?' <span class="muted">+ '+old+' former</span>':''):'<span class="muted">nobody</span>'; }
+function rtRoleList(){ const out=(CONFIG.roleOpts||[]).slice(); (STAFF||[]).forEach(function(s){ staffRolesOf(s).forEach(function(r){ if(out.indexOf(r)<0) out.push(r); }); }); return out; }
+function rtHtml(){
+  const can=hbmCanRoles(), roles=rtRoleList(), titles=jobTitleOptions(), inList=function(t){ return (CONFIG.jobTitleOpts||[]).map(staffTitleNorm).indexOf(t)>=0; };
+  const btn=function(lbl,click,danger){ return '<button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px'+(danger?';color:#b91c1c':'')+'" onclick="'+click+'">'+lbl+'</button>'; };
+  const row=function(name,count,actions,note){ return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f1f2f4"><div style="flex:1;min-width:200px"><b>'+hesc(name)+'</b>'+(note?'<div class="muted" style="font-size:11.5px">'+note+'</div>':'')+'</div><div style="font-size:12.5px;min-width:130px">'+count+'</div><div style="display:flex;gap:6px">'+actions+'</div></div>'; };
+  const q=function(v){ return hesc(JSON.stringify(v)).replace(/'/g,'&#39;'); };
+  let h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px">';
+  h+='<div class="hbm-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b style="font-size:15px">Roles</b> <span class="muted" style="font-size:12px">· a person can hold several (checkboxes on the profile)</span></div>'+(can?btn('+ Add role','rtAdd(\'role\')'):'')+'</div>'
+    +roles.map(function(r){ const L=rtPeopleWithRole(r), lock=RT_LOCKED[r], listed=(CONFIG.roleOpts||[]).indexOf(r)>=0;
+      return row(r,rtCount(L),can?(lock?'<span class="pill grey" title="'+hesc(lock)+'">🔒 Used by Homebase</span>':btn('Rename','rtRename(\'role\','+q(r)+')')+btn('Delete','rtDelete(\'role\','+q(r)+')',true)):'',(lock?hesc(lock):'')+(!listed?'<span class="pill warn">on records but not in the list</span>':'')); }).join('')+'</div>';
+  h+='<div class="hbm-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b style="font-size:15px">Job titles</b> <span class="muted" style="font-size:12px">· one per person</span></div>'+(can?btn('+ Add title','rtAdd(\'title\')'):'')+'</div>'
+    +titles.map(function(t){ const L=rtPeopleWithTitle(t);
+      return row(t,rtCount(L),can?btn('Rename','rtRename(\'title\','+q(t)+')')+btn('Delete','rtDelete(\'title\','+q(t)+')',true):'',inList(t)?'':'<span class="pill warn">on records but not in the list</span>'); }).join('')+'</div>';
+  h+='</div><div class="muted" style="font-size:12px;margin-top:8px">Renaming moves everyone who has it to the new name. Deleting asks where to move the people who have it. Access to pages is set separately under “Roles & page access”.</div>';
+  return h;
+}
+async function rtSaveConfig(){
+  try{
+    let stored={}; try{ const r=await window.storage.get('app_config'); stored=r&&r.value?JSON.parse(r.value):{}; }catch(e){}
+    ['roleOpts','jobTitleOpts','removedRoleOpts','removedJobTitleOpts'].forEach(function(k){ stored[k]=CONFIG[k]||[]; });
+    await window.storage.set('app_config',JSON.stringify(stored)); return true;
+  }catch(e){ console.error(e); showToast('⚠ Could not save the lists'); return false; }
+}
+function rtLabel(kind){ return kind==='role'?'role':'title'; }
+async function rtAdd(kind){
+  try{
+    const n=(prompt('New '+rtLabel(kind)+' name:')||'').trim().replace(/\s+/g,' '); if(!n) return;
+    const list=kind==='role'?rtRoleList():jobTitleOptions(); if(list.some(function(x){ return x.toLowerCase()===n.toLowerCase(); })){ showToast('⚠ That '+rtLabel(kind)+' already exists'); return; }
+    const k=kind==='role'?'roleOpts':'jobTitleOpts', rk=kind==='role'?'removedRoleOpts':'removedJobTitleOpts';
+    CONFIG[k]=(CONFIG[k]||[]).concat(n); CONFIG[rk]=(CONFIG[rk]||[]).filter(function(x){ return x!==n; });
+    if(await rtSaveConfig()){ showToast('✅ Added “'+n+'”'); renderAdmin(); }
+  }catch(e){ console.error(e); }
+}
+// Move everyone holding `from` to `to` ('' = just remove it). Returns the number of records changed.
+function rtMigrate(kind,from,to){
+  let n=0;
+  (STAFF||[]).forEach(function(s){
+    if(kind==='role'){ const r=staffRolesOf(s); if(r.indexOf(from)<0) return;
+      let nr=r.map(function(x){ return x===from?to:x; }).filter(Boolean); nr=nr.filter(function(x,i){ return nr.indexOf(x)===i; });
+      const t=staffTitleOf(s); s['Service Types']=nr.join(', '); s['Title']=t===from?'':t; n++; }
+    else { if(staffTitleOf(s)!==from) return; const r=staffRolesOf(s); s['Service Types']=r.join(', '); s['Title']=to||''; n++; }
+  });
+  return n;
+}
+function rtApplyList(kind,from,to){
+  const k=kind==='role'?'roleOpts':'jobTitleOpts', rk=kind==='role'?'removedRoleOpts':'removedJobTitleOpts';
+  let L=(CONFIG[k]||[]).slice(), i=L.indexOf(from);
+  if(to&&L.indexOf(to)<0){ if(i>=0) L[i]=to; else L.push(to); } if(L.indexOf(from)>=0) L=L.filter(function(x){ return x!==from; });
+  CONFIG[k]=L; const rm=(CONFIG[rk]||[]).filter(function(x){ return x!==to; }); if(rm.indexOf(from)<0) rm.push(from); CONFIG[rk]=rm;
+}
+async function rtCommit(kind,from,to){
+  const n=rtMigrate(kind,from,to); rtApplyList(kind,from,to);
+  try{ await persistStaff(); }catch(e){}
+  if(await rtSaveConfig()){ showToast('✅ '+(to?'“'+from+'” → “'+to+'”':'“'+from+'” deleted')+(n?' · '+n+' record'+(n===1?'':'s')+' updated':'')); }
+  try{ hbmClose(); }catch(e){} renderAdmin(); try{ renderRoster(); }catch(e){}
+}
+async function rtRename(kind,from){
+  try{
+    if(kind==='role'&&RT_LOCKED[from]){ showToast('🔒 “'+from+'” is used by Homebase and can’t be renamed'); return; }
+    const to=(prompt('Rename “'+from+'” to:',from)||'').trim().replace(/\s+/g,' '); if(!to||to===from) return;
+    const list=kind==='role'?rtRoleList():jobTitleOptions(), exists=list.indexOf(to)>=0;
+    const L=kind==='role'?rtPeopleWithRole(from):rtPeopleWithTitle(from);
+    if(!confirm((exists?'“'+to+'” already exists — this MERGES “'+from+'” into it.\n\n':'')+'Rename '+rtLabel(kind)+' “'+from+'” to “'+to+'”?'+(L.length?'\n\n'+L.length+' record'+(L.length===1?'':'s')+' will be updated: '+L.slice(0,8).map(function(s){ return s['Clinician']; }).join(', ')+(L.length>8?'…':''):''))) return;
+    await rtCommit(kind,from,to);
+  }catch(e){ console.error(e); showToast('⚠ Could not rename'); }
+}
+function rtDelete(kind,from){
+  try{
+    if(kind==='role'&&RT_LOCKED[from]){ showToast('🔒 “'+from+'” is used by Homebase and can’t be deleted'); return; }
+    const L=kind==='role'?rtPeopleWithRole(from):rtPeopleWithTitle(from);
+    if(!L.length){ if(confirm('Delete '+rtLabel(kind)+' “'+from+'”? Nobody has it.')) rtCommit(kind,from,''); return; }
+    const opts=(kind==='role'?rtRoleList():jobTitleOptions()).filter(function(x){ return x!==from; });
+    hbmModal('Delete '+rtLabel(kind)+' “'+hesc(from)+'”',
+      '<div style="font-size:13px;margin-bottom:8px"><b>'+L.length+'</b> '+(L.length===1?'person has':'people have')+' this '+rtLabel(kind)+': '+L.map(function(s){ return hesc(s['Clinician']||''); }).join(', ')+'</div>'
+      +hbmL('Move them to','<select id="rt-to" style="font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px"><option value="">'+(kind==='role'?'— just remove this role from them —':'— leave their title blank —')+'</option>'+opts.map(function(o){ return '<option value="'+hesc(o)+'">'+hesc(o)+'</option>'; }).join('')+'</select>')
+      +(kind==='role'?'<div class="muted" style="font-size:12px;margin-top:6px">Their other roles stay as they are.</div>':''),
+      'rtCommit('+hesc(JSON.stringify(kind))+','+hesc(JSON.stringify(from))+',document.getElementById(\'rt-to\').value)','Delete and move');
+  }catch(e){ console.error(e); }
+}
 function renderAdmin(){
   const outer=document.getElementById('admin-body'); if(!outer) return;
   const sec=hbmShell(outer); if(!sec) return;
@@ -10245,6 +10379,7 @@ function renderAdmin(){
   renderAdminRoles(sec);
 }
 function renderAdminRoles(body){
+  if(ADMIN_TAB==='rt'){ body.innerHTML=adminTabsHtml()+'<div style="margin-top:12px">'+rtHtml()+'</div>'; return; }
   if(ADMIN_TAB==='roles'||(!isSuperAdminView()&&hbCan('manage-permissions'))){ ADMIN_TAB='roles'; renderPermBuilder(body); return; }
   const q=adminFilter.toLowerCase();
   const roleCount={superadmin:0,admin:0,supervisor:0,therapist:0};
@@ -10803,7 +10938,7 @@ function capDrillHTML(s,c){
 
   // ── GROUP vs. INDIVIDUAL/COUPLES/FAMILY BREAKDOWN (YTD) ──
   // Group hours count toward capacity at GROUP_HOUR_FACTOR (0.333) per raw hour.
-  const hasGroup = (c.grpRawYtd||0) > 0;
+  const hasGroup = (c.grpWtdYtd||0) > 0;
   const totCredited = c.ytd || 0;
   const indShare = totCredited>0 ? Math.round((c.indYtd/totCredited)*100) : 0;
   const grpShare = totCredited>0 ? Math.round((c.grpWtdYtd/totCredited)*100) : 0;
@@ -10827,7 +10962,7 @@ function capDrillHTML(s,c){
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#7c3aed">
             <span style="width:10px;height:10px;border-radius:2px;background:#7c3aed;display:inline-block"></span>Group Clinical Hours (at the rate of .33)</div>
           <div style="font-size:20px;font-weight:800;margin-top:2px">${c.grpWtdYtd} hrs</div>
-          <div style="font-size:11px;color:#888">${c.grpRawYtd} group hrs × ${pct1(GROUP_HOUR_FACTOR)} = ${c.grpWtdYtd} · ${grpShare}% of total</div>
+          <div style="font-size:11px;color:#888">${c.grpRawYtd?c.grpRawYtd+' older group hrs × '+pct1(GROUP_HOUR_FACTOR)+' + ':''}group sessions (attendees × .33) · ${grpShare}% of total</div>
         </div>
         <div style="flex:1;min-width:150px">
           <div style="font-size:11px;font-weight:700;color:#555">Total Clinical Hours (YTD)</div>
@@ -10835,7 +10970,7 @@ function capDrillHTML(s,c){
           <div style="font-size:11px;color:#888">counts toward capacity goal</div>
         </div>
       </div>
-      <div style="font-size:10.5px;color:#aaa;margin-top:10px;padding-top:8px;border-top:1px dashed #eee">Group sessions serve several clients at once, so each group hour counts as ${pct1(GROUP_HOUR_FACTOR)} of a clinical hour toward capacity.</div>
+      <div style="font-size:10.5px;color:#aaa;margin-top:10px;padding-top:8px;border-top:1px dashed #eee">Group sessions serve several clients at once, so each group counts as attendees × .33 of a clinical hour toward capacity.</div>
     </div>`;
 
   // ── CAPACITY ATTAINMENT BY WEEK (per pay period: actual vs expected) ──
@@ -11380,7 +11515,7 @@ const PAGE_META={
   'therapy-thrive':{title:'Therapy Thrive',sub:'Coming soon'},
   'ecans':{title:'eCANS',sub:'Coming soon'},
   'intake-finder':{title:'Intake Finder',sub:'Find the right clinician with an opening — across every site'},
-  'report-center':{title:'Report Center',sub:'Coming soon'},
+  'report-center':{title:'Report Center',sub:'Clinical hours analysis and office utilization'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
   'paysnap':{title:'Pay Period Snapshot',sub:'Your results for each pay period — clinical hours credited and meeting & admin time paid'},
@@ -11539,6 +11674,7 @@ function showPage(id,btn,_fromHistory){
   if(id==='paperwork'){renderPaperwork();return;}
   if(id==='intake-profile'){renderIntakeProfile();return;}
   if(id==='intake-finder'){IF_DATA=null;renderIntakeFinder();return;}
+  if(id==='report-center'){renderReportCenter();return;}
   if(PLACEHOLDERS[id]){renderPlaceholder(id);return;}
   if(id==='reviews'){renderReviews();return;}
   if(id==='reviews-hr'){renderReviewsHr();return;}
@@ -13428,6 +13564,7 @@ async function boot() { // called by the Firebase auth module once sign-in compl
   })();
   if (typeof capLoadPersistedHours === 'function') await capLoadPersistedHours();
   if (typeof capLoadPersistedGroupHours === 'function') await capLoadPersistedGroupHours();
+  try{ if (typeof capLoadGroupCredit === 'function') await capLoadGroupCredit(); }catch(e){}
   if (typeof loadPayrollDetail === 'function') await loadPayrollDetail();
   // obCheckAndAutoActivate was referenced but never defined; guard it so a
   // missing optional helper can't abort the rest of boot (which renders pages).
@@ -13476,8 +13613,8 @@ async function boot() { // called by the Firebase auth module once sign-in compl
      @advancepsychotherapy.org account. Removed by the auth module. -->
 <div id="auth-overlay" style="position:fixed;inset:0;z-index:99999;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-family:'Open Sans',-apple-system,sans-serif">
   <div style="background:#fff;border-radius:18px;padding:40px 44px 34px;max-width:430px;width:90%;text-align:center;border:1px solid #e5e7eb;box-shadow:0 10px 30px rgba(17,24,39,.08)">
-    <div style="font-size:21px;font-weight:800;color:#122b67;letter-spacing:.02em;font-family:'Montserrat',sans-serif;text-transform:uppercase">Advance Psychotherapy</div>
-    <div style="font-size:10.5px;color:#8a8784;text-transform:uppercase;letter-spacing:.13em;margin:3px 0 24px">Homebase · Let&rsquo;s Work Together</div>
+    <img src="/homebase-logo.png" alt="homebase" style="width:260px;max-width:85%;height:auto;display:block;margin:0 auto">
+    <div style="font-size:10.5px;color:#8a8784;text-transform:uppercase;letter-spacing:.13em;margin:8px 0 24px">Advance Psychotherapy · Let&rsquo;s Work Together</div>
     <div id="auth-msg" style="font-size:13.5px;color:#555;line-height:1.5;margin-bottom:20px">Sign in with your work Google account to continue.</div>
     <button id="auth-signin-btn" style="display:inline-flex;align-items:center;gap:10px;padding:11px 22px;border:1px solid #e0ddd6;border-radius:11px;background:#fff;font-size:14px;font-weight:600;font-family:inherit;color:#1b1f3a;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41.4 34.9 44 29.9 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
@@ -14899,7 +15036,7 @@ try{
 // payrollPeriods/ppu_<PP id>, payrollImports + payrollRows (the upload, patient names never kept —
 // client CODE only), payrollSnapshots/ppu_<PP id>_v<n> (create-only), payStatements (create-only).
 // No FFS rates or FFS dollars anywhere: FFS is reported as HOURS for Paychex.
-var PPU_HEADS=['Individual Session','Intake Session','No Show Unpaid','Couples/Family/Relationship','Group (Intake, Check-Ins, Sessions)','CANS','EMDR','Crisis','Collat Contact','In Kind/Pro Bono','Medicare In Kind','Intern Session'];
+var PPU_HEADS=['Individual Session','Intake Session','No Show Unpaid','Couples/Family/Relationship','Group (Intake, Check-Ins, Sessions)','CANS','EMDR','Crisis','Collat Contact','In Kind/Pro Bono','Medicare In Kind','Intern Session','Screening'];
 var PPU_NOSHOW_PAID='No Show Paid', PPU_NOSHOW_UNPAID='No Show Unpaid', PPU_SUP_PAID='Paid Supervision', PPU_SUP_UNPAID='Unpaid Supervision';
 // Supervision: paid = 1 hr at FFS (in the Paychex total), never clinical credit; unpaid = tracked count only.
 var PPU_DELIVERY=['In person','Virtual','Not specified','Not applicable'];
@@ -15110,6 +15247,7 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
     else if(PPU_HEADS.indexOf(h)>=0) E.cats[h]=(E.cats[h]||0)+ffs;
     else { E.other[h||'(no heading)']=(E.other[h||'(no heading)']||0)+ffs; }
     if(ppuIsGroupCode(rule.id,h)&&h!==PPU_NOSHOW_PAID&&h!==PPU_SUP_PAID) E.grpFfs=(E.grpFfs||0)+ffs;
+    if(ppuIsGroupSession(rule.id,S)) E.grpClin=(E.grpClin||0)+clin;   // group-session share of capacity (dashboard split)
     E.clin+=clin; L.clin+=clin; L.ffs+=ffs;
     if(rule.add){ E.addN++; E.addC+=Math.round(rule.add*100); L.addC+=Math.round(rule.add*100); }
   };
@@ -15146,7 +15284,7 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
   (mtgs||[]).forEach(function(m){
     try{
       if(!m||!m.sid||!m.date) return; const d=String(m.date).slice(0,10);
-      if(!(d<=pp.endISO && (m.status!=='PAID'||m.paidPeriod==='ppu_'+pp.id))) return;
+      if(!ppuMtgInPP(m,pp)) return;
       if((mtgTypeOf(m.type||'')||{}).isGroup){ grpRecs.push(m); return; }
       let E=bySid[m.sid]; if(!E){ E=empOf('staff:'+m.sid,m.name||''); E.sid=m.sid; bySid[m.sid]=E; }
       const rate=prMtgRate(m), mins=+m.mins||0;
@@ -15178,12 +15316,13 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
         // Per-participant group codes: capacity credit = attendees × clinical hours per attendee (Payroll
         // Settings, default .33) — not the workbook's per-session value.
         const per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, clin=ppuH(hc*per), c=Math.round(hc*(+S.groupRate||0)*100);
-        E.clin+=clin; L.clin+=clin; L.headC=c; E.grpHeadC=(E.grpHeadC||0)+c; E.grpHeadN=(E.grpHeadN||0)+hc; E.grpN=(E.grpN||0)+1;
+        E.clin+=clin; L.clin+=clin; E.grpClin=(E.grpClin||0)+clin; L.headC=c; E.grpHeadC=(E.grpHeadC||0)+c; E.grpHeadN=(E.grpHeadN||0)+hc; E.grpN=(E.grpN||0)+1;
         if(!hc) warn('Group with no headcount',E.prov||'',usDate(d)+' · '+(m.group||m.code)+' — add the number of participants to pay it');
       } else {
-        addRule(E,rule,L,false); E.grpN=(E.grpN||0)+1; E.grpHeadN=(E.grpHeadN||0)+hc;
+        const before=E.clin; addRule(E,rule,L,false); E.grpN=(E.grpN||0)+1; E.grpHeadN=(E.grpHeadN||0)+hc;
+        if(!ppuIsGroupSession(rule.id,S)) E.grpClin=(E.grpClin||0)+(E.clin-before);
         // Any logged group with attendees: capacity credit = attendees × clinical hours per attendee (pay stays by the workbook row)
-        if(hc>0){ const per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, dlt=ppuH(hc*per)-ppuH(rule.clin); E.clin+=dlt; L.clin+=dlt; }
+        if(hc>0){ const per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, dlt=ppuH(hc*per)-ppuH(rule.clin); E.clin+=dlt; L.clin+=dlt; E.grpClin=(E.grpClin||0)+dlt; }
       }
     }catch(e){}
   });
@@ -15314,17 +15453,62 @@ function ppuDefaultPP(){
   const prev=ALL_PPS[Math.max(0,appPPCurrentIdx()-1)]; return (prev||cur).id;
 }
 async function ppuSelectPP(id){ PPU.ppId=id; PPU.rows=null; PPU.rowsFor=null; PPU.snap=null; PPU.sel=null; PPU.R=null; await renderPPU(); }
+// Does a Meeting & Admin Time / group entry belong to pay period pp? Unpaid entries dated through its
+// end, unless another pay period has already claimed them (paidPeriod); PAID entries only in their period.
+function ppuMtgInPP(m,pp){
+  const d=String(m&&m.date||'').slice(0,10); if(!d||d>pp.endISO) return false;
+  const mine='ppu_'+pp.id; return m.status==='PAID'?m.paidPeriod===mine:(!m.paidPeriod||m.paidPeriod===mine);
+}
+// An OPEN (or reopened) pay period's entries aren't paid yet: anything marked PAID for it goes back to
+// unpaid (it stays tied to this period) so payroll and staff can still edit it. Closing marks it PAID again.
+async function ppuMtgUnpayOpen(ppId){
+  try{
+    if(!window.mtgStore) return 0; const mine='ppu_'+ppId; let n=0;
+    for(const m of (PPU.meetings||[])){ if(m&&m.status==='PAID'&&m.paidPeriod===mine&&m.__id){ if(await window.mtgStore.update(m.__id,{status:'UNPAID',payDate:'',payMethod:''})){ m.status='UNPAID'; m.payDate=''; m.payMethod=''; n++; } } }
+    if(n){ try{ MTG_ALL=null; MTG_MINE=null; MTG_BYSID={}; }catch(e){} }
+    return n;
+  }catch(e){ console.error(e); return 0; }
+}
 async function ppuLoadPeriodData(){
   const p=PPU.periods[PPU.ppId]; if(!p){ PPU.rows=[]; PPU.rowsFor=PPU.ppId; return; }
   if(p.status==='closed'){
     if(!PPU.snap||PPU.snap.ppId!==PPU.ppId){ const last=(p.snapshots||[]).filter(function(x){ return x.v===(p.version||1); }).pop(); const sid=last&&last.id?last.id:'ppu_'+PPU.ppId+'_v'+(p.version||1); PPU.snap=await payStore.getSnapshot(sid); }
     PPU.rowsFor=PPU.ppId; return;
   }
-  if(PPU.rowsFor!==PPU.ppId){ PPU.rows=p.importId?(await payStore.rows(p.importId,p.importChunks||0)||[]):[]; PPU.rowsFor=PPU.ppId; }
+  if(PPU.rowsFor!==PPU.ppId){ PPU.rows=p.importId?(await payStore.rows(p.importId,p.importChunks||0)||[]):[]; PPU.rowsFor=PPU.ppId; await ppuMtgUnpayOpen(PPU.ppId); }
 }
 // ── Payroll Processing: step-by-step checklist for the selected pay period ──
 // ① Upload Valant appointment CSV ② Verify / correct staff links ③ Review & approve (meetings, groups,
 // reimbursements, problems) ④ Close the pay period ⑤ Paychex CSV (only after close)
+// Step 3 problem list: every blocking item with buttons that go straight to the fix.
+function ppuProblemsHtml(B,R){
+  const lineOf=function(k){ return k?(R.lines||[]).find(function(L){ return L.key===k; }):null; };
+  const b=function(lbl,click,pri){ return '<button class="btn '+(pri?'btn-primary':'btn-secondary')+'" style="font-size:11.5px;padding:4px 10px;white-space:nowrap" onclick="'+click+'">'+lbl+'</button>'; };
+  const q=function(v){ return '\''+ppuEsc(String(v||'')).replace(/'/g,'&#39;')+'\''; };
+  const rows=B.slice(0,80).map(function(x){
+    const L=lineOf(x.key), acts=[];
+    if(L){
+      acts.push(b('Open it →','ppuGoLine('+q(L.key)+')',true));
+      if(/Unknown service code|Unknown add-on|Incomplete rule/.test(x.type)){ acts.push(b('Change code…','ppuCorrect('+q(L.key)+',\'code\')')); acts.push(b('Fix in Payroll Settings →','ppuGoRule('+q(L.tx)+')')); }
+      if(/Possible duplicate/.test(x.type)) acts.push(b('Not a duplicate','ppuCorrect('+q(L.key)+',\'notdup\')'));
+      if(L.status!=='excluded') acts.push(b('Exclude…','ppuCorrect('+q(L.key)+',\'exclude\')'));
+    } else if(/group code|Group/.test(x.type)) acts.push(b('Open group sessions →','PPU.view=\'groups\';PPU.sel=null;renderPPU().then(ppuScrollTabs)',true));
+    else if(/Meeting/.test(x.type)) acts.push(b('Open meetings →','PPU.view=\'mtg\';PPU.sel=null;renderPPU().then(ppuScrollTabs)',true));
+    else if(/Provider/.test(x.type)) acts.push(b('Fix links (step 2) ↑','PPU.showLinks=true;renderPPU()',true));
+    if(/Incomplete rule|Unknown group code/.test(x.type)&&!L){ const m=String(x.detail||'').match(/·\s*([^—]+?)\s*(—|$)/); acts.push(b('Fix in Payroll Settings →','ppuGoRule('+q(m?m[1]:'')+')')); }
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid #fde2e2"><div style="flex:1;min-width:260px;font-size:12.5px"><b style="color:#b91c1c">'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov||'')+'<div class="muted" style="font-size:12px">'+ppuEsc(x.detail||'')+'</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">'+acts.join('')+'</div></div>';
+  }).join('');
+  return '<div style="background:#fff;border:1px solid #fecaca;border-radius:10px;padding:2px 12px 6px;margin:-2px 0 8px">'+rows+(B.length>80?'<div class="muted" style="font-size:12px;padding:6px 0">…and '+(B.length-80)+' more — fix these first and the list updates.</div>':'')+'</div>';
+}
+// Jump to one appointment line in its employee's drill-down and highlight it.
+function ppuGoLine(key){
+  try{ const L=(PPU.R&&PPU.R.lines||[]).find(function(x){ return x.key===key; }); if(!L) return;
+    PPU.view='emps'; PPU.sel=L.pid; PPU.tab='appts'; PPU.hiKey=key;
+    renderPPU().then(function(){ setTimeout(function(){ const r=document.getElementById('ppu-L-'+key); if(r){ r.scrollIntoView({behavior:'smooth',block:'center'}); r.style.outline='3px solid #f2a54b'; setTimeout(function(){ r.style.outline=''; },4000); } else { const d=document.getElementById('ppu-drill'); if(d) d.scrollIntoView({behavior:'smooth'}); } },150); });
+  }catch(e){ console.error(e); }
+}
+// Open Payroll Settings → Service Code Workbook searched to one code.
+function ppuGoRule(code){ try{ CR.tab='workbook'; CR.q=String(code||'').trim(); CR.cat=''; showPage('coderules',document.getElementById('nav-coderules')); }catch(e){ console.error(e); } }
 function ppuStepsHtml(R,p,pp,closed){
   const imp=p&&p.importMeta;
   const step=function(n,state,title,sub,action,extra){
@@ -15366,7 +15550,8 @@ function ppuStepsHtml(R,p,pp,closed){
   if(mPend) todo.push(line(mPend,'meeting &amp; admin entr'+(mPend===1?'y':'ies')+' to approve',go('mtg','Review meetings →')));
   if(gPend) todo.push(line(gPend,'group session'+(gPend===1?'':'s')+' to approve',go('groups','Review groups →')));
   if(rPend) todo.push(line(rPend,'reimbursement'+(rPend===1?'':'s')+' to approve',go('reimb','Review reimbursements →')));
-  if(B.length) todo.push(line(B.length,'problem'+(B.length===1?'':'s')+' to fix','<button class="btn btn-secondary" style="font-size:12.5px" onclick="PPU.showB=!PPU.showB;renderPPU()">'+(PPU.showB?'Hide':'Show')+'</button>','bad')
+  if(B.length) todo.push(line(B.length,'problem'+(B.length===1?'':'s')+' to fix — each one below has a button that takes you straight to it','','bad')+ppuProblemsHtml(B,R))
+  if(false) todo.push(line(B.length,'','<button class="btn btn-secondary" style="font-size:12.5px" onclick="PPU.showB=!PPU.showB;renderPPU()">'+(PPU.showB?'Hide':'Show')+'</button>','bad')
     +(PPU.showB?'<ul class="ppu-list">'+B.slice(0,60).map(function(x){ return '<li><b>'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov)+' · '+ppuEsc(x.detail)+'</li>'; }).join('')+'</ul><div class="muted" style="font-size:12px;margin:4px 0 0 4px">Fix these on the Employees tab (click the person → Appointments) or in Payroll Settings.</div>':''));
   if(W.length) todo.push(line(W.length,'note'+(W.length===1?'':'s')+' to look over <span class="muted">(won’t stop closing)</span>','<button class="btn btn-secondary" style="font-size:12.5px" onclick="PPU.showW=!PPU.showW;renderPPU()">'+(PPU.showW?'Hide':'Show')+'</button>','note')
     +(PPU.showW?'<ul class="ppu-list">'+W.slice(0,40).map(function(x){ return '<li><b>'+ppuEsc(x.type)+'</b> · '+ppuEsc(x.prov)+' · '+ppuEsc(x.detail)+'</li>'; }).join('')+'</ul>':''));
@@ -15455,6 +15640,8 @@ async function ppuAnnivAlerts(R,pp){
 //   Paid supervision = paid supervision (SUP PAID) + interim supervision hours provided
 //   Professional / Expense Reimbursement = placeholders (not tracked yet)
 // Group codes: service codes starting "G " / "GV " (e.g. G 90853, GV 90837, G PP 60) or filed under a heading with "group"
+// A GROUP SESSION code (several clients at once): any 90853 code or a per-participant code (e.g. private-pay groups).
+function ppuIsGroupSession(id,S){ const k=ppuNormId(id); return /90853/.test(k)||ppuIsHeadCode(k,S||ppuSettings()); }
 function ppuIsGroupCode(id,h){ return /^GV?\s/i.test(String(id||'').trim())||/group/i.test(String(h||'')); }
 function ppuPaychexRows(R){
   const rows=[], RBX=(function(){ try{ return ppuReimbBySid(); }catch(e){ return {}; } })();
@@ -15580,7 +15767,7 @@ function ppuTabsHtml(R,closed){
 function ppuGroupRecs(){
   const pp=ppuPP(PPU.ppId);
   return (PPU.meetings||[]).filter(function(m){ if(!m||!m.date||!(mtgTypeOf(m.type||'')||{}).isGroup) return false; const d=String(m.date).slice(0,10);
-    return d<=pp.endISO&&(m.status!=='PAID'||m.paidPeriod==='ppu_'+PPU.ppId); }).sort(function(a,b){ return String(a.date+a.start).localeCompare(String(b.date+b.start)); });
+    return ppuMtgInPP(m,pp); }).sort(function(a,b){ return String(a.date+a.start).localeCompare(String(b.date+b.start)); });
 }
 function ppuGroupsHtml(closed){
   const p=PPU.periods[PPU.ppId]||{}, pp=ppuPP(PPU.ppId), RA=ppuRulesForPP(PPU.ppId), S=ppuSettings(RA), map=ppuRuleMap(RA);
@@ -15648,7 +15835,7 @@ function ppuMtgFormHtml(closed){
     +'<label>Employee<select id="pm-sid" style="'+f+';min-width:200px"><option value="">Choose…</option>'+ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(L.sid===s._id?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select></label>'
     +'<label>Meeting / admin work<select id="pm-type" style="'+f+';max-width:280px">'+types.map(function(t){ return '<option value="'+ppuEsc(t.label)+'"'+(L.type===t.label?' selected':'')+'>'+ppuEsc(t.label)+(t.rate===25?' — $25/hr':t.rate==='FFS'?' — FFS rate':t.rate==='interim'?' — 1.25× FFS':'')+'</option>'; }).join('')+'</select></label>'
     +'<label>Group (Group Admin Time)<input id="pm-group" style="'+f+';width:150px" placeholder="Group name" value="'+ppuEsc(L.group||'')+'"></label>'
-    +'<label>Date<input id="pm-date" type="date" min="'+pp.startISO+'" max="'+pp.endISO+'" value="'+(L.date||pp.startISO)+'" style="'+f+'"></label>'
+    +'<label>Date<input id="pm-date" type="date" '+(ED?'':'min="'+pp.startISO+'" ')+'max="'+pp.endISO+'" value="'+(L.date||pp.startISO)+'" style="'+f+'"></label>'
     +'<label>Start<input id="pm-start" type="time" value="'+(L.start||'12:00')+'" style="'+f+'"></label>'
     +'<label>End<input id="pm-end" type="time" value="'+(L.end||'13:00')+'" style="'+f+'"></label>'
     +'<label style="flex:1;min-width:160px">Notes<input id="pm-notes" style="'+f+';width:100%" placeholder="Optional" value="'+ppuEsc(ED?ED.notes||'':'')+'"></label>'
@@ -15660,7 +15847,7 @@ async function ppuMtgAdd(){
     const pp=ppuPP(PPU.ppId), sid=g('pm-sid'), type=g('pm-type'), date=g('pm-date'), st=g('pm-start'), en=g('pm-end');
     if(!sid){ showToast('⚠ Choose the employee'); return; }
     if(!type){ showToast('⚠ Choose the meeting / admin work'); return; }
-    if(!date||date<pp.startISO||date>pp.endISO){ showToast('⚠ The date must be in '+pp.short+' ('+usDate(pp.startISO)+' – '+usDate(pp.endISO)+')'); return; }
+    const EDx=PPU.mEdit; if(!date||date>pp.endISO||(date<pp.startISO&&!(EDx&&EDx.__id))){ showToast('⚠ The date must be in '+pp.short+' ('+usDate(pp.startISO)+' – '+usDate(pp.endISO)+')'+(EDx&&EDx.__id?' or earlier':'')); return; }
     const mins=mtgMins(st,en); if(mins<=0||mins>16*60){ showToast('⚠ Check the start and end times'); return; }
     const s=(STAFF||[]).find(function(x){ return x._id===sid; })||{};
     const mt=mtgTypeOf(type)||{}, grp=g('pm-group');
@@ -15683,7 +15870,7 @@ async function ppuMtgAdd(){
 }
 function ppuMtgEdit(id){
   try{ const r=(PPU.meetings||[]).find(function(x){ return x.__id===id; }); if(!r){ showToast('⚠ Entry not found — reload the page'); return; }
-    if(r.status==='PAID'){ showToast('This entry is already paid'); return; }
+    if(r.status==='PAID'&&r.paidPeriod!=='ppu_'+PPU.ppId){ showToast('This entry was paid in '+String(r.paidPeriod||'another pay period').replace('ppu_','PP ')+' — reopen that pay period to change it'); return; }
     PPU.mEdit=Object.assign({},r); renderPPU().then(function(){ const f=document.getElementById('pm-sid'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'}); }); }catch(e){ console.error(e); }
 }
 async function ppuMtgApproveAll(){
@@ -15822,7 +16009,7 @@ async function ppuMtgImportApply(){
     const by=ppuWho(); let ok=0;
     for(const r of todo){
       const id=await window.mtgStore.add({sid:r.sid,name:r.name,type:r.type,date:r.date,start:r.start,end:r.end,mins:r.mins,pp:mtgPPfor(r.date),notes:r.notes,
-        rate:mtgRateFor(r.type),approved:true,status:r.paid?'PAID':'UNPAID',payDate:r.payDate||'',payMethod:r.payMethod||'',paidPeriod:r.paid?'ppu_'+I.ppId:'',
+        rate:mtgRateFor(r.type),approved:true,status:'UNPAID',payDate:'',payMethod:'',paidPeriod:'ppu_'+I.ppId,csvStatus:r.paid?'PAID':'',csvPayDate:r.payDate||'',
         createdAt:r.createdAt||ppuNow(),imported:true,importedBy:by});
       if(id) ok++;
     }
@@ -16186,7 +16373,7 @@ function ppuDrill(){
         const lt=L.signed&&L.date?PR.dayDiff(L.date,L.signed):null;
         const act=closed?'':'<td class="l act">'+(L.status==='excluded'?'<button onclick="ppuCorrect(\''+L.key+'\',\'include\')">Include</button>':'<button onclick="ppuCorrect(\''+L.key+'\',\'exclude\')">Exclude…</button>')
           +'<button onclick="ppuCorrect(\''+L.key+'\',\'code\')">Code…</button>'+(L.status==='dup'?'<button onclick="ppuCorrect(\''+L.key+'\',\'notdup\')">Not a duplicate</button>':'')+'</td>';
-        return '<tr class="'+cls+'" title="'+ppuEsc(L.why||L.reason||'')+'"><td class="l">'+(L.date?PR_DOW[PR.dow(L.date)]+' '+usDate(L.date):'—')+'</td><td class="l">'+(L.st!=null?PR.hhmm(L.st):'—')+'</td><td class="l cc">'+ppuEsc(L.cc||'—')+'</td>'
+        return '<tr id="ppu-L-'+ppuEsc(L.key)+'" class="'+cls+'" title="'+ppuEsc(L.why||L.reason||'')+'"><td class="l">'+(L.date?PR_DOW[PR.dow(L.date)]+' '+usDate(L.date):'—')+'</td><td class="l">'+(L.st!=null?PR.hhmm(L.st):'—')+'</td><td class="l cc">'+ppuEsc(L.cc||'—')+'</td>'
           +'<td class="l"><b>'+ppuEsc(L.tx)+'</b>'+(L.tx!==L.origTx?' <span class="muted">(was '+ppuEsc(L.origTx)+')</span>':'')+'</td><td class="l muted">'+ppuEsc((L.addons||[]).join(', '))+'</td><td class="l">'+ppuEsc(L.head||'—')+'</td>'
           +'<td>'+ppuF(L.clin)+'</td><td>'+ppuF(L.ffs)+'</td><td class="l">'+(L.status==='counted'?(L.dElig?'Yes':'No'):'—')+'</td><td class="l">'+(L.timing?(PR.dow(L.date)%6===0?'Weekend':'After 5 PM'):'—')+'</td><td>'+(L.diff?'1.00':'')+'</td><td>'+(L.addC?ppuUsd(L.addC):'')+'</td>'
           +'<td class="l muted">'+(L.signed?usDate(L.signed)+(lt>3?' <span class="pill warn">+'+lt+'d</span>':''):'—')+'</td><td class="l">'+st+'</td>'+act+'</tr>';
@@ -16263,6 +16450,23 @@ function ppuExportCsv(){
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='pay_period_'+pp.id+(PPU.periods[pp.id]&&PPU.periods[pp.id].status==='closed'?'_closed_v'+PPU.periods[pp.id].version:'_preview')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ console.error(e); showToast('⚠ Could not build the CSV'); }
 }
+// Full-screen "saving" overlay while a pay period closes (it takes a while: snapshot, Pay Period
+// Snapshots, meetings marked paid, capacity). ppuBusy(text) shows/updates it; ppuBusy(null) hides it.
+function ppuBusy(text){
+  try{
+    let o=document.getElementById('ppu-busy');
+    if(text==null){ if(o) o.remove(); window.onbeforeunload=null; return; }
+    if(!o){ o=document.createElement('div'); o.id='ppu-busy';
+      o.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(17,24,39,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+      o.innerHTML='<style>@keyframes ppuspin{to{transform:rotate(360deg)}}</style><div role="status" aria-live="polite" style="background:#fff;border-radius:16px;padding:26px 30px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25)">'
+        +'<div style="width:46px;height:46px;border-radius:50%;border:5px solid #e5e7eb;border-top-color:#122B67;margin:0 auto 14px;animation:ppuspin .8s linear infinite"></div>'
+        +'<div style="font-weight:800;font-size:16px;color:#122B67">Closing the pay period…</div><div id="ppu-busy-t" style="font-size:13px;color:#4b5563;margin-top:6px"></div>'
+        +'<div style="font-size:12px;color:#9ca3af;margin-top:10px">Please keep this page open until it finishes.</div></div>';
+      document.body.appendChild(o); }
+    const t=document.getElementById('ppu-busy-t'); if(t) t.textContent=text;
+    window.onbeforeunload=function(){ return 'The pay period is still closing.'; };
+  }catch(e){}
+}
 // o.silent (bulk re-close): no confirm, no final toast/render; returns true when closed.
 async function ppuClose(o){
   o=o||{};
@@ -16271,6 +16475,7 @@ async function ppuClose(o){
     if(R.blocking){ if(!o.silent) showToast('⚠ Resolve the items listed first'); return false; }
     if(ppuReimbPending()){ if(!o.silent) showToast('⚠ Approve or remove the reimbursements first'); return false; }
     if(!o.silent&&!confirm('Close '+pp.label+'?\n\nThis saves a frozen snapshot, publishes '+R.emps.filter(function(E){ return E.sid; }).length+' Pay Period Snapshots, marks Meeting and Admin Time paid, and writes clinical hours to the Capacity Dashboard.')) return false;
+    const busy=function(t){ if(!o.silent) ppuBusy(t); }; busy('Saving provider links…');
     const v=p.version||1, at=ppuNow(), by=ppuWho(); let snapId='ppu_'+PPU.ppId+'_v'+v;
     // provider links actually used (incl. confirmed suggestions)
     const used={}; R.emps.forEach(function(E){ if(E.sid&&E.pid.indexOf('staff:')!==0) used[E.pid]=E.sid; });
@@ -16278,19 +16483,23 @@ async function ppuClose(o){
     const result={emps:R.emps, lines:R.lines, exc:R.exc, blocking:0, settings:R.settings};
     const snap={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,version:v,closedAt:at,closedBy:by,importId:p.importId,importMeta:p.importMeta||null,
       rules:(function(){ const RA=ppuRulesForPP(PPU.ppId); return {version:PPU.rules.version,rows:RA.rows,settings:ppuSettings(RA),effAt:pp.startISO}; })(),links:used,corrections:p.corrections||{},result:JSON.parse(JSON.stringify(result))};
+    busy('Saving the frozen copy of the pay period…');
     const got=await payStore.createSnapshot(snapId,snap);
-    if(!got){ if(o.silent) o.err='could not save the snapshot'+(payStore.lastError?' ('+payStore.lastError+')':''); else showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return false; }
+    if(!got){ busy(null); if(o.silent) o.err='could not save the snapshot'+(payStore.lastError?' ('+payStore.lastError+')':''); else showToast('⚠ Could not save the snapshot — the period is still open'+(payStore.lastError?' ('+payStore.lastError+')':'')); return false; }
     if(typeof got==='string') snapId=got;
     // Pay Period Snapshot for each linked employee (hours only; $ only for $25/hr meetings; clients by code)
+    busy('Publishing Pay Period Snapshots…');
     const stmts=R.emps.filter(function(E){ return E.sid; }).map(function(E){ return ppuStatement(E,R,pp,v,at); });
     if(!(await payStore.addStatements(snapId,stmts))) showToast('⚠ Snapshot saved, but some Pay Period Snapshots could not be published');
     // Meeting and Admin Time paid in this payroll ($25/hr and FFS-rate entries; unrated ones stay unpaid)
+    busy('Marking meetings and groups paid…');
     let nPaid=0; try{ for(const E of R.emps){ for(const m of E.mtg.items){ if(m.kind==='none'||!m.id) continue;
       if(window.mtgStore && await window.mtgStore.update(m.id,{status:'PAID',payDate:at.slice(0,10),payMethod:'PAYROLL',paidPeriod:'ppu_'+PPU.ppId,paidVersion:v})) nPaid++; }
       for(const g of (E.grpItems||[])){ if(g.pending||!g.id) continue;
         if(window.mtgStore && await window.mtgStore.update(g.id,{status:'PAID',payDate:at.slice(0,10),payMethod:'PAYROLL',paidPeriod:'ppu_'+PPU.ppId,paidVersion:v})) nPaid++; } }
       try{ MTG_ALL=null; MTG_MINE=null; }catch(e){} }catch(e){ console.error(e); showToast('⚠ Some meeting entries could not be marked paid'); }
     // Capacity Dashboard: this period's clinical hours
+    busy('Updating the Capacity Dashboard…');
     const wrote=await ppuWriteCapacity(PPU.ppId,R.emps,p.capSids||[]);
     await ppuSavePracticeStats(PPU.ppId,R);
     try{ await ppuAnnivAlerts(R,pp); }catch(e){ console.error(e); }
@@ -16298,9 +16507,9 @@ async function ppuClose(o){
     ppuAudit(p,{act:'close',detail:'v'+v+' · '+R.emps.length+' employees · '+nPaid+' meeting entries paid'});
     await payStore.setPeriod('ppu_'+PPU.ppId,p);
     PPU.snap=null; PPU.meetings=window.mtgStore?(await window.mtgStore.all()||[]):[];
-    if(!o.silent){ showToast('✓ '+pp.short+' closed (v'+v+')'); renderPPU(); }
+    busy(null); if(!o.silent){ showToast('✓ '+pp.short+' closed (v'+v+')'); renderPPU(); }
     return true;
-  }catch(e){ console.error(e); if(o.silent) o.err=String(e.message||e); else showToast('⚠ Close failed: '+(e.message||e)); return false; }
+  }catch(e){ console.error(e); if(!o.silent) ppuBusy(null); if(o.silent) o.err=String(e.message||e); else showToast('⚠ Close failed: '+(e.message||e)); return false; }
 }
 // ── Bulk re-close: reopen each chosen closed pay period and close it again with the current rules
 // (each period uses the rules in effect on its start date). Every period gets a new version, its
@@ -16381,7 +16590,9 @@ async function ppuWriteCapacity(ppId,emps,prevSids){
   const year=+ppId.slice(0,4), idx=+ppId.slice(5)-1, wrote=[];
   try{
     const key=function(base){ return year===2026?base:base+'_'+year; };
-    let H,G;
+    let H,G,C;
+    try{ const r=await window.storage.get(key('app_group_credit')); C=r&&r.value?JSON.parse(r.value):null; }catch(e){}
+    C=C||{byId:{}}; C.byId=C.byId||{};
     if(year===CAP_YEAR){ H=CLINICAL_HOURS_DATA; G=GROUP_HOURS_DATA; }
     else {
       const o=ALL_PPS.findIndex(function(x){ return x.id===year+'-01'; });
@@ -16394,8 +16605,9 @@ async function ppuWriteCapacity(ppId,emps,prevSids){
     H.byId=H.byId||{}; G.byId=G.byId||{};
     const put=function(store,sid,val){ let a=store.byId[sid]; if(!Array.isArray(a)) a=store.byId[sid]=Array(26).fill(null); while(a.length<26) a.push(null); a[idx]=val; };
     const seen={};
-    emps.forEach(function(E){ if(!E.sid||E.pid.indexOf('staff:')===0) return; seen[E.sid]=1; put(H,E.sid,Math.round(E.clin)/100); if(G.byId[E.sid]) put(G,E.sid,null); wrote.push(E.sid); });
-    (prevSids||[]).forEach(function(sid){ if(!seen[sid]){ if(H.byId[sid]) put(H,sid,null); if(G.byId[sid]) put(G,sid,null); } });
+    emps.forEach(function(E){ if(!E.sid||E.pid.indexOf('staff:')===0) return; seen[E.sid]=1; put(H,E.sid,Math.round(E.clin)/100); if(G.byId[E.sid]) put(G,E.sid,null); if(E.grpClin||C.byId[E.sid]) put(C,E.sid,E.grpClin?Math.round(E.grpClin)/100:null); wrote.push(E.sid); });
+    (prevSids||[]).forEach(function(sid){ if(!seen[sid]){ if(H.byId[sid]) put(H,sid,null); if(G.byId[sid]) put(G,sid,null); if(C.byId[sid]) put(C,sid,null); } });
+    try{ await window.storage.set(key('app_group_credit'),JSON.stringify(C)); if(year===CAP_YEAR) GROUP_CREDIT_DATA=C; }catch(e){ console.error(e); }
     H._version=CAP_DATA_VERSION; G._version=CAP_DATA_VERSION;
     if(year===CAP_YEAR){ await capPersistHours(); await capPersistGroupHours(); }
     else { await window.storage.set(key('app_clinical_hours'),JSON.stringify(H)); await window.storage.set(key('app_group_hours'),JSON.stringify(G)); }
@@ -16577,6 +16789,612 @@ function ppuStatementHtml(st,opt){
   return h+'</div>';
 }
 // ── Small single-series bar chart (one bar per pay period). pts=[{k,label,v,txt}], sel=k highlighted.
+
+// ══ REPORT CENTER ═══════════════════════════════════════════════════════════════════════════
+// Two reports built from the pay periods' Valant data (re-run through the Service Code Workbook in
+// effect for each period, with that period's corrections and the current provider links):
+//   • Clinical Hours Analysis — filter by site, role, format, title, status, category, code and
+//     delivery; hours vs goal over time, by site, grouped any way, and by code.
+//   • Office Utilization — approved office bookings vs the in-person sessions that actually happened
+//     at that site during the booked hours.
+// Line-level data needs Super Admin (payroll data); Admins get hours vs goal from the Capacity data.
+// Charts are inline SVG in brand navy (actual) with goal shown as a gray reference mark.
+var RC={tab:'hours', from:null, to:null, f:{site:'',role:'',format:'',title:'',status:'active',cat:'',code:'',delivery:''}, group:'site', codeBy:'code',
+  ou:{site:'',room:''}, cache:{}, loading:false, msg:'', facMap:null, preset:'ytd', dS:'', dE:'', bucket:'pp'};
+function rcEsc(v){ return hesc(v==null?'':String(v)); }
+function rcPPs(){ // pay periods of the capacity year that have started
+  const t=capISO(capDateOf(new Date())); return ALL_PPS.filter(function(x){ return String(x.startISO).slice(0,4)===String(CAP_YEAR)&&x.startISO<=t; });
+}
+// ── Date range: presets (this/last pay period, MTD, last month, QTD, last quarter, YTD, last 30/90 days) or custom ──
+var RC_PRESETS=[['thispp','This pay period'],['lastpp','Last pay period'],['mtd','This month (MTD)'],['lastmonth','Last month'],['qtd','This quarter (QTD)'],['lastq','Last quarter'],['ytd','Year to date (YTD)'],['last30','Last 30 days'],['last90','Last 90 days'],['custom','Custom dates']];
+function rcToday(){ return capISO(capDateOf(new Date())); }
+function rcAddDays(iso,n){ const d=capDateOf(iso); return capISO(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)); }
+// The capacity-year quarter (Q1–Q4 by pay periods) containing a date.
+function rcQuarterOf(iso){ try{ const R=[[0,5],[6,12],[13,18],[19,25]]; for(let i=0;i<4;i++){ const a=ALL_PPS[CAP_PP_OFFSET+R[i][0]], z=ALL_PPS[CAP_PP_OFFSET+R[i][1]]; if(a&&z&&iso>=a.startISO&&iso<=z.endISO) return {i:i,start:a.startISO,end:z.endISO}; } }catch(e){} return null; }
+function rcDates(){
+  const t=rcToday(), y0=(ALL_PPS[CAP_PP_OFFSET]||{}).startISO||(CAP_YEAR+'-01-01'), d=capDateOf(t);
+  const ppAt=function(iso){ return ALL_PPS.find(function(x){ return iso>=x.startISO&&iso<=x.endISO; }); };
+  let a=y0, z=t;
+  switch(RC.preset){
+    case 'thispp': { const x=ppAt(t); if(x){ a=x.startISO; } break; }
+    case 'lastpp': { const x=ppAt(t), i=ALL_PPS.indexOf(x), w=ALL_PPS[i-1]; if(w){ a=w.startISO; z=w.endISO; } break; }
+    case 'mtd': a=capISO(new Date(d.getFullYear(),d.getMonth(),1)); break;
+    case 'lastmonth': a=capISO(new Date(d.getFullYear(),d.getMonth()-1,1)); z=capISO(new Date(d.getFullYear(),d.getMonth(),0)); break;
+    case 'qtd': { const q=rcQuarterOf(t); if(q) a=q.start; break; }
+    case 'lastq': { const q=rcQuarterOf(t); if(q&&q.i>0){ const p=rcQuarterOf(rcAddDays(q.start,-1)); if(p){ a=p.start; z=p.end; } } break; }
+    case 'last30': a=rcAddDays(t,-29); break;
+    case 'last90': a=rcAddDays(t,-89); break;
+    case 'custom': a=RC.dS||y0; z=RC.dE||t; break;
+  }
+  if(a<y0&&RC.preset!=='custom') a=y0; if(z>t) z=t; if(a>z) a=z;
+  return {start:a,end:z};
+}
+// Pay periods that overlap the selected dates (their data is what gets loaded).
+function rcRange(){ const D=rcDates(); return ALL_PPS.filter(function(x){ return x.endISO>=D.start&&x.startISO<=D.end; }); }
+function rcInDates(iso){ const D=rcDates(); return iso>=D.start&&iso<=D.end; }
+function rcSA(){ try{ return isSuperAdminView(); }catch(e){ return false; } }
+async function renderReportCenter(){
+  const body=document.getElementById('report-center-body'); if(!body) return;
+  body.style.maxWidth='1240px';
+  try{
+    const tabs='<div class="hb-tabs" style="margin-bottom:14px"><button class="hb-tab'+(RC.tab==='hours'?' on':'')+'" onclick="RC.tab=\'hours\';renderReportCenter()">📊 Clinical Hours Analysis</button><button class="hb-tab'+(RC.tab==='sessions'?' on':'')+'" onclick="RC.tab=\'sessions\';renderReportCenter()">📈 Sessions &amp; Peak Times</button><button class="hb-tab'+(RC.tab==='office'?' on':'')+'" onclick="RC.tab=\'office\';renderReportCenter()">🚪 Office Utilization</button></div>';
+    if(rcSA()&&!(await rcEnsure(body,tabs))) return;
+    body.innerHTML=rcCss()+tabs+(RC.tab==='office'?await rcOfficeHtml():RC.tab==='sessions'?rcSessionsHtml():rcHoursHtml());
+  }catch(e){ console.error(e); body.innerHTML='<div class="ppu-card">⚠ The report couldn’t load: '+rcEsc(e.message||e)+'</div>'; }
+}
+function rcCss(){ return '<style>.rc-f{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;margin-bottom:12px}'
+  +'.rc-f label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#6b7280}.rc-f select{font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid #d1d5db;border-radius:7px;background:#fff;max-width:200px}'
+  +'.rc-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}.rc-k>div{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px}.rc-k b{display:block;font-size:22px;color:#111827;font-weight:800}.rc-k span{font-size:11.5px;color:#6b7280}'
+  +'.rc-c{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin-bottom:12px}.rc-c h3{margin:0 0 2px;font-size:14.5px;color:#122B67}.rc-c .sub{font-size:12px;color:#6b7280;margin-bottom:10px}'
+  +'.rc-t{width:100%;border-collapse:collapse;font-size:12.5px}.rc-t th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;padding:6px 8px;border-bottom:1px solid #e5e7eb;cursor:default}.rc-t td{text-align:right;padding:6px 8px;border-bottom:1px solid #f1f2f4}.rc-t .l{text-align:left}'
+  +'.rc-bar{display:inline-block;height:8px;border-radius:0 4px 4px 0;background:#122B67;vertical-align:middle}.rc-gl{stroke:#9ca3af;stroke-width:2;stroke-dasharray:4 3}.rc-svg text{font:11px Inter,system-ui,sans-serif;fill:#6b7280}</style>'; }
+// ── data: counted appointment lines per pay period (Super Admin) ──
+async function rcEnsure(body,tabs){
+  try{
+    if(!PPU.loaded){ body.innerHTML=tabs+'<div class="ppu-card muted">Loading payroll data…</div>'; await ppuLoadBase(); }
+    if(!PPU.meetings||!PPU.meetings.length){ try{ PPU.meetings=(await window.mtgStore.all())||[]; }catch(e){} }
+    if(RC.facMap===null){ try{ const r=await window.storage.get('app_rc_facmap'); RC.facMap=r&&r.value?JSON.parse(r.value):{}; }catch(e){ RC.facMap={}; } }
+    const need=rcRange().filter(function(x){ const p=PPU.periods[x.id]; return p&&p.importId&&!RC.cache[x.id]; });
+    for(let i=0;i<need.length;i++){
+      body.innerHTML=tabs+'<div class="ppu-card muted">Reading pay period data… '+(i+1)+' of '+need.length+' ('+rcEsc(need[i].short)+')</div>';
+      await rcLoadPP(need[i].id);
+    }
+    return true;
+  }catch(e){ console.error(e); body.innerHTML=tabs+'<div class="ppu-card">⚠ Could not read the pay period data.</div>'; return false; }
+}
+async function rcLoadPP(id){
+  const p=PPU.periods[id], pp=ppuPP(id); if(!p||!p.importId){ RC.cache[id]={lines:[]}; return; }
+  const rows=(await payStore.rows(p.importId,p.importChunks||0))||[]; const byI={}; rows.forEach(function(r){ byI['r'+r.i]=r; });
+  const RA=ppuRulesForPP(id), map=ppuRuleMap(RA), R=ppuCompute(rows,RA,p.corrections||{},PPU.links,PPU.meetings||[],pp,p.manualGroups||[]);
+  const sidOf={}; R.emps.forEach(function(E){ sidOf[E.pid]=E.sid; });
+  const out=[];
+  R.lines.forEach(function(L){
+    if(L.status!=='counted') return;
+    const r=byI[L.key]||{}, rule=map[ppuNormId(L.tx)]||{}, sid=sidOf[L.pid]; if(!sid) return;
+    out.push({pp:id,sid:sid,date:L.date,st:L.st,en:r.en!=null?r.en:(L.st!=null?L.st+60:null),tx:ppuNormId(L.tx),head:L.head||'',cat:rule.cat||'',del:rule.delivery||'',fac:r.fac||'',clin:(L.clin||0)/100,grp:!!L.manual});
+  });
+  RC.cache[id]={lines:out};
+}
+// ── people filter ──
+function rcPeople(){
+  const f=RC.f;
+  return (STAFF||[]).filter(function(s){
+    if(!s||!s._id) return false;
+    try{ if(!isClinicianRec(s)) return false; }catch(e){}
+    const st=normStatus(s['Employee Status']); if(f.status==='active'&&st==='Terminated') return false; if(f.status==='former'&&st!=='Terminated') return false;
+    if(f.site&&String(s['Team']||'').trim()!==f.site) return false;
+    if(f.role&&staffRolesOf(s).indexOf(f.role)<0) return false;
+    if(f.format&&String(s['Format']||'').trim()!==f.format) return false;
+    if(f.title&&staffTitleOf(s)!==f.title) return false;
+    return true; });
+}
+function rcOpts(vals,cur,all,label){ return '<option value="">'+all+'</option>'+vals.map(function(v){ return '<option value="'+rcEsc(v)+'"'+(v===cur?' selected':'')+'>'+rcEsc(label?label(v):v)+'</option>'; }).join(''); }
+function rcUniq(a){ return a.filter(function(x,i){ return x&&a.indexOf(x)===i; }).sort(); }
+function rcSet(k,v){ RC.f[k]=v; renderReportCenter(); }
+function rcRangeHtml(){
+  const D=rcDates();
+  return '<label>Dates<select onchange="RC.preset=this.value;if(this.value===\'custom\'){const d=rcDates();RC.dS=RC.dS||d.start;RC.dE=RC.dE||d.end;}renderReportCenter()">'+RC_PRESETS.map(function(x){ return '<option value="'+x[0]+'"'+(RC.preset===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select></label>'
+    +'<label>From<input type="date" value="'+D.start+'" max="'+rcToday()+'" onchange="RC.preset=\'custom\';RC.dS=this.value;RC.dE=RC.dE||rcDates().end;renderReportCenter()" style="font:inherit;font-size:12.5px;padding:5px 7px;border:1px solid #d1d5db;border-radius:7px"></label>'
+    +'<label>To<input type="date" value="'+D.end+'" max="'+rcToday()+'" onchange="RC.preset=\'custom\';RC.dE=this.value;RC.dS=RC.dS||rcDates().start;renderReportCenter()" style="font:inherit;font-size:12.5px;padding:5px 7px;border:1px solid #d1d5db;border-radius:7px"></label>';
+}
+// Lines in range for these people, after the code filters.
+function rcLines(people){
+  const ids={}; people.forEach(function(s){ ids[s._id]=1; }); const f=RC.f, out=[];
+  rcRange().forEach(function(x){ ((RC.cache[x.id]||{}).lines||[]).forEach(function(L){
+    if(!ids[L.sid]) return; if(!rcInDates(L.date)) return; if(f.cat&&L.cat!==f.cat) return; if(f.code&&L.tx!==f.code) return;
+    if(f.delivery&&rcDelivery(L)!==f.delivery) return; out.push(L); }); });
+  return out;
+}
+function rcDelivery(L){ if(L.del==='Virtual') return 'Virtual'; if(L.del==='In person') return 'In person'; const m=rcFacSite(L.fac); return m==='__virtual'?'Virtual':m?'In person':'Not specified'; }
+// Hours per person per pay period when line data isn't available (Admins): Capacity data.
+function rcCapHours(sid,ppId){ try{ const i=CLINICAL_HOURS_DATA.periods.indexOf(ppuPP(ppId).startISO); const a=CLINICAL_HOURS_DATA.byId[sid]; return a&&i>=0&&a[i]!=null?+a[i]:0; }catch(e){ return 0; } }
+function rcGoal(s,pp){ try{ const a=capDateOf(pp.startISO), b=new Date(a.getFullYear(),a.getMonth(),a.getDate()+14); return capGoalBetween(s,a,b); }catch(e){ return 0; } }
+// ── SVG charts ──
+function rcBarsTime(pts){ // pts=[{label,v,goal}]
+  if(!pts.length) return '<div class="muted">No data in this range.</div>';
+  const W=Math.max(560,pts.length*44), H=230, pl=44, pb=34, pt=12, mx=Math.max(1,Math.max.apply(null,pts.map(function(p){ return Math.max(p.v,p.goal||0); })))*1.08;
+  const bw=(W-pl-10)/pts.length, y=function(v){ return pt+(H-pt-pb)*(1-v/mx); };
+  let g='', ax=''; for(let i=0;i<=4;i++){ const v=mx*i/4; ax+='<line x1="'+pl+'" x2="'+(W-6)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#eef0f3"/><text x="'+(pl-6)+'" y="'+(y(v)+4)+'" text-anchor="end">'+Math.round(v)+'</text>'; }
+  pts.forEach(function(p,i){ const x=pl+i*bw+bw*0.18, w=bw*0.64, top=y(p.v);
+    g+='<g><title>'+rcEsc(p.label)+': '+(p.none?'no Valant upload yet · ':'')+Math.round(p.v*10)/10+' clinical hrs'+(p.goal?' · goal '+Math.round(p.goal)+' ('+Math.round(p.v/p.goal*100)+'%)':'')+'</title>'
+      +'<rect x="'+x+'" y="'+top+'" width="'+w+'" height="'+Math.max(0,y(0)-top)+'" rx="3" fill="#122B67"/><rect x="'+(x-4)+'" y="'+pt+'" width="'+(w+8)+'" height="'+(H-pt-pb)+'" fill="transparent"/>'
+      +(p.goal?'<line class="rc-gl" x1="'+(x-5)+'" x2="'+(x+w+5)+'" y1="'+y(p.goal)+'" y2="'+y(p.goal)+'"/>':'')
+      +(p.none?'<text x="'+(x+w/2)+'" y="'+(y(0)-6)+'" text-anchor="middle" style="font-size:10px">no upload</text>':'')
+      +'<text x="'+(x+w/2)+'" y="'+(H-pb+15)+'" text-anchor="middle">'+rcEsc(p.label)+'</text></g>'; });
+  return '<div style="overflow-x:auto"><svg class="rc-svg" width="'+W+'" height="'+H+'" role="img" aria-label="Clinical hours by pay period">'+ax+g+'</svg></div>'
+    +'<div style="display:flex;gap:16px;font-size:11.5px;color:#4b5563;margin-top:4px"><span><span style="display:inline-block;width:10px;height:10px;background:#122B67;border-radius:2px"></span> Clinical hours</span><span><svg width="18" height="8"><line class="rc-gl" x1="0" x2="18" y1="4" y2="4"/></svg> Goal</span><span class="muted">Hover a bar for the numbers</span></div>';
+}
+function rcHBars(rows,opt){ // rows=[{label,v,goal,sub}]
+  opt=opt||{}; if(!rows.length) return '<div class="muted">No data.</div>';
+  const mx=Math.max(1,Math.max.apply(null,rows.map(function(r){ return Math.max(r.v,r.goal||0); })));
+  return '<div style="display:flex;flex-direction:column;gap:7px">'+rows.map(function(r){ const pct=r.goal?Math.round(r.v/r.goal*100):null;
+    return '<div title="'+rcEsc(r.label+': '+Math.round(r.v*10)/10+(opt.unit||' hrs')+(r.goal?' of '+Math.round(r.goal)+' goal':''))+'" style="display:grid;grid-template-columns:minmax(120px,190px) 1fr 120px;gap:10px;align-items:center;font-size:12.5px">'
+      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+rcEsc(r.label)+'</b></span>'
+      +'<span style="position:relative;height:14px;background:#f3f4f6;border-radius:0 4px 4px 0"><span style="position:absolute;left:0;top:0;bottom:0;width:'+(r.v/mx*100)+'%;background:'+(opt.color||'#122B67')+';border-radius:0 4px 4px 0"></span>'
+        +(r.goal?'<span style="position:absolute;top:-3px;bottom:-3px;left:calc('+(r.goal/mx*100)+'% - 1px);width:2px;background:#6b7280"></span>':'')+'</span>'
+      +'<span style="text-align:right">'+Math.round(r.v*10)/10+(opt.unit||' h')+(pct!=null?' · <b style="color:'+(pct>=100?'#157a45':pct>=90?'#b45309':'#b91c1c')+'">'+pct+'%</b>':r.sub?' · '+r.sub:'')+'</span></div>'; }).join('')+'</div>'
+    +(rows.some(function(r){ return r.goal; })?'<div style="font-size:11.5px;color:#6b7280;margin-top:6px">Bar = clinical hours · gray tick = goal · % = attainment</div>':'');
+}
+function rcCsv(name,rows){ const q=function(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.map(function(r){ return r.map(q).join(','); }).join('\n')],{type:'text/csv'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+// ── Clinical Hours Analysis ──
+// Chart buckets for the selected dates: pay periods, months or weeks (Mon–Sun), clipped to the range.
+function rcBuckets(){
+  const D=rcDates(), out=[];
+  if(RC.bucket==='month'||RC.bucket==='week'){
+    let c=D.start;
+    while(c<=D.end){ const d=capDateOf(c); let nx;
+      if(RC.bucket==='month') nx=capISO(new Date(d.getFullYear(),d.getMonth()+1,1)); else { const k=(d.getDay()+6)%7; nx=capISO(new Date(d.getFullYear(),d.getMonth(),d.getDate()-k+7)); }
+      const z=rcAddDays(nx,-1)<D.end?rcAddDays(nx,-1):D.end;
+      out.push({a:c,z:z,label:RC.bucket==='month'?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]:(d.getMonth()+1)+'/'+d.getDate()});
+      c=nx; }
+  } else rcRange().forEach(function(x){ out.push({a:x.startISO<D.start?D.start:x.startISO,z:x.endISO>D.end?D.end:x.endISO,label:x.short.replace(/^PP\s*\d{4}-/,'PP '),pp:x.id}); });
+  return out;
+}
+function rcDays(a,z){ return Math.round((capDateOf(z)-capDateOf(a))/86400000)+1; }
+function rcGoalBetween(s,a,z){ try{ const A=capDateOf(a), Z=capDateOf(z); return capGoalBetween(s,A,new Date(Z.getFullYear(),Z.getMonth(),Z.getDate()+1)); }catch(e){ return 0; } }
+function rcHoursData(){
+  const people=rcPeople(), range=rcRange(), sa=rcSA(), lines=sa?rcLines(people):[], D=rcDates();
+  if(!sa) RC.bucket='pp';
+  const byP={}; people.forEach(function(s){ byP[s._id]={s:s,h:0,goal:0,n:0}; });
+  const B=rcBuckets().map(function(x){ const pr=x.pp&&PPU.periods&&PPU.periods[x.pp]; return {a:x.a,z:x.z,label:x.label,v:0,goal:0,none:sa&&!!x.pp&&!(pr&&pr.importId)}; });
+  const bOf=function(iso){ for(let i=0;i<B.length;i++){ if(iso>=B[i].a&&iso<=B[i].z) return B[i]; } return null; };
+  if(sa) lines.forEach(function(L){ const P=byP[L.sid]; if(!P) return; P.h+=L.clin; P.n+=L.grp?0:1; const b=bOf(L.date); if(b) b.v+=L.clin; });
+  else people.forEach(function(s){ range.forEach(function(x){ const a=x.startISO<D.start?D.start:x.startISO, z=x.endISO>D.end?D.end:x.endISO; const h=rcCapHours(s._id,x.id)*Math.max(0,rcDays(a,z))/14; byP[s._id].h+=h; const b=bOf(a); if(b) b.v+=h; }); });
+  people.forEach(function(s){ byP[s._id].goal=rcGoalBetween(s,D.start,D.end); B.forEach(function(b){ b.goal+=rcGoalBetween(s,b.a,b.z); }); });
+  return {people:people,range:range,lines:lines,byP:byP,perPP:B,dates:D};
+}
+function rcGroupKey(s){ const g=RC.group;
+  return g==='site'?(teamLabel?teamLabel(String(s['Team']||'').trim()):s['Team'])||'(no site)':g==='role'?(staffRolesOf(s).filter(function(r){ return /Psychotherapist/.test(r); })[0]||staffRolesOf(s)[0]||'(no role)')
+    :g==='format'?(String(s['Format']||'').trim()||'(not set)'):g==='title'?(staffTitleOf(s)||'(no title)'):g==='tier'?(capTierLabel?capTierLabel(s['Capacity Tier']):s['Capacity Tier'])||'(not set)':(s['Clinician']||s._id); }
+function rcHoursHtml(){
+  const sa=rcSA(), D=rcHoursData(), f=RC.f, all=STAFF||[];
+  const sites=rcUniq(all.map(function(s){ return String(s['Team']||'').trim(); })), roles=rcRoleList(), formats=rcUniq(all.map(function(s){ return String(s['Format']||'').trim(); })), titles=rcUniq(all.map(staffTitleOf));
+  const allLines=[]; if(sa) D.range.forEach(function(x){ ((RC.cache[x.id]||{}).lines||[]).forEach(function(L){ allLines.push(L); }); });
+  const cats=rcUniq(allLines.map(function(L){ return L.cat; })), codes=rcUniq(allLines.filter(function(L){ return !f.cat||L.cat===f.cat; }).map(function(L){ return L.tx; }));
+  let h='<div class="rc-f">'+rcRangeHtml()
+    +'<label>Site<select onchange="rcSet(\'site\',this.value)">'+rcOpts(sites,f.site,'All sites',function(v){ try{ return teamLabel(v); }catch(e){ return v; } })+'</select></label>'
+    +'<label>Role<select onchange="rcSet(\'role\',this.value)">'+rcOpts(roles,f.role,'All roles')+'</select></label>'
+    +'<label>Format<select onchange="rcSet(\'format\',this.value)">'+rcOpts(formats,f.format,'All formats')+'</select></label>'
+    +'<label>Title<select onchange="rcSet(\'title\',this.value)">'+rcOpts(titles,f.title,'All titles')+'</select></label>'
+    +'<label>Staff<select onchange="rcSet(\'status\',this.value)"><option value="active"'+(f.status==='active'?' selected':'')+'>Current staff</option><option value=""'+(!f.status?' selected':'')+'>Current + former</option><option value="former"'+(f.status==='former'?' selected':'')+'>Former only</option></select></label>'
+    +(sa?'<label>Category<select onchange="RC.f.code=\'\';rcSet(\'cat\',this.value)">'+rcOpts(cats,f.cat,'All categories')+'</select></label>'
+      +'<label>Service code<select onchange="rcSet(\'code\',this.value)">'+rcOpts(codes,f.code,'All codes')+'</select></label>'
+      +'<label>Delivery<select onchange="rcSet(\'delivery\',this.value)">'+rcOpts(['In person','Virtual','Not specified'],f.delivery,'All')+'</select></label>':'')
+    +'<button class="btn btn-secondary" style="font-size:12px" onclick="RC.f={site:\'\',role:\'\',format:\'\',title:\'\',status:\'active\',cat:\'\',code:\'\',delivery:\'\'};renderReportCenter()">Reset</button></div>';
+  if(!sa) h+='<div class="ppu-card" style="font-size:12.5px">Hours come from the Capacity Dashboard. Filtering by service code, category and delivery needs payroll data — Super Admins only.</div>';
+  const codeF=!!(f.cat||f.code||f.delivery);
+  const P=D.people.map(function(s){ return D.byP[s._id]; }), tot=P.reduce(function(a,x){ a.h+=x.h; a.g+=x.goal; a.n+=x.n; return a; },{h:0,g:0,n:0});
+  const weeks=Math.max(1/7,rcDays(D.dates.start,D.dates.end)/7), active=P.filter(function(x){ return x.h>0; }).length;
+  h+='<div class="rc-k"><div><b>'+Math.round(tot.h).toLocaleString()+'</b><span>clinical hours'+(codeF?' (filtered codes)':'')+'</span></div>'
+    +'<div><b>'+Math.round(tot.g).toLocaleString()+'</b><span>goal for these people, '+usDate(D.dates.start)+' – '+usDate(D.dates.end)+'</span></div>'
+    +'<div><b style="color:'+(tot.g?(tot.h/tot.g>=1?'#157a45':tot.h/tot.g>=.9?'#b45309':'#b91c1c'):'#111827')+'">'+(tot.g?Math.round(tot.h/tot.g*100)+'%':'—')+'</b><span>attainment'+(codeF?' — filtered codes vs full goal':'')+'</span></div>'
+    +(sa?'<div><b>'+tot.n.toLocaleString()+'</b><span>appointments counted</span></div>':'')
+    +'<div><b>'+D.people.length+'</b><span>clinicians in view ('+active+' with hours)</span></div>'
+    +'<div><b>'+(active&&weeks?Math.round(tot.h/active/weeks*10)/10:'—')+'</b><span>clinical hrs / clinician / week</span></div></div>';
+  const bk=function(k,l){ return '<button class="hb-subtab'+(RC.bucket===k?' on':'')+'" onclick="RC.bucket=\''+k+'\';renderReportCenter()">'+l+'</button>'; };
+  h+='<div class="rc-c"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3>Clinical hours vs goal — '+usDate(D.dates.start)+' to '+usDate(D.dates.end)+'</h3>'+(sa?'<div class="hb-subtabs" style="margin:0">'+bk('pp','By pay period')+bk('month','By month')+bk('week','By week')+'</div>':'')+'</div><div class="sub">'+D.people.length+' clinicians'+(D.perPP.some(function(b){ return b.none; })?' · pay periods without a Valant upload show as “no upload”':'')+'</div>'+rcBarsTime(D.perPP)+'</div>';
+  // by site
+  const bySite={}; P.forEach(function(x){ const k=(function(){ try{ return teamLabel(String(x.s['Team']||'').trim()); }catch(e){ return x.s['Team']; } })()||'(no site)'; const b=bySite[k]=bySite[k]||{label:k,v:0,goal:0}; b.v+=x.h; b.goal+=x.goal; });
+  h+='<div class="rc-c"><h3>Total clinical hours compared to goal by site</h3><div class="sub">Each person counts toward their home site (Team)</div>'+rcHBars(Object.keys(bySite).map(function(k){ return bySite[k]; }).sort(function(a,b){ return b.v-a.v; }))+'</div>';
+  // grouped table
+  const G={}; P.forEach(function(x){ const k=rcGroupKey(x.s); const g=G[k]=G[k]||{k:k,c:0,h:0,goal:0,n:0,act:0}; g.c++; g.h+=x.h; g.goal+=x.goal; g.n+=x.n; if(x.h>0) g.act++; });
+  const GL=Object.keys(G).map(function(k){ return G[k]; }).sort(function(a,b){ return b.h-a.h; }), gmx=Math.max(1,Math.max.apply(null,GL.map(function(g){ return g.h; }).concat([1])));
+  const gb=function(k,l){ return '<button class="hb-subtab'+(RC.group===k?' on':'')+'" onclick="RC.group=\''+k+'\';renderReportCenter()">'+l+'</button>'; };
+  h+='<div class="rc-c"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3>Breakdown</h3><button class="btn btn-secondary" style="font-size:12px" onclick="rcCsvGroup()">Download (CSV)</button></div>'
+    +'<div class="hb-subtabs" style="margin:6px 0 10px">'+gb('site','By site')+gb('role','By license level')+gb('format','By format')+gb('title','By title')+gb('tier','By capacity tier')+gb('person','By clinician')+'</div>'
+    +'<div style="overflow-x:auto"><table class="rc-t"><thead><tr><th class="l">'+({site:'Site',role:'License level',format:'Format',title:'Title',tier:'Capacity tier',person:'Clinician'})[RC.group]+'</th><th>Clinicians</th><th class="l" style="min-width:160px">Clinical hours</th><th>Goal</th><th>Attainment</th>'+(sa?'<th>Appts</th>':'')+'<th>Hrs / clinician / wk</th></tr></thead><tbody>'
+    +GL.map(function(g){ const pct=g.goal?Math.round(g.h/g.goal*100):null;
+      return '<tr><td class="l"><b>'+rcEsc(g.k)+'</b></td><td>'+g.c+'</td><td class="l"><span class="rc-bar" style="width:'+Math.round(g.h/gmx*110)+'px"></span> '+Math.round(g.h*10)/10+'</td><td>'+Math.round(g.goal)+'</td><td>'+(pct==null?'—':'<b style="color:'+(pct>=100?'#157a45':pct>=90?'#b45309':'#b91c1c')+'">'+pct+'%</b>')+'</td>'+(sa?'<td>'+g.n+'</td>':'')+'<td>'+(g.act&&weeks?Math.round(g.h/g.act/weeks*10)/10:'—')+'</td></tr>'; }).join('')
+    +'</tbody></table></div></div>';
+  RC._group=GL;
+  // by code
+  if(sa){
+    const C={}; D.lines.forEach(function(L){ const k=RC.codeBy==='cat'?(L.cat||'(no category)'):RC.codeBy==='head'?(L.head||'(no heading)'):L.tx; const c=C[k]=C[k]||{k:k,n:0,h:0,cat:L.cat}; c.n++; c.h+=L.clin; });
+    const CL=Object.keys(C).map(function(k){ return C[k]; }).sort(function(a,b){ return b.h-a.h||b.n-a.n; }), cmx=Math.max(1,Math.max.apply(null,CL.map(function(c){ return c.h; }).concat([1])));
+    const cb=function(k,l){ return '<button class="hb-subtab'+(RC.codeBy===k?' on':'')+'" onclick="RC.codeBy=\''+k+'\';renderReportCenter()">'+l+'</button>'; };
+    h+='<div class="rc-c"><h3>Clinical hours by service</h3><div class="sub">Appointments and clinical-hour credit for the people and filters above</div>'
+      +'<div class="hb-subtabs" style="margin:0 0 10px">'+cb('code','By Valant code')+cb('cat','By category')+cb('head','By display heading')+'</div>'
+      +'<div style="overflow-x:auto;max-height:460px"><table class="rc-t"><thead><tr><th class="l">'+(RC.codeBy==='code'?'Code':RC.codeBy==='cat'?'Category':'Heading')+'</th>'+(RC.codeBy==='code'?'<th class="l">Category</th>':'')+'<th>Appointments</th><th class="l" style="min-width:160px">Clinical hours</th><th>% of hours</th></tr></thead><tbody>'
+      +CL.map(function(c){ return '<tr><td class="l"><b>'+rcEsc(c.k)+'</b></td>'+(RC.codeBy==='code'?'<td class="l muted">'+rcEsc(c.cat||'')+'</td>':'')+'<td>'+c.n+'</td><td class="l"><span class="rc-bar" style="width:'+Math.round(c.h/cmx*110)+'px"></span> '+Math.round(c.h*10)/10+'</td><td>'+(tot.h?Math.round(c.h/tot.h*1000)/10+'%':'—')+'</td></tr>'; }).join('')
+      +'</tbody></table></div></div>';
+  }
+  h+='<div class="muted" style="font-size:11.5px">Clinical hours are recalculated from each pay period’s Valant upload with the Service Code Workbook in effect for that period, its corrections and logged groups (attendees × .33). Goal = each person’s capacity goal for those dates (ramp, leave and capacity changes included). Pay periods that haven’t been uploaded count as 0.'+(rcSA()?'':' Without line data, partial pay periods are prorated by day.')+'</div>';
+  return h;
+}
+function rcRoleList(){ try{ return rtRoleList(); }catch(e){ return CONFIG.roleOpts||[]; } }
+function rcCsvGroup(){ try{ const g=RC._group||[]; rcCsv('clinical_hours_'+RC.group+'_'+rcDates().start+'_to_'+rcDates().end+'.csv',[['Group','Clinicians','Clinical hours','Goal','Attainment %','Appointments']].concat(g.map(function(x){ return [x.k,x.c,Math.round(x.h*100)/100,Math.round(x.goal*100)/100,x.goal?Math.round(x.h/x.goal*100):'',x.n]; }))); }catch(e){ console.error(e); } }
+// ── Office Utilization ──
+// Which site a Valant FacilityID is (or '__virtual'). Saved map first, then a guess from site codes/names.
+function rcFacSite(fac){
+  const k=String(fac||'').trim(); if(!k) return '';
+  const m=(RC.facMap||{})[k]; if(m!==undefined) return m;
+  const u=k.toUpperCase(); if(/TELE|VIRT|REMOTE|ONLINE|VIDEO|ZOOM/.test(u)) return '__virtual';
+  const hit=OFFICE_SITES.find(function(x){ return u===x[0]||u.indexOf(x[0])>=0; }); if(hit) return hit[0];
+  const byName=OFFICE_SITES.find(function(x){ const n=String(obSiteName(x[0])||'').toUpperCase(); return n&&(u.indexOf(n)>=0||n.indexOf(u)>=0); }); return byName?byName[0]:'';
+}
+async function rcSetFac(fac,v){ RC.facMap=RC.facMap||{}; RC.facMap[fac]=v; try{ await window.storage.set('app_rc_facmap',JSON.stringify(RC.facMap)); }catch(e){ showToast('⚠ Could not save'); } renderReportCenter(); }
+async function rcOfficeHtml(){
+  if(!rcSA()) return '<div class="ppu-card">Office Utilization compares bookings with Valant session data — Super Admins only.</div>';
+  try{ if(!OB.list||!OB.cfg) await obLoad(true); }catch(e){}
+  const range=rcRange(); if(!range.length) return '<div class="ppu-card muted">No pay periods yet.</div>';
+  const DD=rcDates(), site=RC.ou.site, start=DD.start, end=DD.end, last=DD.end;
+  const lines=[]; range.forEach(function(x){ ((RC.cache[x.id]||{}).lines||[]).forEach(function(L){ if(!L.grp&&L.date>=start&&L.date<=end) lines.push(L); }); });
+  const facs={}; lines.forEach(function(L){ if(L.fac) facs[L.fac]=(facs[L.fac]||0)+1; });
+  const inPerson=function(L){ return rcDelivery(L)!=='Virtual'; };
+  const bookings=(OB.list||[]).filter(function(b){ return b.status==='approved'&&(!site||b.site===site)&&(!RC.ou.room||b.room===RC.ou.room); });
+  // sessions by person+date
+  const byPD={}; lines.forEach(function(L){ const k=L.sid+'|'+L.date; (byPD[k]=byPD[k]||[]).push(L); });
+  const S={booked:0,used:0,virtualIn:0,days:0}, bySite={}, byRoom={}, byPer={}, heat={}, roomHeat={}, dowSel=RC.ou.dow==null?'':RC.ou.dow;
+  const covered={};
+  for(let d=start; d<=last; d=obAdd(d,1)){
+    bookings.forEach(function(b){ if(!obOn(b,d)) return;
+      const bh=(+b.end)-(+b.start); if(!(bh>0)) return;
+      const ss=(byPD[b.sid+'|'+d]||[]); let used=0, vin=0;
+      ss.forEach(function(L){ if(L.st==null) return; const a=Math.max(L.st,b.start*60), z=Math.min(L.en!=null&&L.en>L.st?L.en:L.st+60,b.end*60); if(z<=a) return;
+        if(inPerson(L)&&(rcFacSite(L.fac)===b.site||!rcFacSite(L.fac))){ used+=(z-a)/60; covered[L.sid+'|'+d+'|'+L.st]=1; } else if(!inPerson(L)) vin+=(z-a)/60; });
+      used=Math.min(used,bh);
+      S.booked+=bh; S.used+=used; S.virtualIn+=vin;
+      const add=function(o,k,lab){ const x=o[k]=o[k]||{label:lab,booked:0,used:0,vin:0,unb:0}; x.booked+=bh; x.used+=used; x.vin+=vin; };
+      add(bySite,b.site,obSiteName(b.site)); add(byRoom,b.site+'|'+b.room,obSiteName(b.site)+' · '+rcRoomName(b.site,b.room)); add(byPer,b.sid,b.name||b.sid);
+      const dw=obDate(d).getDay();
+      if(dowSel===''||String(dowSel)===String(dw)) for(let hh=+b.start; hh<+b.end; hh++){ const rk=b.site+'|'+b.room+'|'+hh, rc=roomHeat[rk]=roomHeat[rk]||{b:0,u:0,who:{}}; rc.b++; rc.who[b.name||b.sid]=1; if(ss.some(function(L){ return inPerson(L)&&(rcFacSite(L.fac)===b.site||!rcFacSite(L.fac))&&L.st!=null&&L.st<(hh+1)*60&&(L.en!=null&&L.en>L.st?L.en:L.st+60)>hh*60; })) rc.u++; }
+      for(let hh=+b.start; hh<+b.end; hh++){ const k=dw+'|'+hh, c=heat[k]=heat[k]||{b:0,u:0}; c.b++; const u=ss.filter(function(L){ return inPerson(L)&&L.st!=null&&L.st<(hh+1)*60&&(L.en!=null&&L.en>L.st?L.en:L.st+60)>hh*60; }).length; if(u) c.u++; }
+    });
+  }
+  // in-person sessions with no booking
+  let unb=0; lines.forEach(function(L){ if(L.date<start||L.date>last||!inPerson(L)) return; const fs=rcFacSite(L.fac); if(!fs||fs==='__virtual') return; if(site&&fs!==site) return; if(covered[L.sid+'|'+L.date+'|'+L.st]) return;
+    unb+=1; const p=byPer[L.sid]=byPer[L.sid]||{label:((STAFF||[]).find(function(s){ return s._id===L.sid; })||{})['Clinician']||L.sid,booked:0,used:0,vin:0,unb:0}; p.unb++;
+    const st=bySite[fs]=bySite[fs]||{label:obSiteName(fs),booked:0,used:0,vin:0,unb:0}; st.unb++; });
+  const pct=function(u,b){ return b?Math.round(u/b*100):null; }, col=function(p){ return p==null?'#6b7280':p>=75?'#157a45':p>=50?'#b45309':'#b91c1c'; };
+  const sites=OFFICE_SITES.map(function(x){ return x[0]; });
+  let h='<div class="rc-f">'+rcRangeHtml()
+    +'<label>Site<select onchange="RC.ou.site=this.value;RC.ou.room=\'\';renderReportCenter()">'+rcOpts(sites,site,'All sites',obSiteName)+'</select></label>'
+    +(site?'<label>Office<select onchange="RC.ou.room=this.value;renderReportCenter()">'+'<option value="">All offices</option>'+obRooms(site).map(function(r){ return '<option value="'+rcEsc(r.id)+'"'+(RC.ou.room===r.id?' selected':'')+'>'+rcEsc(r.name)+'</option>'; }).join('')+'</select></label>':'')+'</div>';
+  if(!bookings.length) h+='<div class="ppu-card">No approved office bookings'+(site?' at '+rcEsc(obSiteName(site)):'')+' yet — once CTMs add them on Office Bookings, this report compares them with the sessions that actually happened.</div>';
+  const up=pct(S.used,S.booked);
+  h+='<div class="rc-k"><div><b>'+Math.round(S.booked).toLocaleString()+'</b><span>booked office hours ('+usDate(start)+' – '+usDate(last)+')</span></div>'
+    +'<div><b>'+Math.round(S.used).toLocaleString()+'</b><span>in-person session hours during bookings</span></div>'
+    +'<div><b style="color:'+col(up)+'">'+(up==null?'—':up+'%')+'</b><span>utilization</span></div>'
+    +'<div><b>'+Math.round(S.booked-S.used).toLocaleString()+'</b><span>booked hours not used for sessions</span></div>'
+    +'<div><b>'+Math.round(S.virtualIn).toLocaleString()+'</b><span>virtual session hours inside a booked slot</span></div>'
+    +'<div><b>'+unb.toLocaleString()+'</b><span>in-person sessions with no booking</span></div></div>';
+  const rowsOf=function(o){ return Object.keys(o).map(function(k){ return o[k]; }).sort(function(a,b){ return b.booked-a.booked||b.unb-a.unb; }); };
+  h+='<div class="rc-c"><h3>Utilization by site</h3><div class="sub">Booked office hours vs in-person session hours that happened in them</div>'+rcUtilBars(rowsOf(bySite))+'</div>';
+  h+='<div class="rc-c"><h3>Booked vs used by weekday and hour'+(site?' — '+rcEsc(obSiteName(site)):'')+'</h3><div class="sub">Each cell: share of booked office-hours with an in-person session · darker = better used · hover for numbers</div>'+rcHeat(heat)+'</div>';
+  const tbl=function(title,list,key){ return '<div class="rc-c"><h3>'+title+'</h3><div style="overflow-x:auto;max-height:440px"><table class="rc-t"><thead><tr><th class="l">'+key+'</th><th>Booked hrs</th><th>Used hrs</th><th>Utilization</th><th>Virtual hrs in slot</th><th>In-person, no booking</th></tr></thead><tbody>'
+    +list.map(function(r){ const p=pct(r.used,r.booked); return '<tr><td class="l"><b>'+rcEsc(r.label)+'</b></td><td>'+Math.round(r.booked*10)/10+'</td><td>'+Math.round(r.used*10)/10+'</td><td>'+(p==null?'—':'<b style="color:'+col(p)+'">'+p+'%</b>')+'</td><td>'+Math.round(r.vin*10)/10+'</td><td>'+(r.unb||0)+'</td></tr>'; }).join('')+'</tbody></table></div></div>'; };
+  h+='<div class="rc-c"><h3>Office grid — booked vs used by office and hour</h3><div class="sub">Like the Office Bookings calendar: one row per office, one column per hour</div>'+rcRoomGrid(roomHeat,site,dowSel)+'</div>';
+  h+=tbl('By office',rowsOf(byRoom).filter(function(r){ return r.booked; }),'Office');
+  h+=tbl('By clinician — lowest utilization first',rowsOf(byPer).sort(function(a,b){ const pa=a.booked?a.used/a.booked:2, pb=b.booked?b.used/b.booked:2; return pa-pb||b.unb-a.unb; }),'Clinician');
+  // facility map
+  const fk=Object.keys(facs).sort();
+  h+='<details class="rc-c"><summary style="cursor:pointer"><b>Valant facilities → sites</b> <span class="muted" style="font-size:12px">· how each Valant FacilityID is matched to a site ('+fk.length+')</span></summary><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'
+    +fk.map(function(k){ const cur=rcFacSite(k); return '<div style="display:flex;gap:10px;align-items:center;font-size:12.5px"><b style="min-width:140px">'+rcEsc(k)+'</b><span class="muted" style="min-width:90px">'+facs[k]+' appts</span><select onchange="rcSetFac('+rcEsc(JSON.stringify(k))+',this.value)" style="font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid #d1d5db;border-radius:7px"><option value="">— not an office site —</option><option value="__virtual"'+(cur==='__virtual'?' selected':'')+'>Virtual / telehealth</option>'+sites.map(function(s){ return '<option value="'+s+'"'+(cur===s?' selected':'')+'>'+rcEsc(obSiteName(s))+'</option>'; }).join('')+'</select></div>'; }).join('')
+    +'</div><div class="muted" style="font-size:11.5px;margin-top:6px">A session counts as in person unless its service code is Virtual (Service Code Workbook → Delivery) or its facility is set to Virtual here.</div></details>';
+  h+='<div class="muted" style="font-size:11.5px">Uses approved bookings only, through today. A booking’s hours are “used” when the booked clinician had an in-person session at that site overlapping the booked time.</div>';
+  return h;
+}
+// ── Report Center → Sessions & Peak Times ──
+// Every counted appointment (in person AND virtual) for the people/filters/dates above: totals by home site
+// and for the whole practice, where in-person sessions happened, and when sessions happen (hour × weekday).
+function rcSessionsHtml(){
+  if(!rcSA()) return '<div class="ppu-card">Sessions & Peak Times reads each appointment from the Valant uploads — Super Admins only.</div>';
+  const f=RC.f, people=rcPeople(), D=rcDates(), all=STAFF||[];
+  const sites=rcUniq(all.map(function(s){ return String(s['Team']||'').trim(); })), roles=rcRoleList(), formats=rcUniq(all.map(function(s){ return String(s['Format']||'').trim(); }));
+  const allLines=[]; rcRange().forEach(function(x){ ((RC.cache[x.id]||{}).lines||[]).forEach(function(L){ allLines.push(L); }); });
+  const cats=rcUniq(allLines.map(function(L){ return L.cat; })), codes=rcUniq(allLines.filter(function(L){ return !f.cat||L.cat===f.cat; }).map(function(L){ return L.tx; }));
+  const tl=function(v){ try{ return teamLabel(v)||v; }catch(e){ return v; } };
+  let h='<div class="rc-f">'+rcRangeHtml()
+    +'<label>Site<select onchange="rcSet(\'site\',this.value)">'+rcOpts(sites,f.site,'Entire practice',tl)+'</select></label>'
+    +'<label>Role<select onchange="rcSet(\'role\',this.value)">'+rcOpts(roles,f.role,'All roles')+'</select></label>'
+    +'<label>Format<select onchange="rcSet(\'format\',this.value)">'+rcOpts(formats,f.format,'All formats')+'</select></label>'
+    +'<label>Category<select onchange="RC.f.code=\'\';rcSet(\'cat\',this.value)">'+rcOpts(cats,f.cat,'All categories')+'</select></label>'
+    +'<label>Service code<select onchange="rcSet(\'code\',this.value)">'+rcOpts(codes,f.code,'All codes')+'</select></label>'
+    +'<label>Staff<select onchange="rcSet(\'status\',this.value)"><option value="active"'+(f.status==='active'?' selected':'')+'>Current staff</option><option value=""'+(!f.status?' selected':'')+'>Current + former</option></select></label>'
+    +'<button class="btn btn-secondary" style="font-size:12px" onclick="RC.f={site:\'\',role:\'\',format:\'\',title:\'\',status:\'active\',cat:\'\',code:\'\',delivery:\'\'};renderReportCenter()">Reset</button></div>';
+  // all appointments (delivery not filtered here — this report splits it)
+  const keepDel=f.delivery; RC.f.delivery=''; const lines=rcLines(people).filter(function(L){ return !L.grp; }); const grp=rcLines(people).filter(function(L){ return L.grp; }); RC.f.delivery=keepDel;
+  const bySid={}; people.forEach(function(s){ bySid[s._id]=s; });
+  const siteOf=function(sid){ const s=bySid[sid]||{}; return tl(String(s['Team']||'').trim())||'(no site)'; };
+  const weeks=Math.max(1/7,rcDays(D.start,D.end)/7);
+  const agg=function(){ return {n:0,ni:0,nv:0,nu:0,h:0,hi:0,hv:0,g:0,gh:0,ppl:{}}; };
+  const S={}, T=agg();
+  const add=function(a,L){ const d=rcDelivery(L); a.n++; a.h+=L.clin; if(d==='Virtual'){ a.nv++; a.hv+=L.clin; } else if(d==='In person'){ a.ni++; a.hi+=L.clin; } else a.nu++; a.ppl[L.sid]=1; };
+  lines.forEach(function(L){ const k=siteOf(L.sid); add(S[k]=S[k]||agg(),L); add(T,L); });
+  grp.forEach(function(L){ const k=siteOf(L.sid); const a=S[k]=S[k]||agg(); a.g++; a.gh+=L.clin; a.h+=L.clin; a.ppl[L.sid]=1; T.g++; T.gh+=L.clin; T.h+=L.clin; T.ppl[L.sid]=1; });
+  const pc=function(a,b){ return b?Math.round(a/b*100)+'%':'—'; }, r1=function(x){ return Math.round(x*10)/10; };
+  const nP=Object.keys(T.ppl).length;
+  h+='<div class="rc-k"><div><b>'+T.n.toLocaleString()+'</b><span>sessions ('+usDate(D.start)+' – '+usDate(D.end)+')</span></div>'
+    +'<div><b>'+T.ni.toLocaleString()+'</b><span>in person · '+pc(T.ni,T.n)+'</span></div>'
+    +'<div><b>'+T.nv.toLocaleString()+'</b><span>virtual · '+pc(T.nv,T.n)+'</span></div>'
+    +'<div><b>'+Math.round(T.h).toLocaleString()+'</b><span>clinical hours (incl. '+T.g+' logged groups)</span></div>'
+    +'<div><b>'+(nP?r1(T.n/nP/weeks):'—')+'</b><span>sessions / clinician / week</span></div>'
+    +'<div><b>'+nP+'</b><span>clinicians with sessions</span></div></div>';
+  const SL=Object.keys(S).map(function(k){ return Object.assign({k:k},S[k]); }).sort(function(a,b){ return b.n-a.n; });
+  const row=function(a,label,bold){ const np=Object.keys(a.ppl).length; return '<tr'+(bold?' style="background:#f8fafc;font-weight:800"':'')+'><td class="l">'+(bold?'<b>':'')+rcEsc(label)+(bold?'</b>':'')+'</td><td>'+a.n.toLocaleString()+'</td><td>'+a.ni.toLocaleString()+'</td><td>'+a.nv.toLocaleString()+'</td><td>'+pc(a.nv,a.n)+'</td>'+(a.nu?'<td>'+a.nu+'</td>':'<td class="muted">0</td>')+'<td>'+a.g+'</td><td>'+r1(a.h)+'</td><td>'+r1(a.hi)+'</td><td>'+r1(a.hv)+'</td><td>'+np+'</td><td>'+(np?r1(a.n/np/weeks):'—')+'</td><td>'+(np?r1(a.h/np/weeks):'—')+'</td></tr>'; };
+  RC._sess=SL.concat([Object.assign({k:'Entire practice'},T)]);
+  h+='<div class="rc-c"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3>Sessions and clinical hours by site — including virtual</h3><button class="btn btn-secondary" style="font-size:12px" onclick="rcCsvSess()">Download (CSV)</button></div><div class="sub">Each clinician counts toward their home site. In person / virtual comes from the code’s Delivery (Service Code Workbook) or the Valant facility.</div>'
+    +'<div style="overflow-x:auto"><table class="rc-t"><thead><tr><th class="l">Site</th><th>Sessions</th><th>In person</th><th>Virtual</th><th>% virtual</th><th>Not specified</th><th>Groups</th><th>Clinical hrs</th><th>In-person hrs</th><th>Virtual hrs</th><th>Clinicians</th><th>Sessions / clin / wk</th><th>Clin hrs / clin / wk</th></tr></thead><tbody>'
+    +SL.map(function(a){ return row(a,a.k); }).join('')+(SL.length>1||!f.site?row(T,f.site?'Total':'Entire practice',true):'')+'</tbody></table></div>'
+    +rcSplitBars(SL)+'</div>';
+  // where in-person sessions happened
+  const W={}; lines.forEach(function(L){ if(rcDelivery(L)!=='In person') return; const fs=rcFacSite(L.fac); const k=fs&&fs!=='__virtual'?obSiteName(fs):(L.fac||'(no facility)'); W[k]=(W[k]||0)+1; });
+  const WL=Object.keys(W).map(function(k){ return {label:k,v:W[k]}; }).sort(function(a,b){ return b.v-a.v; });
+  if(WL.length) h+='<div class="rc-c"><h3>Where in-person sessions happened</h3><div class="sub">By the Valant facility on the appointment (a clinician may see clients at more than one office)</div>'+rcHBars(WL,{unit:' sessions'})+'</div>';
+  // peak hours line chart + weekday bars
+  const hrs={}, days=[0,0,0,0,0,0,0], nDays=[0,0,0,0,0,0,0];
+  for(let d=D.start; d<=D.end; d=rcAddDays(d,1)) nDays[capDateOf(d).getDay()]++;
+  lines.forEach(function(L){ if(L.st==null) return; const hh=Math.floor(L.st/60), dl=rcDelivery(L)==='Virtual'?'v':'i'; const x=hrs[hh]=hrs[hh]||{i:0,v:0}; x[dl]++; days[capDateOf(L.date).getDay()]++; });
+  const wkd=nDays[1]+nDays[2]+nDays[3]+nDays[4]+nDays[5]+nDays[6]+nDays[0];
+  h+='<div class="rc-c"><h3>Peak hours — when sessions start</h3><div class="sub">Average sessions starting in each hour, per day in the date range · hover for numbers</div>'+rcLineHours(hrs,Math.max(1,wkd))+'</div>';
+  const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  h+='<div class="rc-c"><h3>Sessions by weekday</h3><div class="sub">Average sessions per day for each weekday in the range</div>'+rcHBars([1,2,3,4,5,6,0].map(function(d){ return {label:DN[d],v:nDays[d]?Math.round(days[d]/nDays[d]*10)/10:0}; }),{unit:' / day'})+'</div>';
+  h+='<div class="muted" style="font-size:11.5px">Sessions = counted Valant appointments (no-shows and supervision included when their code counts). Logged group sessions add to clinical hours and the Groups column. Filters for site, role and format pick the clinicians; category and code pick the appointments.</div>';
+  return h;
+}
+function rcCsvSess(){ try{ const L=RC._sess||[]; rcCsv('sessions_by_site_'+rcDates().start+'_to_'+rcDates().end+'.csv',[['Site','Sessions','In person','Virtual','Not specified','Groups','Clinical hours','In-person hours','Virtual hours','Clinicians']].concat(L.map(function(a){ return [a.k,a.n,a.ni,a.nv,a.nu,a.g,Math.round(a.h*100)/100,Math.round(a.hi*100)/100,Math.round(a.hv*100)/100,Object.keys(a.ppl).length]; }))); }catch(e){ console.error(e); } }
+// Stacked in-person / virtual session bars per site (2px gap between segments; labeled legend).
+function rcSplitBars(SL){
+  if(!SL.length) return ''; const mx=Math.max(1,Math.max.apply(null,SL.map(function(a){ return a.n; })));
+  return '<div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">'+SL.map(function(a){
+    return '<div title="'+rcEsc(a.k+': '+a.ni+' in person · '+a.nv+' virtual'+(a.nu?' · '+a.nu+' not specified':''))+'" style="display:grid;grid-template-columns:minmax(120px,190px) 1fr 140px;gap:10px;align-items:center;font-size:12.5px"><b>'+rcEsc(a.k)+'</b>'
+      +'<span style="display:flex;gap:2px;height:14px"><span style="width:'+(a.ni/mx*100)+'%;background:#122B67;border-radius:'+(a.nv?'0':'0 4px 4px 0')+'"></span><span style="width:'+(a.nv/mx*100)+'%;background:#18A9B6;border-radius:0 4px 4px 0"></span><span style="width:'+(a.nu/mx*100)+'%;background:#d1d5db;border-radius:0 4px 4px 0"></span></span>'
+      +'<span style="text-align:right">'+a.n+' · '+(a.n?Math.round(a.nv/a.n*100):0)+'% virtual</span></div>'; }).join('')+'</div>'
+    +'<div style="display:flex;gap:16px;font-size:11.5px;color:#4b5563;margin-top:6px"><span><span style="display:inline-block;width:10px;height:10px;background:#122B67;border-radius:2px"></span> In person</span><span><span style="display:inline-block;width:10px;height:10px;background:#18A9B6;border-radius:2px"></span> Virtual</span><span><span style="display:inline-block;width:10px;height:10px;background:#d1d5db;border-radius:2px"></span> Not specified</span></div>';
+}
+// Line chart: sessions starting per hour of day (per day in range), in person and virtual + total.
+function rcLineHours(hrs,nd){
+  const ks=Object.keys(hrs).map(Number); if(!ks.length) return '<div class="muted">No sessions in this range.</div>';
+  const lo=Math.min(7,Math.min.apply(null,ks)), hi=Math.max(20,Math.max.apply(null,ks));
+  const pts=[]; for(let hh=lo; hh<=hi; hh++){ const x=hrs[hh]||{i:0,v:0}; pts.push({hh:hh,i:x.i/nd,v:x.v/nd,t:(x.i+x.v)/nd}); }
+  const W=Math.max(560,(hi-lo+1)*48), H=240, pl=40, pb=30, pt=14, pr=16, mx=Math.max(0.1,Math.max.apply(null,pts.map(function(p){ return p.t; })))*1.12;
+  const X=function(i){ return pl+(W-pl-pr)*i/Math.max(1,pts.length-1); }, Y=function(v){ return pt+(H-pt-pb)*(1-v/mx); };
+  let g=''; for(let i=0;i<=4;i++){ const v=mx*i/4; g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#eef0f3"/><text x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+(Math.round(v*10)/10)+'</text>'; }
+  const path=function(k){ return pts.map(function(p,i){ return (i?'L':'M')+X(i).toFixed(1)+' '+Y(p[k]).toFixed(1); }).join(' '); };
+  const pk=pts.reduce(function(a,p){ return p.t>a.t?p:a; },pts[0]);
+  g+='<path d="'+path('t')+'" fill="none" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4 3"/>'
+    +'<path d="'+path('i')+'" fill="none" stroke="#122B67" stroke-width="2"/><path d="'+path('v')+'" fill="none" stroke="#18A9B6" stroke-width="2"/>';
+  pts.forEach(function(p,i){ g+='<g><title>'+obHour(p.hh)+': '+(Math.round(p.t*10)/10)+' sessions/day ('+(Math.round(p.i*10)/10)+' in person, '+(Math.round(p.v*10)/10)+' virtual)</title><rect x="'+(X(i)-14)+'" y="'+pt+'" width="28" height="'+(H-pt-pb)+'" fill="transparent"/>'
+    +'<circle cx="'+X(i)+'" cy="'+Y(p.i)+'" r="3.5" fill="#122B67" stroke="#fff" stroke-width="2"/><circle cx="'+X(i)+'" cy="'+Y(p.v)+'" r="3.5" fill="#18A9B6" stroke="#fff" stroke-width="2"/>'
+    +'<text x="'+X(i)+'" y="'+(H-pb+16)+'" text-anchor="middle">'+obHour(p.hh)+'</text></g>'; });
+  g+='<line x1="'+X(pts.indexOf(pk))+'" x2="'+X(pts.indexOf(pk))+'" y1="'+pt+'" y2="'+(H-pb)+'" stroke="#f2a54b" stroke-width="1.5"/><text x="'+(X(pts.indexOf(pk))+4)+'" y="'+(pt+10)+'" style="fill:#9a5b12;font-weight:700">Peak '+obHour(pk.hh)+'</text>';
+  return '<div style="overflow-x:auto"><svg class="rc-svg" width="'+W+'" height="'+H+'" role="img" aria-label="Sessions by start hour">'+g+'</svg></div>'
+    +'<div style="display:flex;gap:16px;font-size:11.5px;color:#4b5563;margin-top:4px;flex-wrap:wrap"><span><svg width="18" height="8"><line x1="0" x2="18" y1="4" y2="4" stroke="#122B67" stroke-width="2"/></svg> In person</span><span><svg width="18" height="8"><line x1="0" x2="18" y1="4" y2="4" stroke="#18A9B6" stroke-width="2"/></svg> Virtual</span><span><svg width="18" height="8"><line x1="0" x2="18" y1="4" y2="4" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4 3"/></svg> Total</span><span class="muted">Busiest start hour: <b>'+obHour(pk.hh)+'</b> ('+(Math.round(pk.t*10)/10)+' sessions/day)</span></div>';
+}
+// Office Utilization: per-room × hour grid (like the Office Bookings calendar), filtered by site and weekday.
+function rcRoomGrid(roomHeat,site,dowSel){
+  const sites=site?[site]:OFFICE_SITES.map(function(x){ return x[0]; });
+  const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const shade=function(p){ return p==null?'#fff':['#eef2fa','#c9d3ea','#93a6d0','#4f6aa8','#122B67'][Math.min(4,Math.floor(p*5))]; };
+  let h='<div class="rc-f" style="margin:0 0 10px;padding:6px 10px"><label>Weekday<select onchange="RC.ou.dow=this.value;renderReportCenter()"><option value="">All weekdays</option>'+[1,2,3,4,5,6,0].map(function(d){ return '<option value="'+d+'"'+(String(dowSel)===String(d)?' selected':'')+'>'+DN[d]+'</option>'; }).join('')+'</select></label></div>';
+  sites.forEach(function(st){
+    const CF=obCfg(st), rooms=obRooms(st), lo=CF.open, hi=CF.close;
+    const any=rooms.some(function(r){ for(let hh=lo;hh<hi;hh++){ if(roomHeat[st+'|'+r.id+'|'+hh]) return true; } return false; });
+    h+='<div style="margin:8px 0 14px"><div style="font-weight:800;font-size:13px;color:#122B67;margin-bottom:4px">'+rcEsc(obSiteName(st))+(any?'':' <span class="muted" style="font-weight:400">— no bookings in this range</span>')+'</div>';
+    if(!any){ h+='</div>'; return; }
+    h+='<div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:2px;font-size:11px;width:auto"><thead><tr><th style="text-align:left;color:#6b7280;padding-right:8px">Office</th>';
+    for(let hh=lo;hh<hi;hh++) h+='<th style="color:#6b7280;font-weight:700;padding:2px 4px">'+obHour(hh)+'</th>';
+    h+='<th style="color:#6b7280;padding-left:8px;text-align:right">Used</th></tr></thead><tbody>';
+    rooms.forEach(function(r){ let tb=0, tu=0;
+      h+='<tr><td style="font-weight:700;padding-right:8px;white-space:nowrap">'+rcEsc(r.name)+'</td>';
+      for(let hh=lo;hh<hi;hh++){ const c=roomHeat[st+'|'+r.id+'|'+hh]; const p=c&&c.b?c.u/c.b:null; if(c){ tb+=c.b; tu+=c.u; }
+        h+='<td title="'+rcEsc(r.name+' '+obHour(hh)+': '+(c?c.u+' of '+c.b+' booked hours had an in-person session'+(c.who?' · '+Object.keys(c.who).join(', '):''):'not booked'))+'" style="width:44px;height:24px;border-radius:4px;background:'+shade(p)+';border:1px solid '+(c?'transparent':'#f1f2f4')+';text-align:center;color:'+(p!=null&&p>=0.6?'#fff':'#374151')+'">'+(c?c.u+'/'+c.b:'')+'</td>'; }
+      h+='<td style="text-align:right;padding-left:8px;font-weight:700">'+(tb?Math.round(tu/tb*100)+'%':'—')+'</td></tr>'; });
+    h+='</tbody></table></div></div>'; });
+  return h+'<div style="font-size:11.5px;color:#6b7280">Each cell = in-person session hours / booked hours for that office and hour across the dates · darker = better used · empty = never booked · hover for who had it booked</div>';
+}
+function rcRoomName(site,id){ const r=obRooms(site).find(function(x){ return x.id===id; }); return r?r.name:(id||'(office)'); }
+function rcUtilBars(rows){ if(!rows.length) return '<div class="muted">No bookings in this range.</div>';
+  const mx=Math.max(1,Math.max.apply(null,rows.map(function(r){ return r.booked; })));
+  return '<div style="display:flex;flex-direction:column;gap:8px">'+rows.map(function(r){ const p=r.booked?Math.round(r.used/r.booked*100):null;
+    return '<div title="'+rcEsc(r.label+': '+Math.round(r.used)+' of '+Math.round(r.booked)+' booked hrs used'+(r.unb?' · '+r.unb+' in-person sessions with no booking':''))+'" style="display:grid;grid-template-columns:minmax(110px,170px) 1fr 150px;gap:10px;align-items:center;font-size:12.5px"><b>'+rcEsc(r.label)+'</b>'
+      +'<span style="position:relative;height:16px"><span style="position:absolute;left:0;top:0;bottom:0;width:'+(r.booked/mx*100)+'%;background:#c9d3ea;border-radius:0 4px 4px 0"></span><span style="position:absolute;left:0;top:3px;bottom:3px;width:'+(r.used/mx*100)+'%;background:#122B67;border-radius:0 3px 3px 0"></span></span>'
+      +'<span style="text-align:right">'+Math.round(r.used)+' / '+Math.round(r.booked)+' h · <b>'+(p==null?'—':p+'%')+'</b></span></div>'; }).join('')+'</div>'
+    +'<div style="display:flex;gap:16px;font-size:11.5px;color:#4b5563;margin-top:6px"><span><span style="display:inline-block;width:10px;height:10px;background:#c9d3ea;border-radius:2px"></span> Booked</span><span><span style="display:inline-block;width:10px;height:10px;background:#122B67;border-radius:2px"></span> Used for in-person sessions</span></div>';
+}
+function rcHeat(heat){
+  const keys=Object.keys(heat); if(!keys.length) return '<div class="muted">No bookings in this range.</div>';
+  let lo=24, hi=0; keys.forEach(function(k){ const hh=+k.split('|')[1]; lo=Math.min(lo,hh); hi=Math.max(hi,hh); });
+  const days=[1,2,3,4,5,6,0], DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const shade=function(p){ return p==null?'#f9fafb':['#eef2fa','#c9d3ea','#93a6d0','#4f6aa8','#122B67'][Math.min(4,Math.floor(p*5))]; };
+  let h='<div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:2px;font-size:11px;width:auto"><thead><tr><th></th>'+days.map(function(d){ return '<th style="color:#6b7280;font-weight:700;padding:2px 6px">'+DN[d]+'</th>'; }).join('')+'</tr></thead><tbody>';
+  for(let hh=lo; hh<=hi; hh++){ h+='<tr><td style="color:#6b7280;padding-right:6px;text-align:right">'+obHour(hh)+'</td>'+days.map(function(d){ const c=heat[d+'|'+hh]; const p=c&&c.b?c.u/c.b:null;
+      return '<td title="'+(c?DN[d]+' '+obHour(hh)+': '+c.u+' of '+c.b+' booked office-hours used ('+Math.round(p*100)+'%)':'not booked')+'" style="width:54px;height:22px;border-radius:4px;background:'+shade(p)+';text-align:center;color:'+(p!=null&&p>=0.6?'#fff':'#374151')+'">'+(c?Math.round(p*100)+'%':'')+'</td>'; }).join('')+'</tr>'; }
+  return h+'</tbody></table></div>';
+}
+
+// ══ WELCOME + TOUR ══════════════════════════════════════════════════════════════════════════
+// After sign-in: a welcome card (Homebase logo + tagline) with "Continue to site" and "Take the tour".
+// Shown once per browser session; "Don't show this when I sign in" turns it off for this browser.
+// The tour walks the sidebar items this person can see, spotlighting each with a short explanation.
+function hbWelcomeMaybe(){
+  try{
+    let off=false, seen=false; try{ off=localStorage.getItem('hb_welcome_off')==='1'; seen=sessionStorage.getItem('hb_welcomed')==='1'; }catch(e){}
+    if(off||seen) return; hbWelcome();
+  }catch(e){ console.error(e); }
+}
+function hbWelcome(){
+  try{
+    try{ sessionStorage.setItem('hb_welcomed','1'); }catch(e){}
+    let me=null; try{ me=homeMe(); }catch(e){}
+    const first=String((me&&me['Clinician'])||'').trim().split(' ')[0];
+    let o=document.getElementById('hb-welcome'); if(o) o.remove();
+    o=document.createElement('div'); o.id='hb-welcome';
+    o.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(18,43,103,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    o.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="hbw-h" style="background:#fff;border-radius:20px;max-width:520px;width:100%;padding:34px 34px 24px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.25)">'
+      +'<img src="'+HB_LOGO_SRC+'" alt="homebase" style="width:280px;max-width:80%;height:auto;display:block;margin:0 auto">'
+      +'<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.16em;margin:10px 0 0">Let&rsquo;s Work Together</div>'
+      +'<h2 id="hbw-h" style="margin:22px 0 6px;font-family:Montserrat,sans-serif;color:#122B67;font-size:22px">Welcome to Homebase'+(first?', '+hesc(first):'')+'!</h2>'
+      +'<div style="font-size:14px;color:#4b5563;line-height:1.55">Everything for your work at Advance Psychotherapy in one place — your schedule and capacity, time and pay, files, policies and more.'+(hbTourIsClinician()?' New here? The tour takes about 3 minutes.':'')+'</div>'
+      +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px">'
+      +'<button class="btn btn-secondary" style="padding:10px 18px;font-size:14px" onclick="hbWelcomeClose();hbTourStart()">🧭 Take the tour</button>'
+      +'<button class="btn btn-primary" id="hbw-go" style="padding:10px 22px;font-size:14px" onclick="hbWelcomeClose()">Continue to site →</button></div>'
+      +'<label style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:#9ca3af;margin-top:16px;cursor:pointer"><input type="checkbox" onchange="try{localStorage.setItem(\'hb_welcome_off\',this.checked?\'1\':\'0\')}catch(e){}" style="width:auto"> Don’t show this when I sign in</label></div>';
+    document.body.appendChild(o);
+    setTimeout(function(){ const b=document.getElementById('hbw-go'); if(b) b.focus(); },50);
+  }catch(e){ console.error(e); }
+}
+function hbWelcomeClose(){ const o=document.getElementById('hb-welcome'); if(o) o.remove(); }
+var HB_TOUR_STEPS=[
+  ['.sidebar-logo','Welcome to Homebase','This menu is your way around. It only shows what your role uses — and you can retake this tour anytime from “🧭 Take the tour” under the logo.'],
+  ['#nav-home','My Homebase','Your start page: practice alerts, things that need your attention, your office schedule, meeting & admin time and capacity at a glance.'],
+  ['#nav-clin-leadership','My Team','For supervisors and managers: your team’s capacity, notes and status in one view.'],
+  ['#nav-intake-profile','Clinical Profile for Intake','Tell intake who you’re best suited to see — populations, diagnoses, approaches and (optionally) identities you’d like to share.'],
+  ['#nav-offices','Office Bookings','See your site’s office calendar and request an office — weekly or one-off. Your CTM approves it.'],
+  ['#nav-capacity','Capacity Dashboard','Your clinical hours vs your goal for the year, by pay period, with what it takes to stay on pace.'],
+  ['#nav-clin-policies','Clinical Policies & How-To Manuals','Policies and step-by-step guides for clinical work.'],
+  ['#nav-reflib','Learning & Reference','Trainings, resources and reference material.'],
+  ['#nav-myfile','My Employee File','Your profile, credentials, CEUs and documents.'],
+  ['#nav-meetings','Meeting & Admin Time','Log meetings, admin time and group sessions so payroll can pay them.'],
+  ['#nav-paysnap','Pay Period Snapshot','After each payroll closes: the clinical hours you were credited and what was paid, by pay period.'],
+  ['#nav-roster','Roster','Everyone’s employee file — profiles, credentials, alerts and capacity.'],
+  ['#nav-report-center','Report Center','Clinical hours analysis, sessions & peak times, and office utilization.'],
+  ['#nav-admin','Homebase Settings','Alerts, news, events, offices, roles & permissions and more.'],
+  ['#nav-ppu','Payroll Processing','Upload Valant, approve time, close the pay period and download the Paychex CSV.']
+];
+var HBT={i:0,steps:[],mode:'menu'};
+// ── Getting-started walkthrough for therapists ──
+// Moves page to page and spotlights the real parts of each page, chapter by chapter. Used when the viewer
+// is a clinician (or in the therapist/supervisor view); everyone else gets the menu tour above.
+// Step: {ch, page?, sel?|text?, nav?, t, d, center?}. A step whose target isn't on screen is skipped.
+var HB_TT_STEPS=[
+  {ch:'Welcome',center:true,t:'Welcome to Homebase 👋',d:'This 3-minute walkthrough shows the things you’ll use most as a clinician: your start page, logging time, your capacity, booking an office, your intake profile and your pay. Use Next / Back (or the arrow keys); Esc ends it anytime.'},
+  {ch:'Your start page',page:'home',sel:'.hm-top',nav:'#nav-home',t:'My Homebase',d:'Your start page every time you open Homebase. The menu on the left takes you everywhere else — this tour will walk you through the main stops.'},
+  {ch:'Your start page',page:'home',sel:'.hs-card.hs-alerts',t:'Needs your attention',d:'Alerts from leadership, HR and billing land here — critical ones first. Click “Mark done” when you’ve taken care of one. A ⛔ hard-stop from billing means don’t see that client until it’s cleared.'},
+  {ch:'Your start page',page:'home',sel:'.hs-card.ts',t:'Your site & emergency info',d:'Your site address, your CTM, program manager and clinical supervisor (click ✉ to email them), and the emergency numbers for your site.'},
+  {ch:'Your start page',page:'home',sel:'.hs-card.hs-cap',t:'Your capacity at a glance',d:'Where you are against your clinical-hours goal for the year, this quarter and year-end — the full picture is on your Capacity Dashboard.'},
+  {ch:'Your start page',page:'home',sel:'[aria-labelledby="hs-mtg-h"]',t:'Meeting & admin time',d:'Hours you’ve logged this pay period and anything waiting for payroll. “Log time →” takes you to the form.'},
+  {ch:'Your start page',page:'home',sel:'[aria-labelledby="hs-ob-h"]',t:'My office',d:'The offices you have booked this week. Virtual-only clinicians don’t see this.'},
+  {ch:'Log your time',page:'meetings',sel:'.me-list',nav:'#nav-meetings',t:'Meeting & Admin Time — step 1',d:'Pick the kind of time: a group you ran, a team or consultation meeting, group prep & admin, or a pre-approved admin meeting. Each one shows how it’s paid.'},
+  {ch:'Log your time',page:'meetings',sel:'.me-when',t:'Step 2 — when and how long',d:'Choose the day, when it started and how long it was. For a group, add the service code and how many clients attended — the group counts toward your capacity as attendees × .33.'},
+  {ch:'Log your time',page:'meetings',sel:'#mtg-mine',t:'Step 3 — your entries',d:'Everything you’ve logged, with its status. You can edit or delete an entry until payroll closes the pay period; then it shows “Paid”.'},
+  {ch:'Your capacity',page:'capacity',sel:'#cap-body svg[id$="-svg"]',nav:'#nav-capacity',t:'Capacity Dashboard',d:'Your clinical hours (green) against the pace you need for your goal (dashed). Your goal is based on your weekly capacity, and adjusts for your start date, leave and capacity changes.'},
+  {ch:'Your capacity',page:'capacity',sel:'#cap-body .cap-pprow',t:'Pay period by pay period',d:'Each closed pay period: hours credited vs expected. “Pay sheet →” opens that period’s Pay Period Snapshot.'},
+  {ch:'Book an office',page:'offices',sel:'.ob-bar',nav:'#nav-offices',t:'Office Bookings',d:'Your site’s offices for the week. Use the arrows to change weeks and “+ Request an office” for a one-off or weekly booking — your CTM approves it and you’ll see it on My Homebase.'},
+  {ch:'Book an office',page:'offices',sel:'.ob-grid',t:'The office calendar',d:'Each column is an office, each row an hour. Click any empty “+” to request that time.'},
+  {ch:'Intake profile',page:'intake-profile',sel:'.ip-wrap .hb-tabs',nav:'#nav-intake-profile',t:'Clinical Profile for Intake',d:'Tells Intake who you’re best suited to see. Ages & Modalities, Diagnostic Realms & Exclusions, and an optional Identities tab.'},
+  {ch:'Intake profile',page:'intake-profile',sel:'.ip-req',t:'New Client Request',d:'Say whether you’re taking new clients, how many, where and when — Intake searches this first. Keep it current so the right referrals come to you.'},
+  {ch:'Your pay',page:'paysnap',sel:'.ps-nav',nav:'#nav-paysnap',t:'Pay Period Snapshot',d:'After payroll closes each pay period, your snapshot shows up here. Use the arrows or pick a period; “Find by date” jumps to the one covering a date.'},
+  {ch:'Your pay',page:'paysnap',sel:'.ps-band',t:'What you were credited',d:'Clinical hours credited toward capacity, how each appointment counted (clients by code only), and the guide to how every service code counts.'},
+  {ch:'Everything else',sel:'#nav-myfile',t:'My Employee File',d:'Your profile, license and credentials, CEUs and documents. Keep your contact info current here.'},
+  {ch:'Everything else',sel:'#nav-clin-policies',t:'Policies, paperwork & learning',d:'Clinical Policies & How-To Manuals, Paperwork & Templates, eCANS and Learning & Reference — all under Clinical Corner.'},
+  {ch:'You’re all set',page:'home',center:true,t:'You’re all set 🎉',d:'That’s Homebase. You can take this tour again anytime from “🧭 Take the tour” under the logo. Questions? Use the Suggestion box on My Homebase or ask your CTM.'}
+];
+function hbTourIsClinician(){
+  try{ const r=currentRole(); if(r==='therapist'||r==='supervisor') return true; if(r==='admin'||r==='superadmin') return false; }catch(e){}
+  try{ const me=homeMe(); return !!(me&&isClinicianRec(me)); }catch(e){ return false; }
+}
+function hbTourPageVisible(pg){ try{ const n=document.querySelector('.nav-item[data-page="'+pg+'"]'); return !n||hbTourVisible(n); }catch(e){ return true; } }
+async function hbTTStart(){
+  try{
+    HBT.mode='clin';
+    HBT.steps=HB_TT_STEPS.filter(function(s){ return !s.page||hbTourPageVisible(s.page); }); HBT.i=0;
+    window.addEventListener('resize',hbTourShow); document.addEventListener('keydown',hbTourKey);
+    await hbTTShow();
+  }catch(e){ console.error(e); hbTourEnd(); }
+}
+function hbTTWait(sel,ms){ return new Promise(function(res){ const t0=Date.now(); (function tick(){ const el=document.querySelector(sel); if(el&&hbTourVisible(el)) return res(el); if(Date.now()-t0>ms) return res(null); setTimeout(tick,120); })(); }); }
+async function hbTTShow(dir){
+  try{
+    const st=HBT.steps[HBT.i]; if(!st) return hbTourEnd();
+    if(st.page){ const cur=document.querySelector('.page.active'); if(!cur||cur.id!=='page-'+st.page) showPage(st.page,document.querySelector('.nav-item[data-page="'+st.page+'"]')); }
+    let el=null;
+    if(!st.center){ el=await hbTTWait(st.sel,st.page?3500:300); if(!el){ HBT.i+=(dir||1); if(HBT.i<0) HBT.i=0; return HBT.i>=HBT.steps.length?hbTourEnd():hbTTShow(dir); } }
+    if(el) try{ el.scrollIntoView({block:el.getBoundingClientRect().height>window.innerHeight*0.5?'start':'center',behavior:'instant'}); }catch(e){ try{ el.scrollIntoView(); }catch(_){} }
+    hbTTDraw(st,el);
+  }catch(e){ console.error(e); hbTourEnd(); }
+}
+function hbTTDraw(st,el){
+  const Z=parseFloat(getComputedStyle(document.body).zoom)||1, VW=window.innerWidth/Z, VH=window.innerHeight/Z;
+  let blk=document.getElementById('hbt-block'); if(!blk){ blk=document.createElement('div'); blk.id='hbt-block'; blk.style.cssText='position:fixed;inset:0;z-index:99996'; document.body.appendChild(blk); }
+  let sp=document.getElementById('hbt-spot'); if(!sp){ sp=document.createElement('div'); sp.id='hbt-spot'; document.body.appendChild(sp); }
+  let r=null;
+  if(el){ const R=el.getBoundingClientRect(); r={left:R.left/Z,top:Math.max(0,R.top/Z),right:R.right/Z,bottom:Math.min(VH,R.bottom/Z)}; r.width=r.right-r.left; r.height=r.bottom-r.top;
+    sp.style.cssText='position:fixed;z-index:99997;pointer-events:none;border-radius:12px;box-shadow:0 0 0 9999px rgba(17,24,39,.6),0 0 0 3px #F2A54B;transition:all .25s;left:'+(r.left-6)+'px;top:'+(r.top-6)+'px;width:'+(r.width+12)+'px;height:'+(r.height+12)+'px'; }
+  else sp.style.cssText='position:fixed;z-index:99997;pointer-events:none;inset:0;background:rgba(17,24,39,.6);transition:all .25s';
+  // the menu item for this chapter glows
+  document.querySelectorAll('.nav-item.hbt-on').forEach(function(n){ n.classList.remove('hbt-on'); });
+  const nv=st.nav?document.querySelector(st.nav):(st.page?document.querySelector('.nav-item[data-page="'+st.page+'"]'):null); if(nv) nv.classList.add('hbt-on');
+  let c=document.getElementById('hbt-card'); if(!c){ c=document.createElement('div'); c.id='hbt-card'; c.setAttribute('role','dialog'); c.setAttribute('aria-live','polite'); document.body.appendChild(c); }
+  const n=HBT.steps.length, last=HBT.i===n-1, chs=[]; HBT.steps.forEach(function(s){ if(chs.indexOf(s.ch)<0) chs.push(s.ch); });
+  const ci=chs.indexOf(st.ch), cw=Math.min(st.center?440:330,VW-24);
+  c.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#18A9B6">'+hesc(st.ch)+'</span><span style="font-size:10.5px;color:#9ca3af">'+(HBT.i+1)+' / '+n+'</span></div>'
+    +'<div style="display:flex;gap:3px;margin:6px 0 8px">'+chs.map(function(x,i){ return '<span style="flex:1;height:4px;border-radius:2px;background:'+(i<ci?'#122B67':i===ci?'#F2A54B':'#e5e7eb')+'"></span>'; }).join('')+'</div>'
+    +(st.center&&HBT.i===0?'<img src="'+HB_LOGO_SRC+'" alt="homebase" style="width:180px;display:block;margin:4px auto 10px">':'')
+    +'<div style="font-weight:800;font-size:15.5px;color:#122B67;margin:0 0 4px">'+hesc(st.t)+'</div><div>'+hesc(st.d)+'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px">'+(last?'<span></span>':'<button class="btn btn-secondary" style="font-size:11.5px;padding:5px 9px" onclick="hbTourEnd()">End tour</button>')+'<span style="display:flex;gap:6px">'
+    +(HBT.i?'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="hbTourGo(-1)">← Back</button>':'')
+    +'<button class="btn btn-primary" id="hbt-next" style="font-size:12px;padding:5px 14px" onclick="hbTourGo(1)">'+(last?'Finish ✓':HBT.i===0?'Let’s go →':'Next →')+'</button></span></div>';
+  c.style.cssText='position:fixed;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 18px 44px rgba(0,0,0,.3);padding:14px 16px 12px;width:'+cw+'px;font-size:12.5px;color:#374151;line-height:1.55;left:0;top:0;visibility:hidden';
+  const ch=c.offsetHeight||200; let left, top;
+  if(!r){ left=(VW-cw)/2; top=(VH-ch)/2; }
+  else if(r.right+14+cw<=VW-10){ left=r.right+14; top=r.top; }
+  else if(r.left-14-cw>=10){ left=r.left-14-cw; top=r.top; }
+  else if(r.bottom+12+ch<=VH-10){ left=Math.min(Math.max(10,r.left),VW-cw-10); top=r.bottom+12; }
+  else if(r.top-12-ch>=10){ left=Math.min(Math.max(10,r.left),VW-cw-10); top=r.top-12-ch; }
+  else { left=VW-cw-16; top=VH-ch-16; }
+  c.style.left=left+'px'; c.style.top=Math.max(10,Math.min(top,VH-ch-10))+'px'; c.style.visibility='visible';
+  setTimeout(function(){ const b=document.getElementById('hbt-next'); if(b) b.focus(); },30);
+}
+
+function hbTourVisible(el){ return !!(el&&el.offsetParent!==null&&el.getClientRects().length&&getComputedStyle(el).display!=='none'&&getComputedStyle(el).visibility!=='hidden'); }
+function hbTourStart(force){
+  try{
+    if(force!=='menu'&&hbTourIsClinician()) return hbTTStart();
+    HBT.mode='menu';
+    HBT.steps=HB_TOUR_STEPS.filter(function(s){ return hbTourVisible(document.querySelector(s[0])); }); HBT.i=0;
+    if(!HBT.steps.length) return; hbTourShow(); window.addEventListener('resize',hbTourShow); document.addEventListener('keydown',hbTourKey);
+  }catch(e){ console.error(e); }
+}
+function hbTourKey(e){ if(e.key==='Escape') hbTourEnd(); else if(e.key==='ArrowRight') hbTourGo(1); else if(e.key==='ArrowLeft') hbTourGo(-1); }
+function hbTourGo(d){ const j=HBT.i+d; if(j<0) return; if(j>=HBT.steps.length){ hbTourEnd(); return; } HBT.i=j; if(HBT.mode==='clin') hbTTShow(d); else hbTourShow(); }
+function hbTourEnd(){ ['hbt-spot','hbt-card','hbt-block'].forEach(function(id){ const e=document.getElementById(id); if(e) e.remove(); }); document.querySelectorAll('.nav-item.hbt-on').forEach(function(n){ n.classList.remove('hbt-on'); }); if(HBT.mode==='clin'){ try{ const cur=document.querySelector('.page.active'); if(cur&&cur.id!=='page-home') showPage('home',document.getElementById('nav-home')); }catch(e){} } window.removeEventListener('resize',hbTourShow); document.removeEventListener('keydown',hbTourKey); }
+function hbTourShow(){
+  try{
+    if(HBT.mode==='clin'){ const st=HBT.steps[HBT.i]; if(st) hbTTDraw(st,st.center?null:document.querySelector(st.sel)); return; }
+    const st=HBT.steps[HBT.i]; if(!st) return hbTourEnd(); const el=document.querySelector(st[0]); if(!el) return hbTourGo(1);
+    try{ el.scrollIntoView({block:'nearest'}); }catch(e){}
+    // the body is zoomed (1.35): convert viewport px from getBoundingClientRect into body CSS px
+    const Z=parseFloat(getComputedStyle(document.body).zoom)||1, R=el.getBoundingClientRect(), VW=window.innerWidth/Z, VH=window.innerHeight/Z;
+    const r={left:R.left/Z,top:R.top/Z,right:R.right/Z,bottom:R.bottom/Z,width:R.width/Z,height:R.height/Z}, pad=4;
+    let blk=document.getElementById('hbt-block'); if(!blk){ blk=document.createElement('div'); blk.id='hbt-block'; blk.style.cssText='position:fixed;inset:0;z-index:99996'; document.body.appendChild(blk); }
+    let sp=document.getElementById('hbt-spot'); if(!sp){ sp=document.createElement('div'); sp.id='hbt-spot'; document.body.appendChild(sp); }
+    sp.style.cssText='position:fixed;z-index:99997;pointer-events:none;border-radius:10px;box-shadow:0 0 0 9999px rgba(17,24,39,.6),0 0 0 3px #F2A54B;transition:all .2s;left:'+(r.left-pad)+'px;top:'+(r.top-pad)+'px;width:'+(r.width+pad*2)+'px;height:'+(r.height+pad*2)+'px';
+    let c=document.getElementById('hbt-card'); if(!c){ c=document.createElement('div'); c.id='hbt-card'; c.setAttribute('role','dialog'); document.body.appendChild(c); }
+    const n=HBT.steps.length, last=HBT.i===n-1, cw=Math.min(300,VW-24);
+    let left=r.right+14, top=r.top-8;
+    if(left+cw>VW-10){ left=Math.max(10,Math.min(r.left,VW-cw-10)); top=r.bottom+10; }
+    c.style.cssText='position:fixed;z-index:99998;background:#fff;border-radius:14px;box-shadow:0 18px 44px rgba(0,0,0,.3);padding:14px 16px 12px;width:'+cw+'px;left:'+left+'px;top:'+top+'px;font-size:12.5px;color:#374151;line-height:1.5';
+    c.innerHTML='<div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af">Tour · '+(HBT.i+1)+' of '+n+'</div>'
+      +'<div style="font-weight:800;font-size:14.5px;color:#122B67;margin:3px 0 4px">'+hesc(st[1])+'</div><div>'+hesc(st[2])+'</div>'
+      +'<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:12px"><button class="btn btn-secondary" style="font-size:11.5px;padding:5px 9px" onclick="hbTourEnd()">Skip tour</button><span style="display:flex;gap:6px">'
+      +(HBT.i?'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="hbTourGo(-1)">← Back</button>':'')
+      +'<button class="btn btn-primary" id="hbt-next" style="font-size:12px;padding:5px 13px" onclick="hbTourGo(1)">'+(last?'Finish ✓':'Next →')+'</button></span></div>';
+    const ch=c.offsetHeight||180; c.style.top=Math.max(10,Math.min(top,VH-ch-10))+'px';
+    setTimeout(function(){ const b=document.getElementById('hbt-next'); if(b) b.focus(); },30);
+  }catch(e){ console.error(e); hbTourEnd(); }
+}
 
 // ══ SERVICE CODE RULES page (the Cap Hours Formula sheet, editable) ═══════════════════════
 var CR_COLS=[['cat','Category','cat',140],['id','Valant service ID','text',140],['head','Display Headings','head',190],['diff','After 5pm S/S Differential Eligible ($5 per appt)','bool',90],['desc','Cleaned description','text',300],
@@ -17472,6 +18290,7 @@ onAuthStateChanged(auth, async user => {
     }
     const ov = document.getElementById('auth-overlay');
     if (ov) ov.style.display = 'none';
+    try { if (typeof hbWelcomeMaybe === 'function') hbWelcomeMaybe(); } catch (e) {}
   } catch (e) {
     console.error('boot failed', e);
     ovState('denied', 'Something went wrong loading the app: ' + (e && e.message || e));
