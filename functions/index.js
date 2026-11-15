@@ -113,3 +113,65 @@ exports.billingKillSwitch = onMessagePublished(
     }
   }
 );
+
+
+/**
+ * Job applications (public apply.html, Nov 2026).
+ *
+ * When a candidate submits, send them a confirmation email. Email goes out through the
+ * Firebase "Trigger Email from Firestore" extension (firebase/firestore-send-email): this
+ * function adds a document to the `mail` collection and the extension delivers it over SMTP.
+ * Clients can't read or write `mail` (no rule matches it), so the form can't be used to send
+ * arbitrary email. If the extension isn't installed yet, the `mail` doc simply waits.
+ *
+ * Setup (once, by whoever deploys): install the extension with
+ *   Mail collection: mail · Default FROM: "Advance Psychotherapy Practice <hr@advancepsychotherapy.org>"
+ *   SMTP: Google Workspace SMTP relay or an app password for the HR mailbox
+ * then: cd functions && npm install && firebase deploy --only functions --project advance-intranet
+ */
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const admin = require('firebase-admin');
+if (!admin.apps.length) admin.initializeApp();
+
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+exports.applicationReceived = onDocumentCreated(
+  { document: 'applications/{appId}', region: 'us-central1' },
+  async (event) => {
+    const d = event.data && event.data.data();
+    if (!d) return;
+    const to = String(d['Email Address'] || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to) || to.length > 150) {
+      logger.warn('application without a usable email', { appId: event.params.appId });
+      return;
+    }
+    const first = String(d['Preferred Name'] || d['_name'] || '').trim().split(/\s+/)[0] || 'there';
+    const position = String(d['Position'] || 'a clinical position');
+    const text =
+      `Hi ${first},\n\n` +
+      `Thank you for applying for ${position} at Advance Psychotherapy Practice. We've received your application` +
+      `${d._resume ? ' and resume' : ''}.\n\n` +
+      `A member of our leadership team reads every application personally. If your background is a good fit, ` +
+      `we'll reach out by email to talk about next steps.\n\n` +
+      `Warmly,\nThe Advance Psychotherapy Practice team\nhr@advancepsychotherapy.org`;
+    const html =
+      `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#1f2937;max-width:560px">` +
+      `<div style="background:#122B67;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0;font-size:18px;font-weight:bold">Application received</div>` +
+      `<div style="border:1px solid #e5e7eb;border-top:0;padding:20px 22px;border-radius:0 0 10px 10px">` +
+      `<p>Hi ${escHtml(first)},</p>` +
+      `<p>Thank you for applying for <b>${escHtml(position)}</b> at Advance Psychotherapy Practice. We've received your application${d._resume ? ' and resume' : ''}.</p>` +
+      `<p>A member of our leadership team reads every application personally. If your background is a good fit, we'll reach out by email to talk about next steps.</p>` +
+      `<p style="margin-top:22px">Warmly,<br>The Advance Psychotherapy Practice team<br><a href="mailto:hr@advancepsychotherapy.org" style="color:#18A9B6">hr@advancepsychotherapy.org</a></p>` +
+      `</div></div>`;
+    await admin.firestore().collection('mail').add({
+      to,
+      replyTo: 'hr@advancepsychotherapy.org',
+      message: { subject: 'We received your application — Advance Psychotherapy Practice', text, html },
+      appId: event.params.appId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    logger.info('confirmation queued', { appId: event.params.appId });
+  }
+);

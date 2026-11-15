@@ -509,3 +509,140 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - **Welcome** after sign-in (`hbWelcomeMaybe` from the auth module, once per browser session; "Don't show this" = localStorage hb_welcome_off): logo + tagline, "Take the tour" / "Continue to site".
 - **Tour** (`hbTourStart`, `HB_TOUR_STEPS`): spotlights the sidebar items the person can see, Next/Back/Skip, arrows/Esc; positions divide by the body zoom (1.35). "🧭 Take the tour" under the logo.
 - **Clinician walkthrough** (`HB_TT_STEPS`, `hbTTStart/hbTTShow/hbTTDraw`): for therapists/supervisors (and clinicians in other views except admin roles) "Take the tour" runs a chaptered, page-by-page walkthrough — Welcome → start page widgets → Meeting & Admin Time form → Capacity Dashboard → Office Bookings → Clinical Profile for Intake → Pay Period Snapshot → Employee File / policies → done. It navigates pages, waits for each target, spotlights it, glows the menu item (`.nav-item.hbt-on`), shows chapter progress; missing targets are skipped; ends back on My Homebase. Admin roles get the menu tour (`hbTourStart('menu')` forces it).
+
+### Team (site) history (Nov 15 2026)
+- `staff._teamHist=[{from:'YYYY-MM-DD'|'',team}]`; `staffTeamHist`, `staffTeamAt(s,iso)`, `staffTeamSegments(s,a,z)`, `staffTeamRecordMove`. Changing Team on the Employee File edit form requires "Date they moved to the new team" (`ef-teamfrom`, blocked if a later move exists). Profile shows the history + "🗓 Team history" dialog (`teamHistOpen`, also in Admin actions) to add / change / remove moves.
+- Report Center uses the team on each date: site filter, hours & goal by site (goal split across team segments), breakdown by site, Sessions & Peak Times by site. Capacity Dashboard / other pages still group by current Team.
+
+### Office Utilization overhaul — live + retained history (Nov 15 2026)
+- `rcOfficeHtml` rewritten. **Live** card (`rcOfficeLive`): per site, offices in use right now, today's booked vs available hours, today's office×hour grid with names.
+- **History** (`OFH`, `ofhBackfill`): every past day is frozen into kv `app_office_hist_YYYY_MM` {days:{iso:{at,sites:{SITE:{open,close,openDay,rooms,occ:[{id,room,sid,name,start,end,kind}]}}}}} on an Admin's visit to Report Center or Office Bookings (backfills all missing days from the first approved booking to yesterday; kv write = admins). Reports read saved days, live for today/unsaved.
+- Measures: occupancy = booked ÷ available office-hours (offices × open hours on open days); weekly occupancy lines per site (`rcOccLines`); by site; office×hour occupancy grid (`rcRoomGrid`, weekday filter); weekday×hour occupancy heat (`rcHeat`); by office; by clinician; CSV of the full booking record. Super Admin adds Valant "used" hours, virtual-in-slot, in-person with no booking.
+- Bookings keep history: `obRemove` ENDS a started weekly booking (until = yesterday, endedBy/endedAt) instead of deleting; past one-offs can't be removed; only not-yet-started bookings are deleted.
+
+## Events: picture, RSVP and RSVP reminders (Nov 15 2026)
+- Event modal (`hcalEdit`) has `hcalEditExtrasHtml`: picture/flyer upload (PNG/JPG/GIF/WebP ≤5 MB → Storage
+  `refLibrary/{eventId}/{file}`, saved on the event as `img:{path,url,name}`; no storage rule change) and
+  "Ask people to RSVP" → `rsvp:{on,by,maybe,guests,alert,alertFrom}`.
+- Answers: Firestore `eventRsvps/{eid}__{sid}` via `window.rsvpStore` (mine/forEvent/set/remove). Each person writes
+  only their own; Admins read all. **Needs a firestore.rules deploy.**
+- `hcalRsvpHtml` (buttons on the calendar card), `homeLoadRsvpAlerts` (💌 reminder in Needs your attention for invited,
+  unanswered people from alertFrom to the RSVP-by date), `hcalRsvpAdminLine` / `hcalRsvpList` / `hcalRsvpCsv` (admin counts,
+  names by answer + no reply, CSV). Invited = active staff, practice-wide or the event's team.
+- Capacity chart: month labels (`monthAxis`) under the plot; chart height 366, padB 84.
+
+## Report Center chart labels (Nov 15 2026)
+- `rcBarsTime` shows a second label line (`p.sub`): pay-period dates (1/5–1/18) and week dates; weeks are labelled
+  "Wk of M/D"; months show the year on the first bar and January. Hours value above each bar when there's room.
+
+## Legal name / preferred name / pronouns (Nov 15 2026)
+- Roster fields 'Legal Name', 'Preferred Name', 'Pronouns' (editor: ef-legal / ef-pref / ef-pron, replacing ef-name).
+- 'Clinician' stays the DISPLAY name used by every screen, report, dashboard and document: `staffApplyNames(p)` sets it to
+  Preferred Name, else Legal Name, on save, and carries a rename into other people's 'Supervisor' / 'Reports To' (stored as names).
+- Name matching (capImpMatch, findSimilarStaff, ppu Valant provider match, prSuggestSid, super-admin seed, add-employee dupe check)
+  checks both names via `staffNameKeys(s)`. Legal name shows only on the profile (admins) and in roster search.
+- Pronouns: `staffPronounTag(s)` beside the name on the profile header and roster; "Pronouns" row on the profile.
+- Existing records: Legal Name is blank until someone saves the profile (the editor pre-fills it from the current name).
+
+## My Homebase layout + Locations (Nov 15 2026)
+- Home: Row 1 = site & emergency | Needs your attention + Latest Practice News (news moved up). Row 2 = `homeCapRowHtml()`:
+  wide capacity card (`hs-capwide`, extra detail from `homeCapMoreHtml`: year to date vs expected, ahead/behind, weekly goal,
+  group credit, catch-up pace, the four benchmarks) beside Clinical Profile for Intake + My office. Row 3 calendar, Row 4 suggestion box.
+  Meeting & admin time widget removed from the homepage (and from the therapist tour); the Meetings page is unchanged.
+- Homebase Settings → 📍 Locations (`hbmRenderLocations`, `locEdit`, `locSave`, `locClose`/`locCloseCommit`, `locReopen`).
+  Data = CONFIG.siteDirectory[code] {l, addr, phone, police, fire, offices, closed, closedNote} + teamLabels/siteMeta/siteOrder/teamOpts,
+  saved to kv/app_config by `locSaveConfig`. Code is fixed (it's the staff Team code and the booking site code).
+- `OFFICE_SITES` is now a getter: open locations with offices (room count from kv/app_office_rooms, else `offices`, else defaults).
+  `officeSitesAll()` includes closed ones — Report Center uses it so history stays. New location with N offices creates rooms
+  "Office 1..N". Closing (from a date) ends weekly bookings the day before, declines later one-time ones, hides it from pickers
+  (`locOpenCodes`, `siteIsOpen`). Team pill colours for new codes come from `locApplyCss()`. Weather only for built-in sites (SITE_NWS).
+
+## Intake profile realms, Back button, Roles & permissions retool (Nov 15 2026)
+- Diagnostic Realms & Exclusions: rows are `.ip-lvrow` with one segmented control `.ip-lv` (Low / Moderate / High / Prefer not;
+  brand colours). Identity items simply have no "Prefer not" (blank slot keeps columns aligned) — no "can't be declined" label.
+  "Your selections" (High / Low / Prefer not) is a strip of chips above the list instead of a third column.
+- Topbar Back button `#hb-back` ("← <previous page>"): `HB_BACK` stack, `hbBackTrack` (called in showPage), `hbGoBack`, `hbBackPaint`.
+- Roles & permissions (Homebase Settings → Roles & permissions, first sub-tab): one list of built-in levels + custom roles
+  (`renderPermBuilder`, `permEditorHtml`). Super Admins can rename built-in levels and change their description/colour
+  (PERM.names in kv/app_perm_roles, applied to ROLES by `permApplyNames`; originals in ROLES_ORIG), edit pages/abilities
+  (not Super Admin, which sees everything), and add people to a level (`permSaveLevel` sets ROLE_MAP + persistRoles).
+  "Reset" restores name + page access. Sub-tabs: Roles & permissions · Who has which level · Staff roles & titles.
+- Capacity ring (Nov 15): 112px, thin 5.5 stroke, navy % + 'of goal'; a faint inner arc shows how far over 100%.
+- Homebase Settings (Nov 15): sections are a grouped side nav (`hbmShell` → .hbm-layout/.hbm-nav/.hbm-nl, `hbmGoSec`) instead of top tabs. Container class is .hbm-content (.hbm-main is the row text class).
+- Office Utilization simplified (Nov 15): `rcOfficeHtml` = toggle chips (Dates presets + from/to, Site, Days, Show Booked/Used [SA]) → 4 KPI tiles → ONE office×hour grid (all sites grouped, row + site totals) + CSV + collapsed Valant location mapping (SA). Weekday chip now filters everything. Old live/weekly/heat/tables helpers (rcOfficeLive, rcOccLines, rcRoomGrid, rcHeat) are unused but kept.
+- Office grid header (Nov 15): big site name + tags for date preset/range, day filter and Booked/Used (.ou-big/.ou-tags).
+- Office grid booked + used together (Nov 15): each cell (roomHeat {a open days, b booked, k booked on days with Valant data,
+  u used}) is filled green (used) / red (booked, no in-person session) / teal (booked, no Valant data yet) in proportion,
+  stronger colour = booked more often; number = % of open days booked. Used % = used ÷ booked on data days (T.bkd).
+- Recommendations (`rcOfficeRecs`): weekly bookings to Free up (<25%) / Review (<50%) from past occurrences with Valant data
+  (≥4; last 4 weeks count double; used = booked person had an overlapping in-person session at that site), ranked by empty
+  hrs/week, with "End booking…" (`rcRecEnd`, sets until=yesterday). Plus offices booked <15% of open hours (≥4 weeks), grouped by site.
+
+## Recruitment overhaul — step 1: new application form (Nov 15 2026) ⚠ rules + functions
+- `public/apply.html` rebuilt from scratch: 7-step form (Before you start [client gate, staff connection] → About you →
+  Position & licensure [Psychotherapist I/II cards, `POSITIONS`; license auto-suggests position; pre-licensed asks expected
+  licensure + supervision] → Schedule & location → Clinical focus → In your words → Resume & submit [required resume,
+  optional cover letter, summary, consent]). Brand colours, mobile-friendly, honeypot + 8-second guard.
+- Writes one flat, readable doc to `applications` ('_v':2, '_token', '_resume'/'_cover' {path,name,size,type}); ≤51 keys
+  (rule limit 60). Files → Storage `applications/{36-hex token}/(resume|cover)_<name>` (PDF/Word, 10 MB, public create,
+  Admin read/delete). **storage.rules + firestore.rules changed → deploy storage and firestore:rules.**
+- Recruitment inbox shows Position + "📄 resume" and Open resume / Open cover letter buttons (`appsOpenFile`); `_` keys hidden.
+- Admins see "N new applications to review" in Needs your attention (`homeLoadAppsAlert`, `#home-appsalert`).
+- Confirmation email: Cloud Function `applicationReceived` (functions/index.js) adds a `mail` doc for the Firebase
+  **Trigger Email** extension (must be installed with SMTP for hr@). `firebase-admin` added to functions/package.json →
+  `cd functions && npm install`, then `firebase deploy --only functions`. Clients can't touch `mail` (no rule).
+
+## Report Center loading speed (Nov 15 2026)
+- `rcLoadPP` saves each pay period's counted lines as one summary doc `payrollConfig/rcLines_<pp>` {sig,at,n,data (packed JSON, `RC_PACK`)}
+  and reuses it while the fingerprint `rcSig` matches (upload id/chunks, status, snapshot count, closedAt, corrections, manual groups,
+  rules in effect `ppuRulesForPP`, provider links `RC._linkSig`, logged group meetings in the period). Anything changes → recomputed
+  and re-saved. `rcEnsure` loads up to 6 periods in parallel. Super Admin only (payrollConfig rules) — no rules change. No client names.
+- ⚠ storage.rules: `firestore.get()` doesn't work in this project's Storage rules, so `isAdmin()` there = only the hardcoded
+  accounts in `isBootstrap()` (will@, michael@, comms@). Applicant resumes (applications/…) open only for those accounts until
+  roles move to auth custom claims. (Nov 15: restored Will's Nov 12 storage.rules after it was overwritten by a stale copy.)
+
+## Report Center: chip filters everywhere, chart headers, Workforce Analysis (Nov 15 2026)
+- Shared filter UI (office-utilization style): `rcChipRow(label,key,opts,cur,fnName,allLabel,max)` (pill buttons, "+N more"),
+  `rcDateRow()` (date presets + from/to), `rcFilterBar('hours'|'sessions')` (Dates, Site, Role, Format, Title, Staff,
+  Category, Code, Delivery; `rcFSet`). Every chart card starts with `rcHead(eyebrow,title,tags,right)`; `rcTags()` lists the
+  active filters. Breakdown / service "group by" and pay period / month / week switches are chips too.
+- Clinical hours bar chart: axis titles ("Clinical hours", "→ Pay period (dates under each bar)" / week / month),
+  value above each bar, dates under each label.
+- New tab **👥 Workforce Analysis** (`rcWorkforceHtml`, Admins; no pay data). State `WF` (own dates `wfDates`: This year,
+  Last 12 months, Last year, This quarter, Last 90 days, All time, custom). Filters: team (team on the date of each event via
+  Team history), clinical/non-clinical, title, role, format, employment type (Capacity Tier), license. Headcount on a date =
+  hired on/before and Term Date not passed (former staff without a Term Date are excluded + noted). KPIs: headcount (clinical/
+  non), net change, hires, separations (≤90-day early leavers), turnover = seps ÷ avg(start,end) (+ annualized pace), retention,
+  average tenure, on leave/onboarding/offboarding. Monthly trend SVG (`wfTrendSvg`), breakdown table by any dimension (CSV
+  `wfCsv`), tenure bands, composition, new hires + separations lists, coming up in 60 days (anniversaries, last days, licenses).
+
+## Clinical Policies → PDF sign-offs (Nov 15 2026) ⚠ rules + storage + bucket CORS
+- Clinical Policies & How-To Manuals page tabs: **📜 Clinical Policies** (new, `LIB_CAT='pol'`, `polRender`) · Clinical How-To Manual ·
+  (Super Admin only) "Clinical Policies Manual (old)" = the old book + sign-off rounds, kept read-only for history.
+- Data: Firestore `policies/{pid}` {title, cat (POL_CATS), desc, aud (hbmAudMatches shape), status active|retired,
+  versions:[{v,path,name,size,sha (SHA-256 of the PDF),at,by,notes,due}]} — all staff read, Super Admin write.
+  `policySigs/{pid}_v{n}_{sid}` create-only {pid,v,sid,email (auth),name (typed),legal,statement,sha,title,file,openedAt,ua,at=server time}
+  — only the signer can create (rules check id, sid, email, request.time); only signedPath/signedKind/signedAt can be added later; no delete.
+  Storage: `policies/{pid}/v{n}/{file}` (immutable, Admin create, all staff read), `policySigned/{email}/{pid}_v{n}.pdf` (signer writes once).
+- Signing (`polDocHtml`, `polSign`): PDF in an iframe; checkbox + typed name unlock 4 s after the PDF loads (or "Open in a new tab");
+  mismatch with the legal name asks to confirm. Signed copy = original PDF + signature certificate page (`polMakeSignedPdf`, pdf-lib
+  1.17.1 from cdnjs, loaded on demand); falls back to certificate-only if the PDF can't be fetched (bucket CORS — see storage-cors.json;
+  `gsutil cors set storage-cors.json gs://advance-intranet.firebasestorage.app`). `polDownloadSigned` regenerates it if missing.
+- Assignment: audience + version due date; people hired after a version was published are due hire + 14 days (`polDue`).
+  New version (`polNewVersion`, "what changed" required) → everyone assigned signs again (status 'update'); old signatures kept.
+- Alerts: pinned (data-crit=1) "Please sign / Overdue" items in Needs your attention (`homeLoadPolicyAlerts`, `#home-policyalerts`)
+  + red count badge on the nav item (`polBadge`). Admin (`polAdminHtml`, `polAdminDetail`): % signed per policy, by-person table,
+  per-policy status chips, signed copies, version history with fingerprints, audit CSV (`polCsv`), retire/restore.
+
+## Insurance Catalogue + Projected Revenue (Nov 15 2026) — Super Admin only
+- Homebase Settings → Billing & payroll → 🏥 **Insurance Catalogue** (in progress; `insRender`, `INS`): CPT code table (code, service,
+  average reimbursement) seeded with APP's averages (`INS_SEED`: 90791 140.68, 90832 58.87, 90834 88.53, 90837 120.13, 90839 113.30,
+  90840 55.78, 90846 82.43, 90847 86.08, 90882 71.80, 90887 59.40, 90853 32.14), plus payer columns with known rates and their average
+  ("use as average"). Saved to `payrollConfig/insCatalog` (Super Admin rules; no change). This is practice revenue, not clinician pay.
+- Report Center → 💲 **Projected Revenue** (`rcRevHtml`, tab only for Super Admins): counted Valant lines × catalogue average by CPT
+  (`insCptOf` takes the 5-digit 9xxxx code; logged groups = attendees × 90853 rate). KPIs: estimated revenue, per week (weeks with data),
+  per appointment, per clinical hour, projection (avg weekly revenue over the last 8 weeks with data × weeks to the horizon — year end /
+  3 / 12 months; `RC.revH`), actual + projection, capacity-goal potential (goal hours × revenue per clinical hour). Monthly chart
+  (`insRevSvg`), by CPT (CSV `insRevCsv`, unrated codes listed), by site, top clinicians. Uses the same chip filters as Clinical Hours.
+- Report Center filter bar: the Role row was removed at Michael's request (Nov 15); Workforce Analysis keeps its own Role filter.
+- Event attachments (Nov 15): `event.files=[{path,name,size,type}]` (≤10 per event, ≤20 MB each; PDF/Office/images/txt) in Storage refLibrary/{eventId}/att_<time>_<name>; modal section (`hcalAttPick/hcalAttRemove/hcalAttCommit`), chips on the calendar card and Settings → Events (`hcalAttLinks`, `hcalAttOpen`); deleted with the event. Upload needs a Storage-admin account (isBootstrap).

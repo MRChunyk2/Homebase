@@ -1,10 +1,13 @@
 {
   "name": "homebase-functions",
-  "description": "Billing kill switch for the Homebase project",
+  "description": "Homebase Cloud Functions: billing kill switch, application confirmation email",
   "main": "index.js",
-  "engines": { "node": "22" },
+  "engines": {
+    "node": "22"
+  },
   "dependencies": {
-    "firebase-functions": "^6.1.0"
+    "firebase-functions": "^6.1.0",
+    "firebase-admin": "^12.7.0"
   },
   "private": true
 }

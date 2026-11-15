@@ -86,7 +86,10 @@ service cloud.firestore {
         && request.resource.data['Email Address'] is string
         && request.resource.data['Email Address'].size() > 4
         && request.resource.data['Email Address'].size() < 200
-        && request.resource.data.size() < 60;
+        && request.resource.data.size() < 60
+        // v2 form (Nov 2026): uploaded resume / cover letter must point at this application's own Storage folder
+        && (!('_resume' in request.resource.data) || request.resource.data['_resume'].path.matches('applications/[0-9a-f]{36}/.*'))
+        && (!('_cover' in request.resource.data) || request.resource.data['_cover'].path.matches('applications/[0-9a-f]{36}/.*'));
       allow read, update, delete: if isAdmin();
     }
 
@@ -171,6 +174,42 @@ service cloud.firestore {
       allow update: if isAdmin() || (isDomain() && myRole() == 'supervisor');
       allow delete: if isAdmin() || (isDomain() && myRole() == 'supervisor')
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'pending');
+    }
+
+    // Policies (Clinical Policies → PDF sign-offs, Nov 2026). Everyone signed in reads the list; Super Admins publish.
+    match /policies/{pid} {
+      allow read: if isDomain();
+      allow write: if isSuperAdmin();
+    }
+    // Policy signatures: one per person per version, id '{pid}_v{n}_{staffId}'. You can only sign as yourself, with your own
+    // Google account, at the server's time, for a policy that exists — and never change it afterwards (except to attach
+    // the link to your signed PDF copy). Nobody can delete a signature.
+    match /policySigs/{id} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create: if isDomain()
+        && request.resource.data.sid == myStaffId()
+        && request.resource.data.v is int
+        && id == request.resource.data.pid + '_v' + string(request.resource.data.v) + '_' + myStaffId()
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.at == request.time
+        && request.resource.data.name is string && request.resource.data.name.size() > 2
+        && request.resource.data.size() < 20
+        && exists(/databases/$(database)/documents/policies/$(request.resource.data.pid));
+      allow update: if isDomain() && resource.data.sid == myStaffId()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signedPath', 'signedKind', 'signedAt']);
+      allow delete: if false;
+    }
+
+    // Event RSVPs (My Homebase → Practice calendar). One doc per person per event, id '{eventId}__{staffId}'.
+    // Each person writes only their own answer; Admins read all (headcounts) and can clear one.
+    match /eventRsvps/{rid} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create, update: if isDomain() && request.resource.data.size() < 8
+        && request.resource.data.resp in ['yes', 'maybe', 'no']
+        && request.resource.data.eid is string
+        && (isAdmin() || (request.resource.data.sid == myStaffId()
+            && rid == request.resource.data.eid + '__' + myStaffId()));
+      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
     }
 
     match /meetings/{mid} {

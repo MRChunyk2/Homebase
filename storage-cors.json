@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://advance-intranet.web.app", "https://advance-intranet.firebaseapp.com", "http://localhost:5000"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

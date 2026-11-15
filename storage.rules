@@ -10,6 +10,9 @@ rules_version = '2';
 //   onboarding/{token}/{item}/{fileName}     new-hire portal (no sign-in; token is the credential), 10 MB
 //   refLibrary/{fileId}/{fileName}           Learning & Reference / Paperwork & Templates, 20 MB
 //   staffFiles/{staffId}/{fileId}/{fileName} CEU certificates + Employee File documents, 20 MB
+//   applications/{token}/{fileName}          job-application resumes / cover letters (public create), 10 MB
+//   policies/{pid}/v{n}/{fileName}           policy PDF versions (immutable), 25 MB
+//   policySigned/{email}/{fileName}          each person's signed policy copies, 40 MB
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -58,6 +61,27 @@ service firebase.storage {
       // material. The candidate portal never reads files back (it only writes),
       // so nothing needs wider access.
       allow read: if isAdmin();
+    }
+
+    // Job applications (public apply.html, Nov 2026): no sign-in. A candidate can only ADD a resume or
+    // cover letter (PDF / Word, 10 MB) under a random 36-character token; only Admins (isAdmin — today the
+    // hardcoded accounts above) can read or delete them.
+    match /applications/{token}/{fileName} {
+      allow create: if token.matches('[0-9a-f]{36}') && under(10)
+        && fileName.matches('(resume|cover)_.*[.](pdf|PDF|doc|DOC|docx|DOCX)');
+      allow read, delete: if isAdmin();
+    }
+
+    // Policy PDFs (Clinical Policies, Nov 2026): every version is a new path and is never replaced or deleted.
+    // Everyone signed in reads; only Admins (isAdmin — the hardcoded accounts above) publish.
+    match /policies/{pid}/{ver}/{fileName} {
+      allow read: if isDomain();
+      allow create: if isAdmin() && under(25) && request.resource.contentType == 'application/pdf';
+    }
+    // Signed copies (policy + signature certificate): written once by the signer into their own email folder.
+    match /policySigned/{email}/{fileName} {
+      allow create: if isDomain() && em() == email && under(40) && request.resource.contentType == 'application/pdf';
+      allow read: if (isDomain() && em() == email) || isAdmin();
     }
 
     // Library files: everyone signed in reads; admins add and remove.
