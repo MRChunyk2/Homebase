@@ -705,3 +705,72 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   in, `capDlgOpen` uses it (`capDlgPendingHire`, `CAPDLG.hire`, `capDlgView` = record copy with the new date) and shows a note;
   `capDlgSave` writes the new hire date to the record together with the capacity change. `capEfSyncAfterDlg` then updates the open
   form (weekly, biweekly, hire date, capacity history `[data-caphist]`) so its Save doesn't send old values back.
+- Nov 16: **Comp & Benes editing + checklist moved** ⚠ firestore.rules. Comp & Benes tab has "✏️ Edit / ＋ Add comp & benefits"
+  (Super Admins; also Admin actions → Edit comp & benefits…): `compEditOpen` / `compEditSave`, fields `COMP_FIELDS` (rate2026, pay2025,
+  inc2025, incdate2026, incnotes2026, compNotes; med, den, vis, benNotes) saved into kv `app_comp_data` [id] (Super Admin–only, unchanged).
+  Date of hire shown there comes from the Employee File. **Compliance checklist** (handbook + HIPAA, `compChecklistHtml`) now sits at the
+  top of the Non-Private Docs tab (admins); missing-item clicks go there. Rules: kv `app_comp_checklist` read/write moved from Super Admin
+  to Admin (no pay data in it).
+- Nov 16: **Benefits & premiums** (Homebase Settings → Billing & payroll → 🩺, Super Admins; `benRender`, `BEN`, `benSave`):
+  `payrollConfig/benefitPlans` = {types:[{k,l}] (Medical/Dental/Vision + any added), plans:[{id,type,name,prem:{ee,es,ec,fam} monthly,
+  notes}], share:{type:{full:%,part:%,basis:'plan'|'ee'}}, history}. Admin actions menu has ONE "Comp & Benes" item (edit button is on the tab).
+  Comp editor enrollment per type (`compBenEditHtml`/`compBenRead`/`compBenSync`): plan | Waived, coverage tier, **start date**,
+  **expected end date** → `COMP_DATA[id].ben={type:{plan,tier,start,end}}`, `benGroup` ''(auto from Capacity Tier: FULL/SAL full,
+  PART/FRAC part)|'full'|'part'. Costs via `benCost` (premium × APP %, employee pays the rest). Comp & Benes tab table
+  (`compBenViewHtml`): plan, coverage, dates ("Ends …" amber / ended rows faded and left out of the current total), premium, APP, employee;
+  old sheet med/den/vis amounts still show when no enrollment is set. No rules change (payrollConfig + app_comp_data are Super Admin).
+- Nov 16: **Intake Finder → Intake Birdseye** (page id still `intake-finder`; `renderIntakeFinder`). Side tabs (`IF_TAB`, `ifTab`):
+  🎯 Match a client (`ifMatchTab`: compact client panel — who, needs typeahead over diagnoses/identities/circumstances/modalities, format+site,
+  When grid and "Prefers a therapist who is…" (`IF.tid`, from therapists' own identities, +2.5 boost, never excludes) in collapsibles —
+  then ranked cards + "Ruled out"), 🗺️ Openings by team (`ifTeamsTab`: KPIs + per-team table of who's taking, spots, virtual/in-person hrs,
+  ages, freshness; not-taking collapsed), 🗓️ Openings calendar (`ifCalTab`: day × hour counts, format filter `IF_CALFMT`, click an hour →
+  who's open `IF_CALSEL`), ⚠️ Profiles to update (`ifStaleTab`). Team chips (`IF.team`) filter every tab. Every name shows capacity
+  attainment (`ifAtt`/`ifName`, cached in `IF_ATT`, colour = capStatusColor). Taking = status open; stale requests are flagged, not hidden.
+- Nov 16 (pass 2): **Intake Birdseye restyle** — one stylesheet `ifbCss` (.ifb-*; old .if-* card/chip styles no longer used on this page).
+  Rail with section title + counts + refresh/loaded time; one toolbar (team chips + attainment key "% next to a name = capacity attainment
+  (year to date)" with 100%+/90–99%/<90% sample pills); each tab has a title + one-line description. Match: "The client" panel as label |
+  controls rows (Who · Needs help with · Format/site), Days & times and therapist-identity preference as ＋ expanders; result cards
+  (`ifCardHtml(row,ev,rank)`): rank, name + attainment, title · team · freshness, status pill (N spots / Not taking), reason tags, open hours,
+  their note, shared identities, "Full profile". Team tables put "Sees …" under the name; column header "Clinician · attainment".
+
+## Nov 16 batch: license pings, Office Utilization filters, Attainment Tracking, Leadership Dashboard archived
+- **License update** (Employee File → Admin actions → Licensure → 🪪 Update license…; `licUpdOpen`/`licUpdSave`): license type, #, effective
+  and expiration dates (writes License, License #, Lic Eff Date, Lic Exp Date + License Expiration), what changed, note; pings everyone holding the
+  **Credentialing** role (new in CONFIG.roleOpts) and/or **Marketing** role (`licRecipients`) with a staffAlert (realm credentialing, kind license,
+  level important) in their Needs your attention. Missing role → the dialog says so.
+- **Office Utilization filters**: one row — date chips (This month/Last month/This quarter/YTD/Custom… shows date boxes) + Site and Day dropdowns.
+- **Report Center → 🎯 Attainment Tracking** (tab key still `hours`; `rcAttainHtml`, `RCA` state, `rcaRows`, `rcaChanges`, `rcaCsv`): year-to-date
+  attainment from capCompute — 5 tiles (attainment, hrs to catch up, under 90%, tier reviews, intake mismatches), site leaderboard (tdSiteStats;
+  click = focus that site), clinician table (attainment + hrs, catch-up next 90 days, Intake request status/spots/new-client hrs from IF_DATA,
+  checks: tier review, behind & not taking / no profile / new-client hrs below catch-up need / no spots, stale request, ahead & asking for more;
+  views Everyone/Under 90%/Needs attention/Intake mismatch/Tier review; sort; CSV), capacity changes this year (_capHist), then the former Clinical
+  Hours Analysis (`rcHoursHtml`) under "Clinical hours detail".
+- **Leadership Dashboard archived**: nav hidden; `showPage('team-dashboard')` redirects to Report Center › Attainment Tracking. Its code
+  (renderTeamDashboard, td*) is kept — tdSiteStats/tdTile are reused.
+- Nov 16: **Documents & sign-offs moved to Homebase Settings** (Records → ✍️ Documents & sign-offs, Super Admins; `polSettingsRender` renders
+  `polAdminHtml`, category filter chips `POL.catF`; `polRerender` refreshes settings or the library page). Same POL framework (versions, sign by,
+  audience, pinned alerts, signed PDF copies, audit CSV). New: categories `POL_CATS` (Clinical policy, Employee Handbook, HR & employment,
+  Compliance & privacy, Safety, Forms & agreements, Other) — clinical/safety show on Clinical Policies (`pol`), the rest on the Employee Handbook
+  page's new first tab **Handbook & HR documents** (LIB_CAT `hpol`; `polPageOf`, `POL_CAT_PAGE`); **Signature required** toggle (`p.sign===false`
+  = reference only: no sign-off, no alerts). Alerts/badges per page (`polMyTodo(page)`; badges on Clinical Policies and Employee Handbook nav).
+  Staff pages show "⚙ Manage in Homebase Settings" for Super Admins (`polManage`, `polManageOne`). The old handbook book stays as the second tab.
+- Nov 16: **Your Identities list**: added "Jewish" (Race, ethnicity & culture); removed "Faith-informed / religious practice" (group is now
+  "Language"); new **Other** group — therapists add their own identities as chips (`ipIdentAdd`, ≤10, stored in ident.list; `ipIdentBuiltIn`
+  tells custom from built-in). Older free-text `ident.other` shows as a removable chip there; an old "Faith-informed" pick shows under Other.
+- Nov 16: **PDF reader for documents to sign** (`polAfterRender`, `polLayout`, `polRenderPage`, `polZoom`, `polScroll`, `POLR`): PDF.js 3.11.174
+  (cdnjs, loaded on demand by `polPdfJs`) draws pages fit-to-width on canvases (lazy via IntersectionObserver), − / Fit / + zoom, "Page x of N".
+  Signing unlocks only when the reader reaches the end of the last page; the signature records readToEnd, pages, readEndAt (policySigs stays
+  under the 20-key rule). "Open in a new tab" no longer unlocks signing. Falls back to the browser viewer + 4-second unlock if PDF.js or the
+  file can't load — **needs the bucket CORS from storage-cors.json** (same as signed copies). Statement now says "this document"; button "Sign".
+- **Employee File → Non-Private Docs → Signed documents** (`pfLoadSigned`): every policySigs record for that person (admins or self) with
+  category, version, when, signed-as, read-to-end, and "Signed copy" (`polDownloadSigned`; regenerates the copy if Storage read isn't allowed).
+  The sign box and signed view say the copy is filed there.
+- Nov 16: **Office Bookings overhaul** (`renderOffices` rewritten; `obCss2`, `obWeekHtml`, `obDayHtml`/`obDayWire`, editor `obEdNew`/`obEdOpen`/`obEdDraw`/
+  `obEdSave`/`obEdRelease`, `obRetire`; old obOpen/obSave/obView modal removed). Toolbar: site chips, week nav, **Week | Day** toggle (`OB.view`),
+  Just mine (`OB.mine`), Book/Request button, ⚙. **Week board**: offices × days (closed days hatched), bookings as pills, ＋ in each cell. **Day
+  timeline**: offices × hours; drag across an empty row to book, drag a booking's edge to change its time (opens the editor to confirm).
+  **Side panel editor** for everything: who (approvers), office, Weekly/One time, day(s) (new weekly can pick several → one doc per day),
+  starts/ends on, start/end time, note; live clash check. Approvers save directly; editing a weekly booking that already started ends it
+  yesterday and continues it as a new booking from today (history kept). Requests strip: Approve / Edit first / Decline. Therapists: edit or
+  cancel own requests (delete + recreate); for approved bookings "Send change request" (pending, `replaces`) or "Give this office up…"
+  (pending `release:true`); approving either retires the original (`obRetire`; `obDecide` handles release/replaces). No rules change.

@@ -336,13 +336,14 @@ service cloud.firestore {
     //                    (Nov 2026: the retired therapist-profile drafts — tp_* — are no longer writable by staff.)
     match /kv/{key} {
       // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)
-      allow read: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
-        || (key == 'app_recruit' && isAdmin())
+      allow read: if ((key in ['app_payroll_detail', 'app_comp_data'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
+        // app_comp_checklist (handbook + HIPAA on file) — Admins since Nov 16 (shown on Non-Private Docs; no pay data)
+        || (key in ['app_recruit', 'app_comp_checklist'] && isAdmin())
         // app_team_stats = per-person note status / no-show counts for My Team: Supervisor level and up
         || (key == 'app_team_stats' && isDomain() && (isAdmin() || myRole() == 'supervisor'))
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist', 'app_team_stats']) && !key.matches('app_payroll_detail_[0-9]{4}') && isDomain());
-      allow write: if ((key in ['app_payroll_detail', 'app_comp_data', 'app_comp_checklist'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
-        || (key == 'app_recruit' && isAdmin())
+      allow write: if ((key in ['app_payroll_detail', 'app_comp_data'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
+        || (key in ['app_recruit', 'app_comp_checklist'] && isAdmin())
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}')
             && isAdmin());
     }
