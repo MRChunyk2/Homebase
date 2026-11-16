@@ -271,7 +271,7 @@ tr.rw-new td{background:#fafafa}
 .edit-form.open{display:block}
 .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .ef{display:flex;flex-direction:column;gap:3px}
-.ef.full{grid-column:1/-1}
+.ef.full{grid-column:1/-1}.ef-h{border:1px solid #e5e7eb;border-radius:8px;margin-top:8px}#m-edit-grid .ef label{font-size:12px;font-weight:600;color:#4b5563;text-transform:none;letter-spacing:0}
 .ef label{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em}
 .ef input,.ef select,.ef textarea{padding:6px 9px;border:1px solid #ddd;border-radius:7px;font-size:12.5px;font-family:inherit;background:#fff}
 .ef textarea{resize:vertical;min-height:60px}
@@ -1815,6 +1815,8 @@ const CONFIG_DEFAULTS = {
   requiredProfileFields: [
     {key:'Email Address',      label:'Email'},
     {key:'Google Number',      label:'Phone'},
+    {key:'Alternate Email',    label:'Alternate email', private:true},
+    {key:'Alternate Phone',    label:'Alternate phone', private:true},
     {key:'Date of Hire',       label:'Date of Hire'},
     {key:'Team',               label:'Team'},
     {key:'Title',              label:'Title'},
@@ -1983,6 +1985,8 @@ function cfgApply(stored){
   if(Array.isArray(next.requiredProfileFields)) next.requiredProfileFields=next.requiredProfileFields.filter(f=>f&&f.key!=='Department');
   // Non-clinical admin staff need no capacity fields (Nov 2026): Format and Capacity Tier are clinical-only.
   if(Array.isArray(next.requiredProfileFields)) next.requiredProfileFields=next.requiredProfileFields.map(f=>(f&&(f.key==='Format'||f.key==='Capacity Tier')&&!f.clinical&&!f.licensed)?Object.assign({},f,{clinical:true}):f);
+  // Alternate email / phone are required (Nov 16) — add them to a saved list that predates them.
+  try{ if(Array.isArray(next.requiredProfileFields)) (CONFIG_DEFAULTS.requiredProfileFields||[]).filter(f=>f.private).forEach(f=>{ if(!next.requiredProfileFields.some(x=>x&&x.key===f.key)){ const i=next.requiredProfileFields.findIndex(x=>x&&x.key==='Google Number'); next.requiredProfileFields.splice(i>=0?i+1:next.requiredProfileFields.length,0,Object.assign({},f)); } }); }catch(e){}
   ['teamLabels'].forEach(k=>{ next[k]=Object.assign({}, CONFIG_DEFAULTS[k]||{}, next[k]||{}); });
   CONFIG = next;
 }
@@ -2389,6 +2393,8 @@ function isLicensedRec(s){
 }
 // Whether a required-field rule applies to this person.
 function fieldApplies(f,s){
+  // Private fields (staffPrivate) are only loaded for admins and the person themself — never flag them for anyone else.
+  if(f.private){ try{ if(!(isAdminView() || (s&&s._id===window.AUTH_STAFF_ID))) return false; }catch(e){ return false; } }
   if(f.licensed) return isLicensedRec(s);
   if(f.clinical) return isClinicianRec(s);
   return true;
@@ -2435,7 +2441,8 @@ function pfDemoHtml(p){
   try{
     const adm=isAdminView(), self=p._id===window.AUTH_STAFF_ID, priv=adm||self;
     const contact=pfM(p,'APP email','Email Address',pfLink('mail',p['Email Address']))+pfM(p,'APP Google Voice','Google Number',pfLink('tel',p['Google Number']),{keep:true})
-      +pfF('Alternate email',pfLink('mail',p['Alternate Email']),{keep:priv})+pfF('Alternate phone',pfLink('tel',p['Alternate Phone']),{keep:priv});
+      +(adm?pfM(p,'Alternate email','Alternate Email',pfLink('mail',p['Alternate Email']),{keep:true})+pfM(p,'Alternate phone','Alternate Phone',pfLink('tel',p['Alternate Phone']),{keep:true})
+        :pfF('Alternate email',pfLink('mail',p['Alternate Email']),{keep:priv})+pfF('Alternate phone',pfLink('tel',p['Alternate Phone']),{keep:priv}));
     let hire=''; try{ const h=capHireDate(p); if(h){ const y=(Date.now()-h.getTime())/864e5/365.25, yy=Math.floor(y), mm=Math.round((y-yy)*12);
       hire=hesc(usDate(capISO(h)))+' <span class="pa-sub">('+(yy?yy+' yr'+(yy===1?'':'s')+(mm?' '+mm+' mo':''):Math.max(0,mm)+' mo')+')</span>'; } }catch(e){}
     const personal=(priv?pfF('Legal name',hesc(p['Legal Name']||staffLegalName(p)||''),{keep:true}):'')+pfF('Preferred name',hesc(p['Preferred Name']||''),{keep:priv})
@@ -7986,48 +7993,52 @@ function buildRosterEditForm(p){
     return '<input id="'+id+'" data-key="'+key+'" value="'+v+'"'+missStyle(key)+'>';
   }
 
+  // Same sections, order and labels as the Employee File view (pfDemoHtml), so what you edit matches what you see (Nov 16).
   var sections=[
-    {label:'Employment', fields:[
+    {label:'Contact', fields:[
+      {id:'ef-email',    label:'APP email',          html:inp('ef-email','Email Address'),   key:'Email Address'},
+      {id:'ef-phone',    label:'APP Google Voice', html:inp('ef-phone','Google Number'), key:'Google Number'},
+      {id:'ef-aemail',   label:'Alternate email',    html:inp('ef-aemail','Alternate Email'), key:'Alternate Email'},
+      {id:'ef-aphone',   label:'Alternate phone',    html:inp('ef-aphone','Alternate Phone'), key:'Alternate Phone'},
+    ]},
+    {label:'Personal', note:'Only the employee and HR see date of birth and address', fields:[
       {id:'ef-legal',    label:'Legal name',         html:inp('ef-legal','Legal Name').replace('value=""','value="'+hesc(staffLegalName(p))+'"').replace('<input ','<input placeholder="As on payroll and legal documents" '), key:'Legal Name'},
       {id:'ef-pref',     label:'Preferred name — shown across Homebase', html:inp('ef-pref','Preferred Name').replace('<input ','<input placeholder="Leave blank to use the legal name" '), key:'Preferred Name'},
       {id:'ef-pron',     label:'Pronouns',           html:inp('ef-pron','Pronouns').replace('<input ','<input list="pron-opts" placeholder="e.g. she/her" ')+'<datalist id="pron-opts"><option value="she/her"><option value="he/him"><option value="they/them"><option value="she/they"><option value="he/they"></datalist>', key:'Pronouns'},
-      {id:'ef-status',   label:'Status',             html:sel('ef-status','Employee Status',STATUS_O),key:'Employee Status'},
-      {id:'ef-st-extra', label:'', html:capEfStatusHtml(p), full:true, extra:true},
+      {id:'ef-dob',      label:'Date of birth',      html:inp('ef-dob','DOB'),               key:'DOB'},
+      {id:'ef-addr',     label:'Home address',            html:inp('ef-addr','Address'),          full:true, key:'Address'},
+    ]},
+    {label:'Emergency contact', note:'Only the employee and HR see this', fields:[
+      {id:'ef-ecn',      label:'Name', html:inp('ef-ecn','Emergency Contact Name'), key:'Emergency Contact Name'},
+      {id:'ef-ecr',      label:'Relationship', html:inp('ef-ecr','Emergency Contact Relationship'), key:'Emergency Contact Relationship'},
+      {id:'ef-ecp',      label:'Phone', html:inp('ef-ecp','Emergency Contact Phone'), key:'Emergency Contact Phone'},
+      {id:'ef-eca',      label:'Alternate phone', html:inp('ef-eca','Emergency Contact Alt Phone'), key:'Emergency Contact Alt Phone'},
+      {id:'ef-ece',      label:'Email', html:inp('ef-ece','Emergency Contact Email'), key:'Emergency Contact Email'},
+    ]},
+    {label:'Job', fields:[
+      {id:'ef-title',    label:'Title',        html:(REQ_MISS.has('Title')?'<div style="border:1px solid #fca5a5;background:#fef2f2;border-radius:11px;padding:9px">':'<div>')+titleFieldHtml(p)+'</div>', full:true, key:'Title'},
+      {id:'ef-roles',    label:'Roles (all that apply)', html:rolesFieldHtml(p), full:true, key:'Service Types'},
       {id:'ef-team',     label:'Team',               html:sel('ef-team','Team',TEAM_O),      key:'Team'},
       {id:'ef-teamfrom-x',label:'', html:teamEfFromHtml(p), full:true, extra:true},
-      {id:'ef-sup',      label:'Clinical Supervisor', html:sel('ef-sup','Supervisor',SUP_O),  key:'Supervisor'},
-      {id:'ef-reports',  label:'Reports To',         html:sel('ef-reports','Reports To',reportsToOpts()), key:'Reports To'},
-      {id:'ef-title',    label:'Title (one)',        html:(REQ_MISS.has('Title')?'<div style="border:1px solid #fca5a5;background:#fef2f2;border-radius:11px;padding:9px">':'<div>')+titleFieldHtml(p)+'</div>', full:true, key:'Title'},
-      {id:'ef-roles',    label:'Roles (all that apply)', html:rolesFieldHtml(p), full:true, key:'Service Types'},
-      {id:'ef-hire',     label:'Date of Hire',       html:inp('ef-hire','Date of Hire'),     key:'Date of Hire'},
-      {id:'ef-dob',      label:'Date of Birth',      html:inp('ef-dob','DOB'),               key:'DOB'},
-    ]},
-    {label:'Capacity & Format', clinical:true, fields:[
-      {id:'ef-captier',  label:'Capacity Tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
-      {id:'ef-weekly',   label:'Weekly Capacity',    html:'<div style="display:flex;gap:8px;align-items:center">'+inp('ef-weekly','Weekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#374151;flex:1" ')+'<button type="button" class="btn btn-secondary" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="capDlgOpen(\''+p._id+'\')">📈 Change…</button></div>',key:'Weekly Capacity'},
-      {id:'ef-biweekly', label:'Biweekly Capacity (2 × weekly)',  html:inp('ef-biweekly','Biweekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#6b7280" '), key:'Biweekly Capacity'},
-      {id:'ef-caphist-x',label:'', html:capEfHistHtml(p), full:true},
-      {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
+      {id:'ef-sup',      label:'Clinical supervisor', html:sel('ef-sup','Supervisor',SUP_O),  key:'Supervisor'},
+      {id:'ef-reports',  label:'Reports to',         html:sel('ef-reports','Reports To',reportsToOpts()), key:'Reports To'},
+      {id:'ef-hire',     label:'Date of hire',       html:inp('ef-hire','Date of Hire'),     key:'Date of Hire'},
+      {id:'ef-status',   label:'Status',             html:sel('ef-status','Employee Status',STATUS_O),key:'Employee Status'},
+      {id:'ef-st-extra', label:'', html:capEfStatusHtml(p), full:true, extra:true},
+      {id:'ef-prog',     label:'Primary program',    html:sel('ef-prog','Primary Program',PRIMARY_PROGRAM_O),  key:'Primary Program'},
+      {id:'ef-progs',    label:'Secondary program',  html:sel('ef-progs','Programs',PROGRAMS_O),        key:'Programs'},
       {id:'ef-diffelig', label:'Differential & bonus', html:(function(){ const d=payEligDefault(p), v=String(p['Diff Bonus Eligible']||'');
         return '<select id="ef-diffelig" data-key="Diff Bonus Eligible"><option value=""'+(v===''?' selected':'')+'>Default — '+(d.ok?'eligible':'not eligible ('+hesc(d.why)+')')+'</option><option value="Yes"'+(v==='Yes'?' selected':'')+'>Eligible</option><option value="No"'+(v==='No'?' selected':'')+'>Not eligible</option></select>'; })(), key:'Diff Bonus Eligible'},
     ]},
-    {label:'Programs & Services', fields:[
-      {id:'ef-prog',     label:'Primary Program',    html:sel('ef-prog','Primary Program',PRIMARY_PROGRAM_O),  key:'Primary Program'},
-      {id:'ef-progs',    label:'Secondary Program',  html:sel('ef-progs','Programs',PROGRAMS_O),        key:'Programs'},
+    {label:'Capacity', clinical:true, fields:[
+      {id:'ef-format',   label:'Format',             html:sel('ef-format','Format',FMT_O),  key:'Format'},
+      {id:'ef-captier',  label:'Capacity tier',      html:sel('ef-captier','Capacity Tier',CAP_O), key:'Capacity Tier'},
+      {id:'ef-weekly',   label:'Weekly capacity',    html:'<div style="display:flex;gap:8px;align-items:center">'+inp('ef-weekly','Weekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#374151;flex:1" ')+'<button type="button" class="btn btn-secondary" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="capDlgOpen(\''+p._id+'\')">📈 Change…</button></div>',key:'Weekly Capacity'},
+      {id:'ef-biweekly', label:'Biweekly capacity (2 × weekly)',  html:inp('ef-biweekly','Biweekly Capacity').replace('<input ','<input readonly tabindex="-1" style="background:#f3f4f6;color:#6b7280" '), key:'Biweekly Capacity'},
+      {id:'ef-caphist-x',label:'', html:'<div data-caphist>'+capEfHistHtml(p)+'</div>', full:true},
     ]},
-    {label:'Contact', fields:[
-      {id:'ef-email',    label:'APP email',          html:inp('ef-email','Email Address'),   key:'Email Address'},
-      {id:'ef-aemail',   label:'Alternate email',    html:inp('ef-aemail','Alternate Email'), key:'Alternate Email'},
-      {id:'ef-phone',    label:'APP Google Voice number', html:inp('ef-phone','Google Number'), key:'Google Number'},
-      {id:'ef-aphone',   label:'Alternate phone',    html:inp('ef-aphone','Alternate Phone'), key:'Alternate Phone'},
-      {id:'ef-addr',     label:'Address',            html:inp('ef-addr','Address'),          full:true, key:'Address'},
-      {id:'ef-ecn',      label:'Emergency contact — name', html:inp('ef-ecn','Emergency Contact Name'), key:'Emergency Contact Name'},
-      {id:'ef-ecr',      label:'Emergency contact — relationship', html:inp('ef-ecr','Emergency Contact Relationship'), key:'Emergency Contact Relationship'},
-      {id:'ef-ecp',      label:'Emergency contact — phone', html:inp('ef-ecp','Emergency Contact Phone'), key:'Emergency Contact Phone'},
-      {id:'ef-eca',      label:'Emergency contact — alternate phone', html:inp('ef-eca','Emergency Contact Alt Phone'), key:'Emergency Contact Alt Phone'},
-      {id:'ef-ece',      label:'Emergency contact — email', html:inp('ef-ece','Emergency Contact Email'), key:'Emergency Contact Email'},
-    ]},
-    {label:'Licensure', clinical:true, fields:[
+    // Shown on the Credentialing tab of the Employee File
+    {label:'Licensure', tab:'Credentialing tab', clinical:true, fields:[
       {id:'ef-lic',      label:'License Type',       html:inp('ef-lic','License'),           key:'License'},
       {id:'ef-licnum',   label:'License #',          html:inp('ef-licnum','License #'),      key:'License #'},
       {id:'ef-liceff',   label:'Lic. Eff. Date',     html:inp('ef-liceff','Lic Eff Date'),   key:'Lic Eff Date'},
@@ -8035,7 +8046,7 @@ function buildRosterEditForm(p){
       // whichever of the two stored fields has a value; saving writes both (see saveEdit).
       {id:'ef-licexpalt',label:'Lic. Exp. Date',     html:'<input id="ef-licexpalt" data-key="Lic Exp Date" value="'+String(p['Lic Exp Date']||p['License Expiration']||'').replace(/"/g,'&quot;')+'"'+missStyle('License Expiration')+'>', key:'Lic Exp Date'},
     ]},
-    {label:'Credentialing', clinical:true, fields:[
+    {label:'Credentialing', tab:'Credentialing tab', clinical:true, fields:[
       {id:'ef-credname', label:'Credentialing Name', html:inp('ef-credname','Credentialing Name'), key:'Credentialing Name'},
       {id:'ef-npi',      label:'NPI',                html:inp('ef-npi','NPI'),               key:'NPI'},
       {id:'ef-creddob',  label:'Credentialing DOB',  html:inp('ef-creddob','Credentialing DOB'), key:'Credentialing DOB'},
@@ -8065,7 +8076,7 @@ function buildRosterEditForm(p){
   sections.forEach(function(sec){
     const cs=(sec.clinical&&hideClin)?' data-clinsec="1" style="display:none;margin-top:8px"':' style="margin-top:8px"';
     out+='<div class="ef full"'+cs+'>'
-      +'<div class="sec-label" style="margin:0">'+sec.label+'</div></div>';
+      +'<div class="pa-h ef-h">'+sec.label+((sec.note||sec.tab)?'<span class="pa-hn">'+(sec.tab?'On the '+sec.tab:sec.note)+'</span>':'')+'</div></div>';
     sec.fields.forEach(function(f){
       const hid=(sec.clinical&&hideClin&&!f.extra)?' data-clinsec="1" style="display:none"':'';
       out+='<div class="ef'+(f.full?' full':'')+'"'+(f.extra?' id="'+f.id+'" style="display:none"':hid)+'>'
@@ -11545,10 +11556,25 @@ async function capAdjAddChange(id){ capDlgOpen(id); }
 // Dashboard → Capacity adjustments. Every change is dated (hire date = starting capacity with the ramp,
 // this pay period, or a date after the ramp), recorded on the capacity timeline, and the goal is
 // recalculated day by day from that date (a lower capacity lowers the goal from then on).
-var CAPDLG={id:null};
+var CAPDLG={id:null,hire:null};
+// If this person's Employee File edit form is open with a different Date of Hire typed in (not saved yet),
+// the capacity dialog uses THAT date (Nov 16) — it's saved together with the capacity change.
+function capDlgPendingHire(id){
+  try{
+    const ed=document.getElementById('m-edit'), h=document.getElementById('ef-hire');
+    if(!ed||ed.style.display==='none'||!h||typeof currentId==='undefined'||currentId!==id) return null;
+    const raw=String(h.value||'').trim(), d=capDateOf(raw), s=capAdjStaff(id); if(!raw||!d||isNaN(d)||!s) return null;
+    const norm=String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+'/'+d.getFullYear();
+    const old=capDateOf(s['Date of Hire']); if(old&&capISO(old)===capISO(d)) return null;
+    return norm;
+  }catch(e){ return null; }
+}
+// The record as the dialog should see it (pending hire date applied to a copy).
+function capDlgView(s){ return CAPDLG.hire?Object.assign({},s,{'Date of Hire':CAPDLG.hire}):s; }
 function capDlgOpen(id){
   try{
-    const s=capAdjStaff(id); if(!s) return; CAPDLG.id=id;
+    const s0=capAdjStaff(id); if(!s0) return; CAPDLG.id=id; CAPDLG.hire=capDlgPendingHire(id);
+    const s=capDlgView(s0);
     let ov=document.getElementById('capdlg'); if(ov) ov.remove();
     ov=document.createElement('div'); ov.id='capdlg';
     ov.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto';
@@ -11567,6 +11593,7 @@ function capDlgBody(s){
   const hist=tl.hist.length>1?'<div style="font-size:12.5px;margin-top:4px">'+tl.hist.map(function(h,i){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid #f1f2f4"><span><b>'+h.weekly+'</b> hrs/wk '+(i===0?(h.from?'from '+capUS(h.from):'to start'):'from '+capUS(h.from))+'</span>'+(i>0?'<button class="me-x" style="color:#b91c1c" onclick="capDlgDel('+i+')">Remove</button>':'')+'</div>'; }).join('')+'</div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">'+cur+' hrs/wk — no changes recorded.</div>';
   return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="capdlg-h" style="margin:0;font-size:17px;color:#122B67">📈 Change capacity — '+hesc(s['Clinician']||'')+'</h3><button class="pr-x" onclick="capDlgClose()" aria-label="Close" style="font-size:20px;background:none;border:0;cursor:pointer">×</button></div>'
     +'<div style="font-size:12.5px;color:#475569;margin-top:4px">Currently <b>'+cur+' hrs/wk</b>'+(hire?' · hired '+capUS(hire):'')+(hire&&capUsesRamp(s)?' · new-hire ramp '+capUS(hire)+' – '+capUS(new Date(capRampEnd(hire).getTime()-CAP_DAY_MS)):'')+'</div>'
+    +(CAPDLG.hire?'<div style="font-size:12.5px;background:#fff8ee;border:1px solid #F2A54B;border-radius:8px;padding:7px 10px;margin-top:8px">Using the new hire date from the edit form (<b>'+capUS(capDateOf(CAPDLG.hire))+'</b>). It’s saved along with this change.</div>':'')
     +'<div style="display:flex;gap:12px;align-items:flex-end;margin-top:14px"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">New Weekly Capacity (hrs/week)<input id="capdlg-w" type="number" min="0" step="0.5" value="'+cur+'" oninput="capDlgSync()" style="font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px;width:150px"></label><span id="capdlg-bw" class="muted" style="font-size:12px;padding-bottom:9px"></span></div>'
     +'<div style="margin-top:12px;font-size:12px;font-weight:700;color:#334155">When does it start? *</div>'
     +(hire?opt('hire','From the hire date ('+capUS(hire)+')','Their starting capacity — the whole goal is recalculated; the new-hire ramp still applies.',false):'')
@@ -11577,10 +11604,10 @@ function capDlgBody(s){
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn btn-secondary" onclick="capDlgClose()">Cancel</button><button class="btn btn-primary" id="capdlg-save" onclick="capDlgSave()" disabled>Save change</button></div>';
 }
 function capDlgRead(){
-  const s=capAdjStaff(CAPDLG.id); if(!s) return null;
+  const s0=capAdjStaff(CAPDLG.id); if(!s0) return null; const s=capDlgView(s0);
   const w=parseFloat((document.getElementById('capdlg-w')||{}).value), r=document.querySelector('input[name=capdlg-when]:checked'), when=r?r.value:'';
   const from=when==='hire'?capISO(capDateOf(s['Date of Hire'])):when==='pp'?capISO(capPPStartFor()):when==='date'?((document.getElementById('capdlg-d')||{}).value||''):'';
-  return {s:s,w:w,when:when,from:from};
+  return {s:s,s0:s0,w:w,when:when,from:from};
 }
 function capDlgSync(){
   try{
@@ -11602,10 +11629,16 @@ async function capDlgSave(){
   try{
     const x=capDlgRead(); if(!x||isNaN(x.w)||x.w<0||!x.from) return;
     const rc=capRampCheck(x.s,x.from); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return; }
-    if(rc.kind==='start') capSetStartingCapacity(x.s,x.w); else capRecordCapacityChange(x.s,parseFloat(x.s['Weekly Capacity'])||0,x.w,x.from);
-    delete CAP_GOAL_CACHE[x.s._id];
+    const S=x.s0;
+    if(CAPDLG.hire){
+      const bad=(Array.isArray(S._capHist)?S._capHist:[]).find(function(h){ return h.from&&capRampCheck(S,h.from,CAPDLG.hire).kind==='inside'; });
+      if(bad&&rc.kind!=='start'){ showToast('⚠ With the new hire date, the capacity change on '+capUS(capDateOf(bad.from))+' would fall inside the new-hire ramp. Remove it first.'); return; }
+      S['Date of Hire']=CAPDLG.hire;
+    }
+    if(rc.kind==='start') capSetStartingCapacity(S,x.w); else capRecordCapacityChange(S,parseFloat(S['Weekly Capacity'])||0,x.w,x.from);
+    delete CAP_GOAL_CACHE[S._id];
     try{ await persistStaff(); }catch(e){}
-    capDlgClose(); capRefreshViews(x.s._id); showToast('✅ Capacity changed — goal recalculated');
+    capDlgClose(); capEfSyncAfterDlg(S); capRefreshViews(S._id); showToast('✅ Capacity changed — goal recalculated');
   }catch(e){ console.error(e); showToast('⚠ Could not save the capacity change'); }
 }
 async function capDlgDel(i){
@@ -11618,6 +11651,17 @@ async function capDlgDel(i){
     delete CAP_GOAL_CACHE[s._id]; try{ await persistStaff(); }catch(e){}
     capRefreshViews(s._id); capDlgOpen(s._id);
   }catch(e){ console.error(e); }
+}
+// After the capacity dialog saves, bring an open Employee File edit form up to date (so Save there
+// doesn't send the old capacity / hire date back).
+function capEfSyncAfterDlg(S){
+  try{
+    const grid=document.getElementById('m-edit-grid'); if(!grid||typeof currentId==='undefined'||currentId!==S._id) return;
+    const set=function(id,v){ const el=grid.querySelector('#'+id); if(el) el.value=v; };
+    set('ef-weekly',String(S['Weekly Capacity']||'')); set('ef-biweekly',String(S['Biweekly Capacity']||'')); set('ef-hire',String(S['Date of Hire']||''));
+    const hx=grid.querySelector('[data-caphist]'); if(hx) hx.innerHTML=capEfHistHtml(S);
+    if(typeof capEfSync==='function') capEfSync();
+  }catch(e){ console.error('capEfSyncAfterDlg',e); }
 }
 // Re-render whatever is showing this person's capacity.
 function capRefreshViews(id){

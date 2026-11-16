@@ -695,3 +695,13 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - Nov 16: **Office picker removed from New Client Request.** In-person hours on the main grid = the clinician's home site
   (`ipHomeSite(sid)` = their Team code when it's a site). `ipSave` writes `offices=[home]`; Intake Finder (`ifLoad`) fills empty
   `offices` from the home site. Other sites still go through "Another site" (extraSites) at the bottom.
+- Nov 16: **Alternate email + Alternate phone are required profile fields** (`requiredProfileFields` with `private:true`; `cfgApply`
+  adds them to an older saved list). `fieldApplies` only flags private fields when the viewer is an admin or the person themself
+  (staffPrivate isn't loaded for anyone else). Employee File shows them as red "Missing" to admins (`pfM`).
+- Nov 16: **Employee File edit form mirrors the view** (`buildRosterEditForm`): sections Contact · Personal · Emergency contact · Job ·
+  Capacity (same order + labels as `pfDemoHtml`), then Licensure / Credentialing (marked "On the Credentialing tab"). Section headers
+  use the view's `.pa-h` bar (`.ef-h`); field labels sentence case. Field ids/keys unchanged, so saveEdit is untouched.
+- Nov 16: **Capacity dialog ↔ Employee File edit form.** If the edit form is open for that person with a different Date of Hire typed
+  in, `capDlgOpen` uses it (`capDlgPendingHire`, `CAPDLG.hire`, `capDlgView` = record copy with the new date) and shows a note;
+  `capDlgSave` writes the new hire date to the record together with the capacity change. `capEfSyncAfterDlg` then updates the open
+  form (weekly, biweekly, hire date, capacity history `[data-caphist]`) so its Save doesn't send old values back.
