@@ -646,3 +646,17 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   (`insRevSvg`), by CPT (CSV `insRevCsv`, unrated codes listed), by site, top clinicians. Uses the same chip filters as Clinical Hours.
 - Report Center filter bar: the Role row was removed at Michael's request (Nov 15); Workforce Analysis keeps its own Role filter.
 - Event attachments (Nov 15): `event.files=[{path,name,size,type}]` (≤10 per event, ≤20 MB each; PDF/Office/images/txt) in Storage refLibrary/{eventId}/att_<time>_<name>; modal section (`hcalAttPick/hcalAttRemove/hcalAttCommit`), chips on the calendar card and Settings → Events (`hcalAttLinks`, `hcalAttOpen`); deleted with the event. Upload needs a Storage-admin account (isBootstrap).
+
+## Self-service demographics (Nov 15 2026)
+- New ability `edit-own-profile` in PERM_CAPS (Roles & permissions → edit a level/role → "Edit their own profile (demographics only)";
+  off by default). When on, the person's own Employee File shows "✏️ Update my information" (`selfEditAllowed`, `selfEditOpen`,
+  `selfEditSave`) for SELF_FIELDS only: Legal Name, Preferred Name, Pronouns, DOB, Address, Personal Phone, Personal Email,
+  Emergency Contact Name/Relationship/Phone. Display name ('Clinician') follows preferred/legal name; supervisors (named in others'
+  Supervisor/Reports To) can't change their preferred name themselves. Admins keep the full editor (now also has the personal +
+  emergency contact fields). New private fields are in PRIVATE_FIELDS → staffPrivate (self + admins).
+- Server: staff/staffPrivate rules already let people write their own record, so this is a UI permission like the others.
+- Employee File "Demographic & Employment" tab (Nov 16, Michael picked Option A "simple list"): `pfDemoHtml` — sections with a
+  header bar (Contact · Personal · Emergency contact · Job · Capacity), label → value rows (`pfF`, `pfM` shows red "Missing" to
+  admins), two columns of rows on wide screens (.pa-*). Contact = APP email ('Email Address'), APP Google Voice ('Google Number'),
+  Alternate email, Alternate phone. Emergency contact = name, relationship, phone, alternate phone ('Emergency Contact Alt Phone'),
+  email ('Emergency Contact Email'). DOB/address/emergency/alternates are private (self + admins).

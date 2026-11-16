@@ -577,6 +577,19 @@ em.a{background:#18A9B6}em.t{background:#F2A54B}.hcal-grid .day.sel em.a{backgro
 .hbm-navnote{font-size:11px;color:#9ca3af;padding:6px 10px 2px;line-height:1.4}
 .hbm-content{min-width:0}
 @media (max-width:900px){.hbm-layout{grid-template-columns:1fr}.hbm-nav{position:static;flex-direction:row;flex-wrap:wrap}.hbm-ng{flex-direction:row;flex-wrap:wrap;border:0;padding:0}.hbm-ngh{display:none}.hbm-nl{width:auto}.hbm-navnote{display:none}}
+.pa{margin:6px 0 10px}
+.pa-sec{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;overflow:hidden}
+.pa-h{display:flex;align-items:center;gap:10px;background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:9px 16px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#122B67}
+.pa-hn{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;color:#9ca3af}
+.pa-rows{display:grid;grid-template-columns:1fr 1fr}
+.pa-r{display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px;padding:9px 16px;border-bottom:1px solid #f1f2f4;align-items:baseline}
+.pa-r.wide{grid-column:1/-1}
+.pa-l{color:#6b7280;font-size:13px}.pa-v{font-weight:600;font-size:14px;color:#111827;word-break:break-word}
+.pa-v a{color:#122B67;text-decoration:none;border-bottom:1px dotted #18A9B6}.pa-v a:hover{color:#18A9B6}
+.pa-sub{font-weight:500;color:#6b7280;font-size:12.5px}.pa-none{color:#cbd5e1;font-weight:400}
+.pa-r.miss{background:#fef2f2}.pa-r.miss .pa-l{color:#b91c1c}.pa-r.miss .pa-v{color:#dc2626}
+.pa-extra{display:block}.pa-extra .drow{border-bottom:1px solid #f3f4f6}.pa-extra .dlabel{color:#6b7280}
+@media (max-width:760px){.pa-rows{grid-template-columns:1fr}.pa-r{grid-template-columns:130px minmax(0,1fr)}}
 .hcal-empty{font-size:12.5px;color:#9ca3af;padding:6px 0}.hcal-link{border:0;background:none;color:#122B67;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:0;text-transform:none;letter-spacing:0}.hcal-link.del{color:#b91c1c}
 .hcal-add{border:0;background:#122B67;color:#fff;font:inherit;font-size:12px;font-weight:700;border-radius:8px;padding:6px 11px;cursor:pointer}
 .hs-h{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px}
@@ -2401,6 +2414,51 @@ function missingInfo(s){
 // Only admins see the red rows; other viewers see nothing (as before).
 // Credentialing-section fields are excluded via MISS_EXCLUDE_KEYS.
 var MISS_EXCLUDE_KEYS = {'License':1,'License #':1,'License Expiration':1,'NPI':1,"CAQH #'s":1};
+// ── Employee File: Demographic & Employment tab as labelled cards (Nov 2026) ──
+// ── Employee File: Demographic & Employment tab — Option A "simple list" (Nov 2026) ──
+// Sections with a header bar (Contact · Personal · Emergency contact · Job · Capacity); label → value rows, two columns
+// of rows on wide screens, one on phones. Required-but-empty fields show "Missing" in red to admins.
+function pfF(label,val,opt){ opt=opt||{}; if((val==null||val==='')&&!opt.keep) return '';
+  return '<div class="pa-r'+(opt.wide?' wide':'')+'"><span class="pa-l">'+label+'</span><span class="pa-v">'+(val==null||val===''?'<span class="pa-none">—</span>':val)+'</span></div>'; }
+function pfM(p,label,key,display,opt){
+  const raw=(p[key]===undefined||p[key]===null)?'':String(p[key]).trim();
+  if(raw) return pfF(label,display!==undefined?display:hesc(p[key]),opt);
+  if(!isAdminView()) return '';
+  const req=(CONFIG.requiredProfileFields||[]).find(function(f){ return f.key===key; });
+  if(!req||!fieldApplies(req,p)) return '';
+  return '<div class="pa-r miss'+(opt&&opt.wide?' wide':'')+'"><span class="pa-l">'+hesc(label)+'</span><span class="pa-v">Missing</span></div>';
+}
+function pfCard(title,inner,note){ return inner?'<section class="pa-sec"><div class="pa-h">'+title+(note?'<span class="pa-hn">'+note+'</span>':'')+'</div><div class="pa-rows">'+inner+'</div></section>':''; }
+function pfLink(kind,v){ v=String(v||'').trim(); if(!v) return ''; const e=hesc(v); return kind==='mail'?'<a href="mailto:'+e+'">'+e+'</a>':'<a href="tel:'+e.replace(/[^\d+]/g,'')+'">'+e+'</a>'; }
+function pfDob(v){ try{ if(!v) return ''; const d=capDateOf(String(v).match(/^\d{4}-/)?v:new Date(v)); return d&&!isNaN(d)?usDate(capISO(d)):hesc(v); }catch(e){ return hesc(v); } }
+function pfDemoHtml(p){
+  try{
+    const adm=isAdminView(), self=p._id===window.AUTH_STAFF_ID, priv=adm||self;
+    const contact=pfM(p,'APP email','Email Address',pfLink('mail',p['Email Address']))+pfM(p,'APP Google Voice','Google Number',pfLink('tel',p['Google Number']),{keep:true})
+      +pfF('Alternate email',pfLink('mail',p['Alternate Email']),{keep:priv})+pfF('Alternate phone',pfLink('tel',p['Alternate Phone']),{keep:priv});
+    let hire=''; try{ const h=capHireDate(p); if(h){ const y=(Date.now()-h.getTime())/864e5/365.25, yy=Math.floor(y), mm=Math.round((y-yy)*12);
+      hire=hesc(usDate(capISO(h)))+' <span class="pa-sub">('+(yy?yy+' yr'+(yy===1?'':'s')+(mm?' '+mm+' mo':''):Math.max(0,mm)+' mo')+')</span>'; } }catch(e){}
+    const personal=(priv?pfF('Legal name',hesc(p['Legal Name']||staffLegalName(p)||''),{keep:true}):'')+pfF('Preferred name',hesc(p['Preferred Name']||''),{keep:priv})
+      +pfF('Pronouns',hesc(staffPronouns(p)),{keep:priv})+(priv?pfF('Date of birth',pfDob(p['DOB']),{keep:true})+pfF('Home address',hesc(p['Address']||''),{keep:true,wide:true}):'');
+    const emerg=priv?pfF('Name',hesc(p['Emergency Contact Name']||''),{keep:true})+pfF('Relationship',hesc(p['Emergency Contact Relationship']||''),{keep:true})
+      +pfF('Phone',pfLink('tel',p['Emergency Contact Phone']),{keep:true})+pfF('Alternate phone',pfLink('tel',p['Emergency Contact Alt Phone']),{keep:true})
+      +pfF('Email',pfLink('mail',p['Emergency Contact Email']),{keep:true,wide:true}):'';
+    const job=pfM(p,'Title','Title',hesc(staffTitleOf(p)||''))+pfF('Roles',hesc(displayRoleList(p)||''))
+      +pfM(p,'Team','Team',teamHistLine(p))+pfM(p,'Clinical supervisor','Supervisor')+pfM(p,'Reports to','Reports To')
+      +pfM(p,'Date of hire','Date of Hire',hire||hesc(p['Date of Hire']||''))+pfF('Status',hesc(normStatus(p['Employee Status'])||''))
+      +pfF('Primary program',hesc(programLabel(p['Primary Program'])||''))+pfF('Secondary program',hesc(programLabel(p['Programs'])||''))
+      +(adm&&isClinicianRec(p)?pfF('Differential & bonus',payEligible(p)?'Eligible':'Not eligible'+(p['Diff Bonus Eligible']==='No'?'':' <span class="pa-sub">('+hesc(payEligDefault(p).why)+')</span>')):'');
+    let cap='';
+    if(isClinicianRec(p)){
+      cap=pfM(p,'Format','Format')+pfM(p,'Capacity tier','Capacity Tier',hesc(capTierLabel(p['Capacity Tier'])||''))
+        +pfM(p,'Weekly capacity','Weekly Capacity',hesc(p['Weekly Capacity']||'')+' hrs/wk'+((adm||hbCan('edit-profiles'))?' <button class="me-x" style="color:#122B67;font-weight:700" onclick="capDlgOpen(\''+p._id+'\')">📈 Change</button>':''))
+        +pfF('Biweekly capacity',hesc(p['Biweekly Capacity']||''));
+      const extra=capProfileRows(p); if(extra) cap+='<div class="pa-r wide pa-extra">'+extra+'</div>';
+    }
+    return '<div class="pa">'+pfCard('Contact',contact)+pfCard('Personal',personal,priv?'Only you and HR see date of birth and address':'')
+      +pfCard('Emergency contact',emerg,priv?'Only you and HR see this':'')+pfCard('Job',job)+pfCard('Capacity',cap)+'</div>';
+  }catch(e){ console.error(e); return '<div class="hs-none">Couldn’t show this profile.</div>'; }
+}
 function rowM(p,label,key,display){
   const raw=(p[key]===undefined||p[key]===null)?'':String(p[key]).trim();
   if(raw) return row(label,(display!==undefined)?display:p[key]);
@@ -4722,6 +4780,49 @@ function renderPlaceholder(id){
     +'<div style="font-size:13px;color:#777;max-width:480px;margin:0 auto;line-height:1.6">'+p.d+'</div></div>';
 }
 // "My Employee File" — the signed-in person's own record, on any role.
+// ── Self-service demographics (Nov 2026) ──
+// Ability 'edit-own-profile' (Roles & permissions; off by default) lets someone update the demographic fields on THEIR
+// OWN record only — never capacity, pay, title, team, status or anything else. Private fields (address, DOB, personal
+// phone/email, emergency contact) save to staffPrivate (self + admins). Admins keep the full edit form.
+const SELF_FIELDS=[
+  ['Legal Name','Legal name','text'],['Preferred Name','Preferred name (shown across Homebase)','text'],['Pronouns','Pronouns','pron'],
+  ['DOB','Date of birth','date'],['Address','Home address','text'],['Alternate Phone','Alternate phone','tel'],['Alternate Email','Alternate email','email'],
+  ['Emergency Contact Name','Emergency contact — name','text'],['Emergency Contact Relationship','Emergency contact — relationship','text'],['Emergency Contact Phone','Emergency contact — phone','tel'],['Emergency Contact Alt Phone','Emergency contact — alternate phone','tel'],['Emergency Contact Email','Emergency contact — email','email']];
+function selfEditAllowed(p){
+  try{ if(!p||!window.AUTH_STAFF_ID||p._id!==window.AUTH_STAFF_ID) return false;
+    if(hbCan('edit-profiles')) return false;            // admins use the full editor
+    return hbCan('edit-own-profile'); }catch(e){ return false; }
+}
+function selfEditOpen(id){
+  try{ const p=STAFF.find(function(x){ return x._id===id; }); if(!selfEditAllowed(p)) return;
+    const F='font:inherit;font-size:13.5px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;width:100%;box-sizing:border-box';
+    const val=function(k){ let v=p[k]; if(k==='Legal Name'&&!v) v=staffLegalName(p); if(k==='DOB'&&v){ const d=capDateOf(v); v=d&&!isNaN(d)?capISO(d):''; } return v==null?'':String(v); };
+    const isSup=(STAFF||[]).some(function(o){ return o!==p&&[o['Supervisor'],o['Reports To']].some(function(x){ return String(x||'').trim().toLowerCase()===String(p['Clinician']||'').trim().toLowerCase(); }); });
+    hbmModal('Update my information','<div style="font-size:12.5px;color:#4b5563;margin-bottom:10px">You can update your personal details here. Everything else on your record (title, team, capacity, pay…) is managed by HR.'+(isSup?' Because others list you as their supervisor, ask HR to change your preferred name.':'')+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+SELF_FIELDS.map(function(f){ const dis=isSup&&f[0]==='Preferred Name';
+        return '<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#4b5563'+(f[0]==='Address'?';grid-column:1/-1':'')+'">'+f[1]
+          +'<input id="se-'+f[0].replace(/\W+/g,'')+'" data-k="'+hesc(f[0])+'" type="'+(f[2]==='pron'?'text':f[2])+'"'+(f[2]==='pron'?' list="se-pron"':'')+' style="'+F+(dis?';background:#f3f4f6':'')+'" value="'+hesc(val(f[0]))+'"'+(dis?' disabled':'')+'></label>'; }).join('')
+      +'</div><datalist id="se-pron"><option value="she/her"><option value="he/him"><option value="they/them"><option value="she/they"><option value="he/they"></datalist>'
+      +'<div style="font-size:11.5px;color:#9ca3af;margin-top:8px">Address, date of birth, alternate phone & email and emergency contact are private — only you and HR can see them.</div>',
+      'selfEditSave(\''+id+'\')','Save my information');
+  }catch(e){ console.error(e); }
+}
+async function selfEditSave(id){
+  try{ const p=STAFF.find(function(x){ return x._id===id; }); if(!selfEditAllowed(p)) return;
+    const before=JSON.stringify(p), changed=[];
+    document.querySelectorAll('#hbm-modal [data-k]').forEach(function(el){ if(el.disabled) return; const k=el.getAttribute('data-k'); let v=String(el.value||'').trim();
+      if(k==='DOB'&&v){ const m=v.split('-'); v=m[1]+'/'+m[2]+'/'+m[0]; }
+      if((k==='Alternate Email'||k==='Emergency Contact Email')&&v&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) throw new Error('email');
+      if(String(p[k]||'')!==v){ if(v) p[k]=v; else delete p[k]; changed.push(k); } });
+    if(!String(p['Legal Name']||'').trim()){ Object.assign(p,JSON.parse(before)); showToast('⚠ Enter your legal name'); return; }
+    if(!changed.length){ hbmClose(); showToast('Nothing changed'); return; }
+    // display name follows preferred/legal name (no carrying to other records — only HR edits those)
+    const disp=String(p['Preferred Name']||'').trim()||String(p['Legal Name']||'').trim(); if(disp) p['Clinician']=disp;
+    try{ await window.storage.set('app_staff',JSON.stringify(STAFF)); }catch(e){ Object.assign(p,JSON.parse(before)); showToast('⚠ Could not save — please try again'); return; }
+    
+    hbmClose(); showToast('✅ Your information is saved'); try{ openRoster(id); }catch(e){}
+  }catch(e){ if(String(e&&e.message)==='email'){ showToast('⚠ Check the personal email address'); return; } console.error(e); showToast('⚠ Could not save'); }
+}
 function openMyEmployeeFile(btn){
   const me=currentViewer()||STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;});
   showPage('roster',btn||document.getElementById('nav-myfile'));
@@ -7248,8 +7349,7 @@ function openRoster(id){
     (p['Format']&&isClinicianRec(p)?`<span class="pill" style="background:#e8f0e8;color:#2a4a2a">${p['Format']}</span>`:'')+
     (isAdminView()?`<span style="display:inline-flex;align-items:center;margin-left:2px">${benefitDots(id)}</span>`:'');
   // Build the three tab panels from the existing section/row helpers.
-  const demoPanel =
-    sec('Employee Profile')+(isAdminView()&&p['Legal Name']&&p['Legal Name']!==p['Clinician']?row('Legal name',p['Legal Name']):'')+(staffPronouns(p)?row('Pronouns',staffPronouns(p)):'')+rowM(p,'Email','Email Address')+rowM(p,'Phone','Google Number')+row('DOB',p['DOB'])+row('Address',p['Address'])+rowM(p,'Hired','Date of Hire')+rowM(p,'Team','Team',teamHistLine(p))+rowM(p,'Clinical Supervisor','Supervisor')+rowM(p,'Reports To','Reports To')+rowM(p,'Title','Title',staffTitleOf(p))+row('Roles',displayRoleList(p))+row('Primary Program',programLabel(p['Primary Program']))+row('Secondary Program',programLabel(p['Programs']))+(isClinicianRec(p)?rowM(p,'Format','Format')+rowM(p,'Capacity Tier','Capacity Tier',capTierLabel(p['Capacity Tier']))+rowM(p,'Weekly Capacity','Weekly Capacity',(p['Weekly Capacity']||'')+((isAdminView()||hbCan('edit-profiles'))?' <button class="me-x" style="color:#122B67;font-weight:700" onclick="capDlgOpen(\''+p._id+'\')">📈 Change capacity</button>':''))+row('Biweekly Capacity',p['Biweekly Capacity'])+(isAdminView()?row('Differential & Bonus',payEligible(p)?'Eligible':'Not eligible'+(p['Diff Bonus Eligible']==='No'?'':' ('+hesc(payEligDefault(p).why)+')')):''):'')+capProfileRows(p)
+  const demoPanel = pfDemoHtml(p)
     + `<div id="m-supervisees">${supervisorPanelHtml(id)}</div>`
     ;
 
@@ -7309,6 +7409,7 @@ function openRoster(id){
   renderRosterTabs();
   const _hasCap = (function(){ try{ return capClinicians().some(x=>x._id===id); }catch(e){ return false; } })();
   document.getElementById('m-actions').innerHTML='';
+  try{ if(selfEditAllowed(p)) document.getElementById('m-actions').innerHTML='<button class="btn btn-primary" onclick="selfEditOpen(\''+p._id+'\')">✏️ Update my information</button>'; }catch(e){}
   try{ document.getElementById('m-adminbar').innerHTML=profileAdminBarHtml(p,_hasCap); profileApplyMode(); }catch(e){ console.error(e); }
   toggleEdit(false);
   document.getElementById('detail-modal').classList.add('open','as-page');
@@ -7683,9 +7784,16 @@ function buildRosterEditForm(p){
       {id:'ef-progs',    label:'Secondary Program',  html:sel('ef-progs','Programs',PROGRAMS_O),        key:'Programs'},
     ]},
     {label:'Contact', fields:[
-      {id:'ef-email',    label:'Email',              html:inp('ef-email','Email Address'),   full:true, key:'Email Address'},
-      {id:'ef-phone',    label:'Phone / Google #',   html:inp('ef-phone','Google Number'),   key:'Google Number'},
+      {id:'ef-email',    label:'APP email',          html:inp('ef-email','Email Address'),   key:'Email Address'},
+      {id:'ef-aemail',   label:'Alternate email',    html:inp('ef-aemail','Alternate Email'), key:'Alternate Email'},
+      {id:'ef-phone',    label:'APP Google Voice number', html:inp('ef-phone','Google Number'), key:'Google Number'},
+      {id:'ef-aphone',   label:'Alternate phone',    html:inp('ef-aphone','Alternate Phone'), key:'Alternate Phone'},
       {id:'ef-addr',     label:'Address',            html:inp('ef-addr','Address'),          full:true, key:'Address'},
+      {id:'ef-ecn',      label:'Emergency contact — name', html:inp('ef-ecn','Emergency Contact Name'), key:'Emergency Contact Name'},
+      {id:'ef-ecr',      label:'Emergency contact — relationship', html:inp('ef-ecr','Emergency Contact Relationship'), key:'Emergency Contact Relationship'},
+      {id:'ef-ecp',      label:'Emergency contact — phone', html:inp('ef-ecp','Emergency Contact Phone'), key:'Emergency Contact Phone'},
+      {id:'ef-eca',      label:'Emergency contact — alternate phone', html:inp('ef-eca','Emergency Contact Alt Phone'), key:'Emergency Contact Alt Phone'},
+      {id:'ef-ece',      label:'Emergency contact — email', html:inp('ef-ece','Emergency Contact Email'), key:'Emergency Contact Email'},
     ]},
     {label:'Licensure', clinical:true, fields:[
       {id:'ef-lic',      label:'License Type',       html:inp('ef-lic','License'),           key:'License'},
@@ -9778,7 +9886,8 @@ var PERM_CAPS=[
   {k:'edit-library',l:'Edit manuals and library articles',d:'Clinical manuals, how-tos, handbook',need:'admin'},
   {k:'issue-alerts',l:'Issue alerts to employees',d:'“Issue alert” on an Employee File — shows on their My Homebase (critical = red)',need:'admin'},
   {k:'manage-homebase',l:'Manage Homebase content',d:'Homebase Settings: practice alerts, news & announcements, events calendar',need:'admin'},
-  {k:'manage-permissions',l:'Manage roles & permissions',d:'Open this page, create/edit roles and assign people',need:'admin'}];
+  {k:'manage-permissions',l:'Manage roles & permissions',d:'Open this page, create/edit roles and assign people',need:'admin'},
+  {k:'edit-own-profile',l:'Edit their own profile (demographics only)',d:'“Update my information” on their own Employee File: legal / preferred name, pronouns, date of birth, address, alternate phone & email, emergency contact. Nothing else on the record.',need:'therapist'}];
 var PERM_LEVELS=['therapist','supervisor','admin','superadmin'];
 async function loadPermRoles(){
   try{ const r=await window.storage.get('app_perm_roles'); const o=r&&r.value?JSON.parse(r.value):null; PERM.roles=(o&&o.roles)||[]; PERM.assign=(o&&o.assign)||{}; PERM.base=(o&&o.base)||{}; PERM.names=(o&&o.names)||{}; }catch(e){}
@@ -19377,7 +19486,7 @@ const firebaseConfig = {
 };
 const DOMAIN = 'advancepsychotherapy.org';
 const BOOTSTRAP_ADMINS = ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
-const PRIVATE_FIELDS = ['Address', 'DOB', 'Credentialing DOB'];
+const PRIVATE_FIELDS = ['Address', 'DOB', 'Credentialing DOB', 'Alternate Phone', 'Alternate Email', 'Emergency Contact Name', 'Emergency Contact Relationship', 'Emergency Contact Phone', 'Emergency Contact Alt Phone', 'Emergency Contact Email'];
 const CRED_FIELDS = ['CAQH Username', 'CAQH Password', 'PECOS username', 'PECOS password'];
 
 const fbApp = initializeApp(firebaseConfig);
