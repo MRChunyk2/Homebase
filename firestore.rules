@@ -176,6 +176,12 @@ service cloud.firestore {
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'pending');
     }
 
+    // Private Docs (Employee File, Nov 2026): sensitive HR documents about an employee. Super Admins only —
+    // never the employee themself, never Admins.
+    match /privateDocs/{id} {
+      allow read, write: if isSuperAdmin();
+    }
+
     // Policies (Clinical Policies → PDF sign-offs, Nov 2026). Everyone signed in reads the list; Super Admins publish.
     match /policies/{pid} {
       allow read: if isDomain();

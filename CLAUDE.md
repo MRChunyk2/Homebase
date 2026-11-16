@@ -660,3 +660,38 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   admins), two columns of rows on wide screens (.pa-*). Contact = APP email ('Email Address'), APP Google Voice ('Google Number'),
   Alternate email, Alternate phone. Emergency contact = name, relationship, phone, alternate phone ('Emergency Contact Alt Phone'),
   email ('Emergency Contact Email'). DOB/address/emergency/alternates are private (self + admins).
+
+## Private Docs in the Employee File (Nov 16 2026) ⚠ rules + storage
+- Tab "🔒 Private Docs" (`privDocsLoad`, `privDocsHtml`, `privDocsUpload`, `privDocsOpen`, `privDocsDel`) — only for a real Super Admin
+  (`isSuperAdminView()` and role superadmin; not custom roles, not the employee, not on your own record).
+- Metadata in Firestore `privateDocs/{id}` {sid,name,cat (PRIV_CATS),date,notes,path,size,type,by,at} — read/write isSuperAdmin() only;
+  never on the staff record (which all staff can read). Bytes in Storage `privateDocs/{sid}/{fileId}/{name}` — `isSuperStorage()`
+  = will@ and michael@ only (comms@ deliberately excluded). Delete is permanent (confirm).
+
+## Clinical Profile: Client Identities split out + side rail (Nov 16 2026)
+- "Populations & Circumstances" is split. **Client Identities** step (`IP_CLIENT_IDS`: LGBTQ+, Transgender / Nonbinary, Gender
+  Identity Exploration, BIPOC, Neurodivergent Adults, Religious / Spiritual) uses its own scale `IP_ID_LEVELS`: Affirming (stored "",
+  everyone's baseline) · Experienced ("exp") · Specialty focus ("sf"); never declined. Values stay in IP_DOC.pop / IP_DOC.dx
+  (`ipIdGroup`), so old profiles carry over (old Low → Affirming, old High → Experienced, via `ipNormMarks`). `ipMarked` skips
+  identities; `ipIdMarked(doc,v)` lists them.
+- **Life Circumstances & Special Populations** step (`ipCircHtml`): the rest of IP_POPS, grouped by `IP_CIRC_GROUPS` (Life stage &
+  family · Occupation & service · Legal & forensic · Safety & acuity; anything new falls into "Other"), Low/Moderate/High/Prefer not.
+  Diagnostic Realms no longer lists a Populations realm (`ipRealms` = IP_DX keys; identities filtered out of realm items).
+- Every rating list starts with level descriptions (`ipLvLegend`, `IP_LV_DESC`); rows via `ipLvRow`.
+- Intake Finder: identity concern → Specialty focus +4 ("★ Specialty focus"), Experienced +2; details list both.
+- Layout (Michael picked "Layout 2"): top tabs replaced by a left rail (`.ip-layout`/`.ip-rail`): navy **New Client Request** panel
+  with Yes / Not now (`ipReqSwitch` sets status, opens the full request screen — unchanged `ipRequestHtml` — flashes it and shows a
+  "You switched… Confirm request" banner while unsaved; `ipReqConfirm` → `ipConfirm`), then numbered steps with a progress bar
+  (Ages & Modalities · Client Identities · Life Circumstances · Diagnostic Realms · Your Identities (optional)). Tab keys: req, ages,
+  cid, circ, spec, ident. No rules change.
+- Nov 16: **New Client Request streamlined** (`ipRequestHtml`, CSS `.ip-req2`/`.ip-rsec`): white card, title + status pill, slim
+  90-day goal line, three numbered sections (1 Openings: how many + offices · 2 Who you'd like: client-type chips (`.ip-pchip`,
+  hidden checkbox) + note for Intake · 3 When you're open: hours grid + another site). Taking / Not taking is set from the navy rail
+  panel (in-page buttons only show when it was never answered). Colour legend dropped (brushes are tinted); stale/never stamp slimmed.
+- Nov 16: **"Other" items** on Client Identities, Life Circumstances and Diagnostic Realms (`ipOtherHtml(k)`, `ipOthAdd/Set/Del`,
+  `ipOthNorm`, `ipOthList`): `IP_DOC.other={cid:[{n,v}],circ:[...],dx:[...]}` (≤12 each, name ≤80 chars), same level values as
+  the built-in lists. Shown on Intake Finder card details ("Other"); not used for matching/scoring. Your Identities already had
+  its "Anything else" box.
+- Nov 16: **Office picker removed from New Client Request.** In-person hours on the main grid = the clinician's home site
+  (`ipHomeSite(sid)` = their Team code when it's a site). `ipSave` writes `offices=[home]`; Intake Finder (`ifLoad`) fills empty
+  `offices` from the home site. Other sites still go through "Another site" (extraSites) at the bottom.

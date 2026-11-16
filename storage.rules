@@ -13,6 +13,7 @@ rules_version = '2';
 //   applications/{token}/{fileName}          job-application resumes / cover letters (public create), 10 MB
 //   policies/{pid}/v{n}/{fileName}           policy PDF versions (immutable), 25 MB
 //   policySigned/{email}/{fileName}          each person's signed policy copies, 40 MB
+//   privateDocs/{staffId}/{fileId}/{name}    Employee File private docs (Super Admins only), 25 MB
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -70,6 +71,16 @@ service firebase.storage {
       allow create: if token.matches('[0-9a-f]{36}') && under(10)
         && fileName.matches('(resume|cover)_.*[.](pdf|PDF|doc|DOC|docx|DOCX)');
       allow read, delete: if isAdmin();
+    }
+
+    // Private Docs (Employee File, Nov 2026): Super Admins only. Named accounts (firestore.get() doesn't work here),
+    // deliberately NOT the wider isAdmin()/isBootstrap() list.
+    function isSuperStorage() {
+      return isDomain() && em() in ['will@advancepsychotherapy.org', 'michael@advancepsychotherapy.org'];
+    }
+    match /privateDocs/{staffId}/{fileId}/{fileName} {
+      allow read, delete: if isSuperStorage();
+      allow create: if isSuperStorage() && under(25);
     }
 
     // Policy PDFs (Clinical Policies, Nov 2026): every version is a new path and is never replaced or deleted.

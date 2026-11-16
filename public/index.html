@@ -3699,6 +3699,30 @@ var IP_LEVEL_LONG={low:"Low experience / confidence","":"Moderate experience / c
 // on these is cleared when a profile is read.
 var IP_NO_DECLINE=["LGBTQ+","Transgender / Nonbinary","BIPOC","Religious / Spiritual Concerns (incl. spiritual abuse, religious trauma, faith transitions)","Neurodivergent Adults","Gender Identity Exploration"];
 function ipCanDecline(name){ return IP_NO_DECLINE.indexOf(name)<0; }
+// Client identities (Nov 16 2026): their own step and scale — Affirming (everyone's baseline, stored "") ·
+// Experienced ("exp") · Specialty focus ("sf"). Never declined. Values still live in IP_DOC.pop / IP_DOC.dx
+// (by where the item came from), so older profiles carry over: old Low → Affirming, old High → Experienced.
+var IP_CLIENT_IDS=["LGBTQ+","Transgender / Nonbinary","Gender Identity Exploration","BIPOC","Neurodivergent Adults","Religious / Spiritual Concerns (incl. spiritual abuse, religious trauma, faith transitions)"];
+function ipIsId(n){ return IP_CLIENT_IDS.indexOf(n)>=0; }
+function ipIdGroup(n){ return IP_POPS.indexOf(n)>=0?"pop":"dx"; }
+var IP_ID_LEVELS=[["","Affirming","Every clinician’s baseline: respectful, culturally responsive care, and you consult when needed."],
+  ["exp","Experienced","You see these clients regularly and keep up with training. You’re comfortable with most presentations."],
+  ["sf","Specialty focus","Advanced training or lived expertise. You want these referrals, and Intake will route them to you first."]];
+var IP_LV_DESC={low:"Little training or experience. You could see them with consultation or supervision. Intake shows a caution.",
+  "":"Some experience. You’re comfortable with typical presentations. This is the default.",
+  exp:"A regular part of your caseload, with specific training. You’re comfortable with complex cases, and Intake ranks you higher.",
+  no:"You’d rather not take these clients right now. Intake won’t match them to you."};
+var IP_CIRC_GROUPS={"Life stage & family":["Perinatal / Postpartum","Infertility & Pregnancy Loss","College Students","Navigating custody issues within a family"],
+  "Occupation & service":["Veterans & Military","First Responders","Athletes","Healthcare Workers"],
+  "Legal & forensic":["Court-ordered / Mandated Treatment","Domestic Violence Perpetrators","Sex Offense History"],
+  "Safety & acuity":["Recent Violence (client was the victim)","Recent Violence (client was the perpetrator)","Higher Level of Care Needs","Eating Disorders"]};
+function ipCircGroups(){
+  try{ const out={}, seen=[]; Object.keys(IP_CIRC_GROUPS).forEach(function(g){ const a=IP_CIRC_GROUPS[g].filter(function(n){ return IP_POPS.indexOf(n)>=0&&!ipIsId(n); }); a.forEach(function(n){seen.push(n);}); if(a.length) out[g]=a; });
+    const rest=IP_POPS.filter(function(n){ return !ipIsId(n)&&seen.indexOf(n)<0; }); if(rest.length) out["Other"]=rest; return out;
+  }catch(e){ return {"Life circumstances":IP_POPS.filter(function(n){return !ipIsId(n);})}; }
+}
+function ipIdMarked(doc,v){ return IP_CLIENT_IDS.filter(function(n){ return ((doc&&doc[ipIdGroup(n)])||{})[n]===v; }); }
+var IP_REQCHG=null;
 // Renamed / retired items, applied when a profile is read (old marks carry over).
 var IP_RENAMED={"Custody or Forensic Evaluations":"Navigating custody issues within a family","Religious / Spiritual Concerns":"Religious / Spiritual Concerns (incl. spiritual abuse, religious trauma, faith transitions)",
   "Medically Unstable Eating Disorders":"Eating Disorders","ARFID":"ARFID (Avoidant/Restrictive Food Intake Disorder)"};
@@ -3714,11 +3738,13 @@ function ipNormMarks(doc){
         if(IP_SPLIT[k]){ delete m[k]; if(v) IP_SPLIT[k].forEach(function(n){ if(!m[n]) m[n]=v; }); return; }
         const nk=IP_RENAMED[k]||k; if(nk!==k) delete m[k];
         if(v==="no"&&!ipCanDecline(nk)) v="";                     // identity items can't be declined
+        if(ipIsId(nk)&&v==="low") v="";                           // identities: old Low → Affirming
+        if(!ipIsId(nk)&&v==="sf") v="exp";
         if(v) m[nk]=v; else delete m[nk]; }); });
   }catch(e){}
   return doc;
 }
-function ipMarked(doc,v){ const out=[]; ["pop","dx"].forEach(function(g){ const m=(doc&&doc[g])||{}; Object.keys(m).forEach(function(k){ if(m[k]===v) out.push(k); }); }); return out; }
+function ipMarked(doc,v){ const out=[]; ["pop","dx"].forEach(function(g){ const m=(doc&&doc[g])||{}; Object.keys(m).forEach(function(k){ if(m[k]===v&&!ipIsId(k)) out.push(k); }); }); return out; }
 var IP_STATUS={
   open:{l:"Taking new clients",     c:"#15803d", bg:"#dcfce7"},
   full:{l:"Not taking new clients", c:"#b91c1c", bg:"#fee2e2"}
@@ -3727,7 +3753,7 @@ var IP_SID=null, IP_DOC=null, IP_SAVED=null, IP_TAB="req", IP_BRUSH="v", IP_PAIN
 
 // Client types a clinician would PREFER for new referrals (a preference, not a rule).
 var IP_PREF_TYPES=["Children (under 12)","Adolescents (12–17)","Young Adults (18–25)","Adults","Older Adults (65+)","Couples","Families","Groups"];
-function ipBlank(){ return {status:"",openings:"",avail:{},offices:[],prefTypes:[],ages:[],modalities:[],modCert:[],modOther:"",dx:{},pop:{},wants:"",notes:"",extraSites:[],ident:{list:[],other:""}}; }
+function ipBlank(){ return {status:"",openings:"",avail:{},offices:[],prefTypes:[],ages:[],modalities:[],modCert:[],modOther:"",dx:{},pop:{},wants:"",notes:"",extraSites:[],ident:{list:[],other:""},other:{cid:[],circ:[],dx:[]}}; }
 function ipMe(){ const v=currentViewer(); if(v) return v; return STAFF.find(function(x){return x._id===window.AUTH_STAFF_ID;})||null; }
 function ipCanEdit(){ const me=ipMe(); return isAdminView() || !!(me && me._id===IP_SID); }
 function ipPeople(){
@@ -3767,6 +3793,8 @@ function ipNeed90(sid){
   const need=Math.max(0,Math.round(IP_PACE_TARGET*exp-(c.ytd||0)));
   return {need:need, perWeek:Math.round(need/(90/7)*10)/10, hasData:c.hasData!==false};
 }
+// Home site for in-person new-client hours = the clinician's Team (Nov 16: the office picker was removed).
+function ipHomeSite(sid){ try{ const s=STAFF.find(function(x){return x._id===sid;})||{}; const t=s["Team"]||""; const dir=(typeof CONFIG!=="undefined"&&CONFIG.siteDirectory)||{}; return dir[t]?t:""; }catch(e){ return ""; } }
 function ipSites(){
   const dir=(typeof CONFIG!=="undefined"&&CONFIG.siteDirectory)||{};
   return Object.keys(dir).map(function(k){return {k:k,l:(dir[k]&&dir[k].l)||k};});
@@ -3792,6 +3820,7 @@ async function ipLoad(){
   // "Notes for Intake" was merged into the "hoping for" box (wants)
   if(IP_DOC.notes){ IP_DOC.wants=(IP_DOC.wants?IP_DOC.wants+"\n":"")+IP_DOC.notes; IP_DOC.notes=""; }
   ipNormMarks(IP_DOC);
+  ipOthNorm(IP_DOC);
   IP_SAVED=JSON.stringify(IP_DOC);
 }
 
@@ -3812,7 +3841,9 @@ async function renderIntakeProfile(){
   const sections=[
     {k:"req", ic:"📣", t:"New Client Request", st:reqStatus.t, tone:reqStatus.k},
     {k:"ages",ic:"🧩", t:"Ages & Modalities",  st:miss.length?"Missing "+miss.join(" & "):IP_DOC.ages.length+" ages · "+IP_DOC.modalities.length+" modalities", tone:miss.length?"warn":"ok"},
-    {k:"spec",ic:"🎯", t:"Diagnostic Realms & Exclusions", st:c.exp.length+" high · "+c.low.length+" low · "+c.no.length+" prefer not", tone:"plain"},
+    {k:"cid", ic:"🤝", t:"Client Identities", st:ipIdMarked(IP_DOC,"sf").length+" specialty · "+ipIdMarked(IP_DOC,"exp").length+" experienced", tone:"plain"},
+    {k:"circ",ic:"🧭", t:"Life Circumstances & Special Populations", st:(function(){ const P=IP_DOC.pop||{}, a=IP_POPS.filter(function(n){return !ipIsId(n);}); const f=function(v){return a.filter(function(n){return P[n]===v;}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
+    {k:"spec",ic:"🎯", t:"Diagnostic Realms & Exclusions", st:(function(){ const D=IP_DOC.dx||{}; const f=function(v){return Object.keys(D).filter(function(n){return D[n]===v&&!ipIsId(n);}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
     {k:"ident",ic:"🌈", t:"Identities (optional)", st:((IP_DOC.ident&&IP_DOC.ident.list)||[]).length?((IP_DOC.ident.list||[]).length+" shared"):"Optional — nothing shared", tone:"plain"}];
   const nav='<nav class="ip-nav" aria-label="Profile sections">'+sections.map(function(x){
     return '<button class="ip-navi ip-navi-'+x.k+(IP_TAB===x.k?' on':'')+'" aria-current="'+(IP_TAB===x.k)+'" onclick="ipTab(\''+x.k+'\')">'
@@ -3825,6 +3856,23 @@ async function renderIntakeProfile(){
   const tabs='<div class="hb-tabs ip-dtabs">'+sections.map(function(x){
     const warn=(x.tone==="stale"||x.tone==="never"||x.tone==="warn");
     return '<button class="hb-tab'+(IP_TAB===x.k?' on':'')+'" aria-current="'+(IP_TAB===x.k)+'" onclick="ipTab(\''+x.k+'\')">'+x.ic+' '+x.t+(warn?' <span class="ip-tdot" title="'+hesc(x.st)+'">●</span>':'')+'</button>'; }).join("")+'</div>';
+  // ── Left rail (Nov 16, Layout 2): navy New Client Request panel + numbered profile steps ──
+  const full=IP_DOC.status==="full", openSt=IP_DOC.status==="open", dis=ro?' disabled':'';
+  const panel='<div class="ip-rpanel'+(IP_TAB==="req"?' on':'')+'"><div class="ip-rk">📣 New Client Request</div><div class="ip-rq">Are you taking new clients?</div>'
+    +'<div class="ip-yn"><button'+dis+' class="'+(openSt?'on':'')+'" onclick="ipReqSwitch(\'open\')">Yes'+(openSt&&+IP_DOC.openings?' · '+hesc(IP_DOC.openings)+' spot'+(+IP_DOC.openings===1?'':'s'):'')+'</button>'
+    +'<button'+dis+' class="'+(full?'on no':'')+'" onclick="ipReqSwitch(\'full\')">Not now</button></div>'
+    +'<div class="ip-rs tone-'+reqStatus.k+'">'+(IP_REQCHG&&ipDirty()?'Changed — confirm the details →':hesc(reqStatus.t))+'</div>'
+    +'<button class="ip-rgo" onclick="ipTab(\'req\')">'+(ro?'View':'Edit')+' request details →</button></div>';
+  const steps=sections.filter(function(x){return x.k!=="req";});
+  const isDone=function(k){ if(k==="ages") return !miss.length; if(k==="ident") return !!((IP_DOC.ident&&IP_DOC.ident.list)||[]).length; return age!==null; };
+  const req4=steps.filter(function(x){return x.k!=="ident";}), nDone=req4.filter(function(x){return isDone(x.k);}).length;
+  const rail='<aside class="ip-rail" aria-label="Profile sections">'+panel
+    +'<div class="ip-steps"><div class="ip-sph"><span>Clinical profile</span><span>'+nDone+' of '+req4.length+' done</span></div>'
+    +'<div class="ip-spbar"><i style="width:'+Math.round(nDone/req4.length*100)+'%"></i></div>'
+    +steps.map(function(x,i){ const d=isDone(x.k), on=IP_TAB===x.k;
+      return '<button class="ip-st'+(d?' done':'')+(on?' on':'')+'" aria-current="'+on+'" onclick="ipTab(\''+x.k+'\')"><span class="n">'+(i+1)+'</span><span class="tx"><span class="t">'
+        +(x.k==="ident"?'Your Identities <em>(optional)</em>':hesc(x.t))+'</span><span class="s tone-'+x.tone+'">'+hesc(x.st)+'</span></span></button>'; }).join('')
+    +'</div></aside>';
   const cur=sections.find(function(x){ return x.k===IP_TAB; })||sections[0];
   const head='<div class="ip-head">'+avatarHtml(s["Clinician"]||"",IP_SID,48)
     +'<div class="ip-headtx"><div class="ip-name">'+hesc(s["Clinician"]||"Clinician")+'</div><div class="ip-meta">'+hesc(displayTitle(s)||s["Title"]||"")+(s["Team"]?' · '+hesc(teamLabel(s["Team"])):"")
@@ -3834,19 +3882,26 @@ async function renderIntakeProfile(){
     +'</div>';
   let content;
   const statusLine='<div class="ip-tabstatus tone-'+cur.tone+'">'+((cur.tone==="stale"||cur.tone==="never"||cur.tone==="warn")?'● ':'')+hesc(cur.st)+'</div>';
-  if(IP_TAB==="spec"){
+  if(IP_TAB==="cid"){
+    content='<div class="ip-mainhead"><h2>🤝 Client Identities</h2><p>Every clinician gives affirming care. Mark where you go deeper. These can’t be declined.</p></div>'
+      +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipCidHtml(ro)+ipOtherHtml("cid",ro)+'</div>';
+  } else if(IP_TAB==="circ"){
+    content='<div class="ip-mainhead"><h2>🧭 Life Circumstances &amp; Special Populations</h2><p>How much experience and confidence you have with each one. “Prefer not” keeps these clients out of your Intake matches.</p></div>'
+      +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipCircHtml(ro)+ipOtherHtml("circ",ro)+'</div>';
+  } else if(IP_TAB==="spec"){
     content='<div class="ip-mainhead"><h2>Diagnostic Realms &amp; Exclusions</h2><p>Your standing profile. Intake uses it to judge clinical fit for any referral.</p>'+statusLine+'</div>'
-      +'<div class="ip-specwrap"><div class="ip-specside">'+ipSpecSummaryHtml(ro)+'</div><div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipSpecHtml(ro)+'</div></div>';
+      +'<div class="ip-specwrap"><div class="ip-specside">'+ipSpecSummaryHtml(ro)+'</div><div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipSpecHtml(ro)+ipOtherHtml("dx",ro)+'</div></div>';
   } else if(IP_TAB==="ages"){
     content='<div class="ip-mainhead"><h2>Ages &amp; Modalities</h2><p>Your standing profile. Intake uses it to judge clinical fit for any referral.</p>'+statusLine+'</div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipAgesHtml(ro)+'</div>';
   } else if(IP_TAB==="ident"){
     content='<div class="ip-mainhead"><h2>Identities you’d like to share <span class="ip-opt">Optional</span></h2><p>Completely optional and never required. Some clients ask to work with a therapist who shares part of their identity — if you’d like intake to know about any of these as part of your clinical practice, choose them here. You can change or remove them any time.</p></div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipIdentHtml(ro)+'</div>';
-  } else content=ipStampHtml(s,ro)+ipRequestHtml(ro);
+  } else content=(IP_REQCHG&&ipDirty()&&!ro?'<div class="ip-chg" role="status"><span>You switched to <b>'+(IP_DOC.status==="full"?'Not taking new clients':'Taking new clients')+'</b>. Check the details below, then confirm.</span><button class="btn btn-primary" onclick="ipReqConfirm()">✓ Confirm request</button></div>':'')
+      +ipStampHtml(s,ro)+ipRequestHtml(ro);
   const bottomSave=ro?'':'<div class="ip-mainsave"><span class="ip-muted" id="ip-save2-note">'+(ipDirty()?'You have unsaved changes':'All changes saved')+'</span>'
     +'<button class="btn btn-primary" id="ip-save2" onclick="ipSave()"'+(ipDirty()?'':' disabled')+'>💾 Save'+(ipDirty()?' changes':'d')+'</button></div>';
-  body.innerHTML=ipCss()+'<div class="ip-wrap">'+head+tabs+'<div class="ip-main">'+content+bottomSave+'</div></div>';
+  body.innerHTML=ipCss()+'<div class="ip-wrap">'+head+'<div class="ip-layout">'+rail+'<div class="ip-main">'+content+bottomSave+'</div></div></div>';
   ipBindGrid();
 }
 // Big "days since you updated" stamp at the top of the profile.
@@ -3901,40 +3956,32 @@ function ipMark(){ const d=ipDirty();
 
 // ── New Client Request (what Intake searches) ──
 function ipRequestHtml(ro){
+  // Streamlined Nov 16: white card, three plain sections (Openings · Who you'd like · When you're open),
+  // Taking / Not taking lives in the navy rail panel (ipReqSwitch); client types are chips.
   const dis=ro?" disabled":"";
-  const st=IP_STATUS[IP_DOC.status];
-  const age=ipAge(IP_DOC);
-  const stale=age!==null && age>=IP_STALE_DAYS;
-  const c=ipCounts();
   const full=IP_DOC.status==="full";
-  return '<section class="ip-req'+(full?' is-full':'')+(ro?' ro':'')+'" aria-labelledby="ip-req-h">'
-    +'<div class="ip-reqhead">'
-      +'<div><div class="ip-eyebrow ip-eyebrow-req">New client request · Intake searches this</div>'
-      +'<h2 class="ip-reqtitle" id="ip-req-h">Are you looking for new clients?</h2></div>'
-      +'</div>'
+  const sec=function(n,t,body){ return '<section class="ip-rsec"><h3 class="ip-rsh"><span>'+n+'</span>'+t+'</h3>'+body+'</section>'; };
+  return '<section class="ip-req ip-req2'+(full?' is-full':'')+(ro?' ro':'')+'" aria-labelledby="ip-req-h">'
+    +'<div class="ip-reqhead"><h2 class="ip-reqtitle" id="ip-req-h">New Client Request</h2>'
+      +'<span class="ip-reqpill '+(full?'full':(IP_DOC.status==="open"?'open':''))+'">'+(full?'● Not taking new clients':(IP_DOC.status==="open"?'● Taking new clients':'Not answered yet'))+'</span></div>'
     +ipGoalHtml()
-    +'<div class="ip-seg">'+Object.keys(IP_STATUS).map(function(k){const o=IP_STATUS[k], on=IP_DOC.status===k;
-      return '<button'+dis+' class="ip-segb'+(on?' on':'')+'" style="'+(on?'background:'+o.bg+';color:'+o.c+';border-color:'+o.c:'')+'" onclick="ipSet(\'status\',\''+k+'\')">'+o.l+'</button>';}).join("")+'</div>'
+    +(IP_DOC.status?'':'<div class="ip-seg">'+Object.keys(IP_STATUS).map(function(k){const o=IP_STATUS[k];
+      return '<button'+dis+' class="ip-segb" onclick="ipReqSwitch(\''+k+'\')">'+o.l+'</button>';}).join("")+'</div>')
     +(full?'<div class="ip-fullnote">Intake won’t send you new clients while you’re not taking them. Your answers below are kept for when you start again.</div>':'')
     +'<div class="ip-reqbody">'
-    +'<div class="ip-reqrow">'
-      +'<div class="ip-reqcell" style="flex:0 0 220px"><label class="ip-h" for="ip-openings">How many new clients?</label>'
-        +'<input id="ip-openings" type="number" min="0" max="40" inputmode="numeric"'+dis+' value="'+hesc(IP_DOC.openings)+'" oninput="ipField(\'openings\',this.value)" class="ip-in" style="max-width:120px"></div>'
-      +'<div class="ip-reqcell"><div class="ip-h">Your office(s) for in-person clients</div>'
-        +'<div class="ip-chipset">'+ipSites().map(function(o){const on=IP_DOC.offices.indexOf(o.k)>=0;return '<button'+dis+' class="ip-chip'+(on?' on':'')+'" onclick="ipToggle(\'offices\',\''+hesc(o.k)+'\')">'+hesc(o.l)+'</button>';}).join("")+'</div></div>'
+    +sec(1,'Openings','<div class="ip-reqrow">'
+      +'<div class="ip-reqcell ip-opn"><label class="ip-h" for="ip-openings">How many new clients?</label>'
+        +'<input id="ip-openings" type="number" min="0" max="40" inputmode="numeric"'+dis+' value="'+hesc(IP_DOC.openings)+'" oninput="ipField(\'openings\',this.value)" class="ip-in"></div>'
+      +'</div>')
+    +sec(2,'Who you’d like','<fieldset class="ip-pref"><legend class="ip-h">Client types you’d prefer right now</legend>'
+      +'<div class="ip-sub">Preferences, not limits. Intake may still place a good fit for your clinical profile.</div>'
+      +'<div class="ip-chipset">'+IP_PREF_TYPES.map(function(t,i){const on=IP_DOC.prefTypes.indexOf(t)>=0;
+        return '<label class="ip-chip ip-pchip'+(on?' on':'')+'"><input type="checkbox" id="ip-pref-'+i+'"'+(on?' checked':'')+dis+' onchange="ipToggle(\'prefTypes\',\''+hesc(t)+'\')">'+(on?'✓ ':'')+hesc(t)+'</label>';}).join("")+'</div></fieldset>'
+      +'<div class="ip-reqcell"><label class="ip-h" for="ip-wants">Anything Intake should know?</label>'
+      +'<textarea id="ip-wants" class="ip-in" rows="2" placeholder="Clients you’d like, upcoming leave, a waitlist, scheduling limits… e.g. Teens with anxiety. Out Dec 20–Jan 2."'+dis+' oninput="ipField(\'wants\',this.value)">'+hesc(IP_DOC.wants)+'</textarea></div>')
+    +sec(3,'When you’re open','<div class="ip-reqcell">'+ipAvailHtml(ro)+'</div>')
     +'</div>'
-    +'<fieldset class="ip-pref"><legend class="ip-h">Client types you’d prefer right now</legend>'
-      +'<div class="ip-prefnote"><strong>These are preferences, not limits.</strong> Intake may still place a new client with you when they’re a good fit for your clinical profile — the ages, modalities, and specialties on the other two tabs.</div>'
-      +'<div class="ip-checks">'+IP_PREF_TYPES.map(function(t,i){const on=IP_DOC.prefTypes.indexOf(t)>=0;
-        return '<label class="ip-check'+(on?' on':'')+'"><input type="checkbox" id="ip-pref-'+i+'"'+(on?' checked':'')+dis+' onchange="ipToggle(\'prefTypes\',\''+hesc(t)+'\')"><span>'+hesc(t)+'</span></label>';}).join("")+'</div>'
-    +'</fieldset>'
-    +'<div class="ip-reqcell"><label class="ip-h" for="ip-wants">Anything you’re hoping for, or Intake should know?</label>'
-      +'<div class="ip-sub">The kinds of clients you’d like, plus anything that affects matching: upcoming leave, a waitlist, scheduling limits, a client you’re expecting.</div>'
-      +'<textarea id="ip-wants" class="ip-in" rows="3" placeholder="e.g. Teens with anxiety, or a couple for evening telehealth. Out Dec 20–Jan 2."'+dis+' oninput="ipField(\'wants\',this.value)">'+hesc(IP_DOC.wants)+'</textarea></div>'
-    +'<div class="ip-reqcell">'+ipAvailHtml(ro)+'</div>'
-    +'</div>'
-    +'<div class="ip-reqfoot"><span>'+ipFootTxt()+'</span>'
-      +'</div>'
+    +'<div class="ip-reqfoot"><span>'+ipFootTxt()+'</span></div>'
     +'</section>';
 }
 function ipSet(k,v){ if(!ipCanEdit()) return; IP_DOC[k]=(IP_DOC[k]===v?"":v); renderIntakeProfile(); }
@@ -3960,8 +4007,8 @@ function ipGridTable(key){
 function ipHours(av){ let n=0; Object.keys(av||{}).forEach(function(d){ n+=Object.keys(av[d]).length; }); return n; }
 function ipAvailHtml(ro){
   const brushes=[["v","Virtual"],["p","In person"],["b","Either"],["",'Clear']];
-  const main='<div><div class="ip-h">New-client availability</div>'
-    +'<div class="ip-sub">Only the hours you have open for <strong>new</strong> clients, not your whole schedule. This is what Intake searches. In person means your own office(s) above. '+(ro?'':'Pick a brush, then click or drag across the grid.')+'</div>'
+  const main='<div><div class="ip-h">New-client hours</div>'
+    +'<div class="ip-sub">Only hours open for <strong>new</strong> clients. In person = '+(ipHomeSite(IP_SID)?'your home site, <strong>'+hesc(ifSiteName(ipHomeSite(IP_SID)))+'</strong>':'your home site')+'. '+(ro?'':'Pick a type, then click or drag across the grid.')+'</div>'
     +(ro?'':'<div class="ip-brushes">'+brushes.map(function(b){return '<button class="ip-brush b-'+(b[0]||"x")+(IP_BRUSH===b[0]?' on':'')+'" onclick="IP_BRUSH=\''+b[0]+'\';renderIntakeProfile()">'+b[1]+'</button>';}).join("")
       +'<button class="ip-brush" style="margin-left:auto" onclick="ipClearAll()">Clear all</button></div>')
     +ipGridTable("main")
@@ -3975,8 +4022,8 @@ function ipAvailHtml(ro){
         +'<label class="ip-xlab" for="ip-xs-'+i+'">Site</label>'
         +'<select id="ip-xs-'+i+'" class="ip-in ip-xsel"'+(ro?' disabled':'')+' onchange="ipXSet('+i+',\'site\',this.value)">'
           +'<option value="">Choose a site…</option>'
-          +sites.map(function(o){ const own=IP_DOC.offices.indexOf(o.k)>=0; const taken=used.indexOf(o.k)>=0&&e.site!==o.k;
-            return '<option value="'+hesc(o.k)+'"'+(e.site===o.k?' selected':'')+(own||taken?' disabled':'')+'>'+hesc(o.l)+(own?' (your office)':'')+'</option>'; }).join("")
+          +sites.map(function(o){ const hm=ipHomeSite(IP_SID), own=hm?o.k===hm:IP_DOC.offices.indexOf(o.k)>=0; const taken=used.indexOf(o.k)>=0&&e.site!==o.k;
+            return '<option value="'+hesc(o.k)+'"'+(e.site===o.k?' selected':'')+(own||taken?' disabled':'')+'>'+hesc(o.l)+(own?' (your home site)':'')+'</option>'; }).join("")
         +'</select>'
         +'<span class="ip-xcount">'+ipHours(e.avail)+' hrs</span>'
         +(ro?'':'<button class="ip-linkbtn ip-xrm" onclick="ipXRemove('+i+')">Remove</button>')
@@ -3987,8 +4034,8 @@ function ipAvailHtml(ro){
       +'</div>';
   }).join("");
   const other='<div class="ip-other">'
-    +'<div class="ip-h">Special availability at another site</div>'
-    +'<div class="ip-sub">Can you see new clients in person at a site other than your own office? Add it here so Intake can find you for clients at that location.</div>'
+    +'<div class="ip-h">Another site <span class="ip-muted" style="font-weight:500">(optional)</span></div>'
+    +'<div class="ip-sub">Can you see new clients in person somewhere other than your home site?</div>'
     +extras
     +(ro?(IP_DOC.extraSites.length?'':'<div class="ip-sub" style="margin:0">None.</div>')
       :'<button class="btn btn-secondary ip-xadd" onclick="ipXAdd()">＋ Add availability at another site</button>')
@@ -4099,8 +4146,8 @@ function ipMod(m,kind,on){
 // Left: realm navigator with counts. Right: that realm's items. A search box
 // looks across every realm at once.
 var IP_POP_REALM="Populations & Circumstances";
-function ipRealms(){ return [IP_POP_REALM].concat(Object.keys(IP_DX)); }
-function ipRealmItems(r){ return r===IP_POP_REALM?IP_POPS:(IP_DX[r]||[]); }
+function ipRealms(){ return Object.keys(IP_DX); }   // Populations moved to Client Identities + Life Circumstances (Nov 16)
+function ipRealmItems(r){ return (r===IP_POP_REALM?IP_POPS:(IP_DX[r]||[])).filter(function(n){ return !ipIsId(n); }); }
 function ipRealmGroup(r){ return r===IP_POP_REALM?"pop":"dx"; }
 function ipRealmOf(name){ if(IP_POPS.indexOf(name)>=0) return IP_POP_REALM; const ks=Object.keys(IP_DX); for(let i=0;i<ks.length;i++){ if(IP_DX[ks[i]].indexOf(name)>=0) return ks[i]; } return ""; }
 function ipSpecSummaryHtml(ro){
@@ -4132,7 +4179,6 @@ function ipSpecHtml(ro){
       +'<span class="ct">'+(ns?'<i class="s">★'+ns+'</i>':'')+(nn?'<i class="n">✕'+nn+'</i>':'')+'</span></button>';
   };
   const nav='<nav class="ip-realmnav" aria-label="Populations and diagnostic realms">'
-    +'<div class="ip-navsec pop"><div class="ip-navh"><span aria-hidden="true">👥</span> Populations</div><div class="ip-navlist">'+navBtn(IP_POP_REALM)+'</div></div>'
     +'<div class="ip-navsec dx"><div class="ip-navh"><span aria-hidden="true">🧠</span> Diagnostic Realms</div><div class="ip-navlist">'+Object.keys(IP_DX).map(navBtn).join("")+'</div></div>'
     +'</nav>';
 
@@ -4158,12 +4204,78 @@ function ipSpecHtml(ro){
         +'</div>';}).join("")+'</div>'
     :'<div class="ip-none" style="padding:18px 4px">Nothing matches. Try a different word.</div>';
 
-  return '<div class="ip-sec">'+how+'</div>'
-    +'<div class="ip-sec"><div class="ip-dxsearch"><input class="ip-in" id="ip-dxq" type="search" placeholder="🔍  Search all populations and diagnoses…" value="'+hesc(IP_DXQ)+'" oninput="ipDxSearch(this.value)"></div>'
+  return '<div class="ip-sec">'+ipLvLegend()+'</div>'
+    +'<div class="ip-sec"><div class="ip-dxsearch"><input class="ip-in" id="ip-dxq" type="search" placeholder="🔍  Search all diagnoses…" value="'+hesc(IP_DXQ)+'" oninput="ipDxSearch(this.value)"></div>'
     +'<div class="ip-realmwrap">'+nav+'<div class="ip-realmbody '+(IP_DXQ?'q':(IP_REALM===IP_POP_REALM?'pop':'dx'))+'">'+title+list+'</div></div></div>';
 }
+// Level descriptions shown above each rating list.
+function ipLvLegend(ids){
+  const L=ids?IP_ID_LEVELS.map(function(x){return [x[0]||"aff",x[1],x[2]];}):IP_LEVELS.map(function(x){return [x[0]||"mod",x[0]==="no"?"Prefer not":x[1],IP_LV_DESC[x[0]]];});
+  return '<div class="ip-lvlegend">'+L.map(function(x){ return '<div class="ip-lvl '+x[0]+'"><b>'+hesc(x[1])+'</b>'+hesc(x[2])+'</div>'; }).join('')+'</div>';
+}
+function ipLvRow(name,g,v,opts,ro,nm){
+  const q=hesc(name).replace(/'/g,"&#39;");
+  return '<div class="ip-lvrow lv-'+(v||(opts.length===3?"aff":"mod"))+'"><div class="ip-lvname">'+hesc(name)+'</div>'
+    +'<div class="ip-lv'+(opts.length===3?' ip-lv3':'')+'" role="radiogroup" aria-label="'+hesc(name)+'">'+opts.map(function(o,j){
+      const cls=o[0]||(opts.length===3?"aff":"mod");
+      return '<label class="ip-lvo '+cls+(v===o[0]?' on':'')+'"><input type="radio" name="'+nm+'" id="'+nm+'-'+j+'"'+(v===o[0]?' checked':'')+(ro?' disabled':'')
+        +' onchange="ipSetDx(\''+g+'\',\''+q+'\',\''+o[0]+'\')"><span>'+(o[0]==="no"?'Prefer not':o[1])+'</span></label>'; }).join('')+'</div></div>';
+}
+function ipCidHtml(ro){
+  try{
+    return '<div class="ip-sec">'+ipLvLegend(true)+'</div><div class="ip-sec"><div class="ip-dxlist">'
+      +IP_CLIENT_IDS.map(function(n,i){ const g=ipIdGroup(n); return ipLvRow(n,g,(IP_DOC[g]||{})[n]||"",IP_ID_LEVELS,ro,"ipcid-"+i); }).join('')+'</div></div>';
+  }catch(e){ console.error("ipCidHtml",e); return '<div class="ip-none">Could not show this section.</div>'; }
+}
+function ipCircHtml(ro){
+  try{
+    const G=ipCircGroups(); let i=0;
+    return '<div class="ip-sec">'+ipLvLegend()+'</div>'+Object.keys(G).map(function(g){
+      return '<div class="ip-sec"><div class="ip-cgrp">'+hesc(g)+'</div><div class="ip-dxlist">'
+        +G[g].map(function(n){ return ipLvRow(n,"pop",(IP_DOC.pop||{})[n]||"",IP_LEVELS,ro,"ipcirc-"+(i++)); }).join('')+'</div></div>'; }).join('');
+  }catch(e){ console.error("ipCircHtml",e); return '<div class="ip-none">Could not show this section.</div>'; }
+}
+// Navy rail panel: flipping Taking / Not taking opens the request so the details get checked.
+function ipReqSwitch(k){
+  try{ if(!ipCanEdit()) return; if(IP_DOC.status!==k){ IP_DOC.status=k; IP_REQCHG=k; } IP_TAB="req"; renderIntakeProfile();
+    const m=document.querySelector("#intake-profile-body .ip-main"); if(m){ m.classList.remove("ip-flash"); void m.offsetWidth; m.classList.add("ip-flash"); if(window.innerWidth<900) m.scrollIntoView({behavior:"smooth",block:"start"}); }
+  }catch(e){ console.error("ipReqSwitch",e); }
+}
+// "Other" items the clinician adds themselves on Client Identities / Life Circumstances / Diagnostic Realms (Nov 16).
+// IP_DOC.other = {cid:[{n,v}], circ:[{n,v}], dx:[{n,v}]} — same level values as the built-in lists.
+var IP_OTH_MAX=12;
+function ipOthNorm(doc){
+  try{ if(!doc.other||typeof doc.other!=="object") doc.other={};
+    ["cid","circ","dx"].forEach(function(k){ if(!Array.isArray(doc.other[k])) doc.other[k]=[];
+      doc.other[k]=doc.other[k].filter(function(o){return o&&typeof o==="object";}).map(function(o){ return {n:String(o.n||"").slice(0,80),v:String(o.v||"")}; }); });
+  }catch(e){ console.error("ipOthNorm",e); }
+  return doc;
+}
+function ipOth(k){ ipOthNorm(IP_DOC); return IP_DOC.other[k]; }
+function ipOthAdd(k){ try{ if(!ipCanEdit()) return; const a=ipOth(k); if(a.length>=IP_OTH_MAX){ showToast("You can add up to "+IP_OTH_MAX); return; } a.push({n:"",v:""}); renderIntakeProfile();
+  setTimeout(function(){ const el=document.querySelectorAll('.ip-oth[data-k="'+k+'"] .ip-othn'); if(el.length) el[el.length-1].focus(); },30); }catch(e){ console.error("ipOthAdd",e); } }
+function ipOthSet(k,i,f,v,quiet){ try{ if(!ipCanEdit()) return; const o=ipOth(k)[i]; if(!o) return; o[f]=f==="n"?String(v).slice(0,80):v; if(quiet) ipMark(); else renderIntakeProfile(); }catch(e){ console.error("ipOthSet",e); } }
+function ipOthDel(k,i){ try{ if(!ipCanEdit()) return; ipOth(k).splice(i,1); renderIntakeProfile(); }catch(e){ console.error("ipOthDel",e); } }
+function ipOtherHtml(k,ro){
+  try{
+    const opts=k==="cid"?IP_ID_LEVELS:IP_LEVELS, a=ipOth(k);
+    const ph={cid:"e.g. Immigrant / first-generation",circ:"e.g. Foster care / adoption",dx:"e.g. Hoarding"}[k];
+    const rows=a.map(function(o,i){ const nm="ipoth-"+k+"-"+i;
+      return '<div class="ip-lvrow ip-othrow lv-'+(o.v||(opts.length===3?"aff":"mod"))+'">'
+        +'<div class="ip-lvname"><input class="ip-in ip-othn" maxlength="80" placeholder="'+ph+'" aria-label="Other — name"'+(ro?' disabled':'')+' value="'+hesc(o.n)+'" oninput="ipOthSet(\''+k+'\','+i+',\'n\',this.value,true)"></div>'
+        +'<div class="ip-lv'+(opts.length===3?' ip-lv3':'')+'" role="radiogroup" aria-label="Level">'+opts.map(function(x,j){ const cls=x[0]||(opts.length===3?"aff":"mod");
+          return '<label class="ip-lvo '+cls+(o.v===x[0]?' on':'')+'"><input type="radio" name="'+nm+'"'+(o.v===x[0]?' checked':'')+(ro?' disabled':'')
+            +' onchange="ipOthSet(\''+k+'\','+i+',\'v\',\''+x[0]+'\')"><span>'+(x[0]==="no"?'Prefer not':x[1])+'</span></label>'; }).join('')+'</div>'
+        +(ro?'':'<button class="ip-othx" onclick="ipOthDel(\''+k+'\','+i+')" aria-label="Remove" title="Remove">×</button>')+'</div>'; }).join('');
+    return '<div class="ip-sec ip-oth" data-k="'+k+'"><div class="ip-cgrp">Other</div>'
+      +(rows?'<div class="ip-dxlist">'+rows+'</div>':(ro?'<div class="ip-none">None added.</div>':'<div class="ip-sub" style="margin:0 0 8px">Something not on the list? Add it and set your level.</div>'))
+      +(ro||a.length>=IP_OTH_MAX?'':'<button class="ip-othadd" onclick="ipOthAdd(\''+k+'\')">＋ Add other</button>')+'</div>';
+  }catch(e){ console.error("ipOtherHtml",e); return ''; }
+}
+function ipOthList(p,k){ try{ return ((p&&p.other&&p.other[k])||[]).filter(function(o){return o&&String(o.n||"").trim();}); }catch(e){ return []; } }
+function ipReqConfirm(){ IP_REQCHG=null; ipConfirm(); }
 function ipRealm(r){ IP_REALM=r; IP_DXQ=""; renderIntakeProfile(); }
-function ipJump(name){ const r=ipRealmOf(name); if(r){ IP_REALM=r; IP_DXQ=""; renderIntakeProfile(); } }
+function ipJump(name){ if(ipIsId(name)){ IP_TAB="cid"; renderIntakeProfile(); return; } if(IP_POPS.indexOf(name)>=0){ IP_TAB="circ"; renderIntakeProfile(); return; } const r=ipRealmOf(name); if(r){ IP_REALM=r; IP_DXQ=""; IP_TAB="spec"; renderIntakeProfile(); } }
 function ipDxSearch(v){ IP_DXQ=v; renderIntakeProfile(); const i=document.getElementById("ip-dxq"); if(i){ i.focus(); i.setSelectionRange(v.length,v.length); } }
 function ipSetDx(g,name,v){ if(!ipCanEdit()) return; if(v==="no"&&!ipCanDecline(name)) return; if(v) IP_DOC[g][name]=v; else delete IP_DOC[g][name]; renderIntakeProfile(); }
 function ipRealmReset(){ if(!ipCanEdit()) return; const g=ipRealmGroup(IP_REALM); ipRealmItems(IP_REALM).forEach(function(n){ delete IP_DOC[g][n]; }); renderIntakeProfile(); }
@@ -4176,6 +4288,7 @@ async function ipSave(confirmOnly,confirmReq){
   const data=JSON.parse(JSON.stringify(IP_DOC));
   const before=IP_SAVED?JSON.parse(IP_SAVED):{};
   const reqChanged=ipReqPart(IP_DOC)!==ipReqPart(before);
+  try{ const home=ipHomeSite(IP_SID); if(home) data.offices=[home]; }catch(e){}
   data.updatedAt=confirmOnly?(IP_DOC.updatedAt||now):now; data.confirmedAt=now; data.updatedBy=libWhoAmI();
   if(reqChanged) data.reqUpdatedAt=now;
   if(reqChanged||confirmReq) data.reqConfirmedAt=now;
@@ -4189,6 +4302,40 @@ function ipConfirm(){ ipSave(!ipDirty(), true); }
 
 function ipCss(){ return '<style>'
  +'.ip-empty{padding:30px;text-align:center;color:#999;font-size:13px}'
+ // Nov 16 layout: rail + main
+ +'.ip-layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}.ip-layout>.ip-main{min-width:0}'
+ +'@media (max-width:900px){.ip-layout{grid-template-columns:1fr}}'
+ +'.ip-rail{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px}@media (max-width:900px){.ip-rail{position:static}}'
+ +'.ip-rpanel{background:#122B67;color:#fff;border-radius:12px;padding:14px;border:3px solid transparent}.ip-rpanel.on{border-color:#F2A54B}'
+ +'.ip-rk{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#F2A54B}.ip-rq{font-size:15px;font-weight:700;margin:4px 0 10px}'
+ +'.ip-yn{display:flex;background:rgba(255,255,255,.12);border-radius:8px;padding:3px;gap:3px}'
+ +'.ip-yn button{flex:1;border:0;background:none;color:#fff;padding:8px 6px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit}'
+ +'.ip-yn button.on{background:#18A9B6}.ip-yn button.on.no{background:#fff;color:#122B67}.ip-yn button:disabled{cursor:default}'
+ +'.ip-rs{font-size:12px;opacity:.85;margin-top:8px}.ip-rs.tone-stale,.ip-rs.tone-never{color:#F2A54B;opacity:1;font-weight:700}'
+ +'.ip-rgo{background:none;border:0;padding:0;margin-top:10px;color:#F2A54B;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit}'
+ +'.ip-steps{background:var(--surface,#fff);border:1px solid var(--hairline,#e5e7eb);border-radius:12px;padding:12px}'
+ +'.ip-sph{display:flex;justify-content:space-between;font-size:12px;color:#6b7280;margin-bottom:6px}'
+ +'.ip-spbar{height:6px;background:#e8ebf0;border-radius:6px;overflow:hidden;margin-bottom:8px}.ip-spbar i{display:block;height:100%;background:#18A9B6}'
+ +'.ip-st{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:9px 6px;border-radius:8px;cursor:pointer;font-family:inherit}'
+ +'.ip-st:hover{background:#f5f7fb}.ip-st.on{background:#eef8fa}'
+ +'.ip-st .n{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid #e3e8f0;display:grid;place-items:center;font-size:12px;font-weight:800;color:#6b7280}'
+ +'.ip-st.done .n{background:#18A9B6;border-color:#18A9B6;color:#fff}.ip-st.on .n{border-color:#122B67;color:#122B67}.ip-st.on.done .n{background:#122B67;border-color:#122B67;color:#fff}'
+ +'.ip-st .tx{display:flex;flex-direction:column;min-width:0}.ip-st .t{font-weight:700;font-size:13.5px;color:#1d2433}.ip-st .t em{font-weight:500;font-style:normal;color:#6b7280}'
+ +'.ip-st .s{font-size:11.5px;color:#6b7280;margin-top:2px}.ip-st .s.tone-warn{color:#b06d10}'
+ +'.ip-main.ip-flash{animation:ipFlash 1.3s}@keyframes ipFlash{0%{box-shadow:0 0 0 5px rgba(242,165,75,.75);border-radius:14px}100%{box-shadow:0 0 0 0 rgba(242,165,75,0)}}'
+ +'.ip-chg{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between;background:#fff8ee;border:1.5px solid #F2A54B;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13.5px}'
+ +'.ip-lvlegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}'
+ +'.ip-lvl{border:1px solid #e3e8f0;border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;color:#6b7280;border-top:3px solid #e3e8f0}.ip-lvl b{display:block;font-size:13px;color:#1d2433;margin-bottom:2px}'
+ +'.ip-lvl.low{border-top-color:#F2A54B}.ip-lvl.mod{border-top-color:#5EBAC8}.ip-lvl.exp{border-top-color:#18A9B6}.ip-lvl.no{border-top-color:#dc2626}'
+ +'.ip-lvl.aff{border-top-color:#5EBAC8}.ip-lvl.sf{border-top-color:#F2A54B}'
+ +'.ip-cgrp{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#6b7280;margin:0 0 6px 2px}'
+ +'.ip-lv.ip-lv3{grid-template-columns:repeat(3,112px)}@media (max-width:760px){.ip-lv.ip-lv3{grid-template-columns:repeat(3,minmax(0,1fr))}}'
+ +'.ip-lvo.aff.on span{background:#fff;color:#122B67;box-shadow:0 1px 2px rgba(18,43,103,.18)}.ip-lvo.sf.on span{background:#F2A54B;color:#122B67}'
+ +'.ip-lvrow.lv-sf{border-left-color:#F2A54B}'
+ +'.ip-oth{margin-top:6px}.ip-othrow .ip-othn{width:100%;max-width:360px;font-weight:600}.ip-othx{flex:none;border:0;background:none;color:#9ca3af;font-size:20px;line-height:1;cursor:pointer;padding:2px 6px}.ip-othx:hover{color:#dc2626}'
+ +'.ip-othadd{border:1.5px dashed #18A9B6;background:#fff;color:#18A9B6;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px}.ip-othadd:hover{background:#eef8fa}'
+ +'.ip-layout .ip-lvrow{flex-wrap:wrap}.ip-layout .ip-lvname{flex:1 1 180px;min-width:0}.ip-layout .ip-lv{margin-left:auto;max-width:100%}'
+ +'.ip-layout .ip-lv{grid-template-columns:repeat(4,minmax(0,76px))}.ip-layout .ip-lv.ip-lv3{grid-template-columns:repeat(3,minmax(0,108px))}.ip-layout .ip-lvo span{padding:0 4px}'
  +'.ip-head{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 18px;margin-bottom:12px}'
  +''
  +'.ip-name{font-size:18px;font-weight:800;color:var(--ink)}.ip-meta{font-size:12.5px;color:#888;margin-top:1px}'
@@ -4423,6 +4570,25 @@ function ipCss(){ return '<style>'
  +'.ip-realmwrap{grid-template-columns:200px minmax(0,1fr)!important;gap:14px!important}'
  +'.ip-realm .nm{line-height:1.25}'
  +'@media (max-width:900px){.ip-specside .ip-dxside{grid-template-columns:1fr}.ip-realmwrap{grid-template-columns:1fr!important}}'
+ // Streamlined New Client Request (Nov 16) — overrides the older yellow card
+ +'.ip-req.ip-req2{background:#fff;border:1px solid var(--hairline,#e5e7eb);box-shadow:none;border-radius:12px;padding:18px 20px}'
+ +'.ip-req2 .ip-reqhead{align-items:center}.ip-req2 .ip-reqtitle{font-size:18px}.ip-req2 .ip-reqpill{margin:0}'
+ +'.ip-req2 .ip-goal{border:0;background:#f5f7fb;border-radius:8px;padding:8px 12px;margin:12px 0 0}.ip-req2 .ip-goalic{display:none}'
+ +'.ip-req2 .ip-goal .t{font-size:13px;font-weight:600}.ip-req2 .ip-goal .s{font-size:12px}'
+ +'.ip-req2 .ip-reqbody{display:block;border-top:0;padding-top:0;margin-top:6px}.ip-rsec{min-width:0}.ip-layout .ip-cal,.ip-layout .ip-xsite .ip-cal{min-width:380px}.ip-layout .ip-cal tbody th,.ip-layout .ip-cal thead th:first-child{width:46px;padding-right:6px}.ip-req2 .ip-grid-wrap{overflow-x:auto;max-width:100%}'
+ +'.ip-req2.is-full .ip-reqbody{opacity:.6}'
+ +'.ip-rsec{padding:16px 0;border-top:1px solid #eef0f4}.ip-rsec:first-child{border-top:0}'
+ +'.ip-rsh{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#122B67;margin:0 0 12px}'
+ +'.ip-rsh span{width:20px;height:20px;border-radius:50%;background:#122B67;color:#fff;display:grid;place-items:center;font-size:11px;letter-spacing:0}'
+ +'.ip-req2 .ip-rsec>*+*{margin-top:14px}.ip-req2 .ip-h{font-size:13px;font-weight:700}.ip-req2 .ip-sub{margin-bottom:8px}'
+ +'.ip-req2 .ip-opn{flex:0 0 170px}.ip-req2 .ip-opn .ip-in{max-width:110px}'
+ +'.ip-pchip{position:relative;display:inline-flex;align-items:center;cursor:pointer}.ip-pchip input{position:absolute;opacity:0;width:1px;height:1px}'
+ +'.ip-pchip:focus-within{outline:2px solid #122B67;outline-offset:1px}.ip-req.ro .ip-pchip{cursor:default}'
+ +'.ip-req2 .ip-brush.b-v{background:#dbeafe}.ip-req2 .ip-brush.b-p{background:#dcfce7}.ip-req2 .ip-brush.b-b{background:#ede9fe}'
+ +'.ip-req2 .ip-legend{display:none}.ip-req2 .ip-other{margin-top:16px;padding-top:14px;border-top:1px dashed #e5e7eb}'
+ +'.ip-req2 .ip-reqfoot{border-top:1px solid #eef0f4;margin-top:4px}'
+ +'.ip-req2 .ip-fullnote{background:#fef2f2;border-radius:8px;padding:8px 12px;margin-top:10px}'
+ +'.ip-stamp{border-width:1px;padding:8px 12px;margin-bottom:10px;align-items:center}.ip-stampnum{display:none}.ip-stamptx .big{font-size:13px}.ip-stamptx .ip-stampbtn{margin-top:6px}'
  +'</style>'; }
 
 // ══════════════════════════════════════════════
@@ -4459,7 +4625,9 @@ async function ifLoad(force){
   let people=[]; try{ people=capClinicians(); }catch(e){ people=STAFF.slice(); }
   // anyone with a profile counts, even if they're not on the capacity list
   docs.forEach(function(d){ if(!people.some(function(p){return p._id===d.__id;})){ const s=STAFF.find(function(x){return x._id===d.__id;}); if(s) people.push(s); } });
-  IF_DATA=people.map(function(s){ return {s:s, p:byId[s._id]?ipNormMarks(byId[s._id]):null}; });
+  IF_DATA=people.map(function(s){ const p=byId[s._id]?ipNormMarks(byId[s._id]):null;
+    try{ if(p&&!(p.offices&&p.offices.length)){ const h=ipHomeSite(s._id); if(h) p.offices=[h]; } }catch(e){}
+    return {s:s, p:p}; });
   IF_LOADED_AT=new Date();
 }
 
@@ -4506,6 +4674,10 @@ function ifEvaluate(row,ignoreTime){
       if((p.modCert||[]).indexOf(c)>=0){ r.score+=3; r.why.push({t:"Certified: "+c,k:"cert"}); }
       else if((p.modalities||[]).indexOf(c)>=0){ r.score+=1.5; r.why.push({t:"Uses "+c,k:"use"}); }
       else r.warn.push("Doesn’t list "+c);
+    } else if(ipIsId(c)){
+      const v=(p[ipIdGroup(c)]||{})[c];                              // client identities: Specialty focus > Experienced > Affirming
+      if(v==="sf"){ r.score+=4; r.why.push({t:"★ Specialty focus: "+c,k:"spec"}); }
+      else if(v==="exp"){ r.score+=2; r.why.push({t:"Experienced with "+c,k:"use"}); }
     } else {
       const v=(p[kind]||{})[c];
       if(v==="no"&&ipCanDecline(c)){ r.ok=false; r.miss.push("Prefers not to treat: "+c); }
@@ -4656,6 +4828,8 @@ function ifDetailHtml(p){
   return '<div class="if-detail">'
     +line("Prefers",p.prefTypes)+line("Ages",p.ages)
     +line("Certified",p.modCert,"c")+line("Modalities",(p.modalities||[]).filter(function(m){return (p.modCert||[]).indexOf(m)<0;}))
+    +line("Other",["cid","circ","dx"].reduce(function(a,k){ return a.concat(ipOthList(p,k).map(function(o){ const L={"":"",low:" · Low",exp:k==="cid"?" · Experienced":" · High",sf:" · Specialty focus",no:" · Prefer not"}; return o.n+(L[o.v]||""); })); },[]))
+    +line("Identity specialty",ipIdMarked(p,"sf"),"g")+line("Identity experienced",ipIdMarked(p,"exp"))
     +line("High experience",exp,"g")+line("Low experience",low,"w")+line("Prefers not to treat",no,"r")
     +(p.modOther?'<div class="if-dl"><span>Other</span><div>'+hesc(p.modOther)+'</div></div>':'')
     +(p.notes?'<div class="if-dl"><span>Notes</span><div>'+hesc(p.notes)+'</div></div>':'')
@@ -7502,11 +7676,15 @@ function renderRosterTabs(){
       ? [{k:'files', l:'Non-Private Docs', badge:(s&&s['_files']||[]).length||null}] : []),
   ];
   if(hbCan('see-comp')) TABS.push({k:'comp', l:'Comp & Benes'}); // sensitive pay data: Super Admins (or a custom role granted it)
+  // Private Docs: Super Admins only (never the employee, never a custom role) — see privDocsHtml.
+  const privOK=(function(){ try{ return isSuperAdminView()&&currentRole()==='superadmin'; }catch(e){ return false; } })();
+  if(privOK&&s&&s._id!==window.AUTH_STAFF_ID) TABS.push({k:'priv', l:'🔒 Private Docs'});
+  if(rosterDetailTab==='priv'&&!(privOK&&s&&s._id!==window.AUTH_STAFF_ID)) rosterDetailTab='demo';
   const bar = TABS.map(t=>`<button onclick="switchRosterTab('${t.k}')"
       class="tab-btn${rosterDetailTab===t.k?' tab-btn-active':''}">${t.l}${t.badge?`<span class="tab-badge${rosterDetailTab===t.k?' tab-badge-active':''}">${t.badge}</span>`:''}</button>`).join('');
   if(rosterDetailTab==='comp' && !hbCan('see-comp')) rosterDetailTab='demo'; // never serve comp to non-super-admins
   if(rosterDetailTab==='files' && !(hbCan('see-files') || (s && (currentViewer()&&currentViewer()._id===s._id || window.AUTH_STAFF_ID===s._id)))) rosterDetailTab='demo';
-  let content = rosterDetailTab==='files' ? filesPanel : (panels[rosterDetailTab]||'');
+  let content = rosterDetailTab==='files' ? filesPanel : rosterDetailTab==='priv' ? '<div id="priv-docs"><div class="hs-none">Loading…</div></div>' : (panels[rosterDetailTab]||'');
   try{ if(s&&rosterDetailTab==='cred') content+=sec('Credentialing documents')+docsListHtml(s,'license');
     if(s&&rosterDetailTab==='comp'&&hbCan('see-comp')) content+=sec('Comp & pay documents')+docsListHtml(s,'comp'); }catch(e){}
   if(nonClin && rosterDetailTab==='demo' && s && s['_application']){ try{ content+=applicationDataSection(s['_application']); }catch(e){} }
@@ -7514,6 +7692,7 @@ function renderRosterTabs(){
     `<div class="tab-bar">${bar}</div>`+
     `<div>${content}</div>`;
   if(rosterDetailTab==='files' && sid){ try{ loadProfileReviews(sid); }catch(e){} }
+  if(rosterDetailTab==='priv' && sid){ try{ privDocsLoad(sid); }catch(e){} }
   // If the demo tab is showing and this person has a supervisee panel, paint its
   // add-list (the picker is built but its list is filled by JS).
   if(rosterDetailTab==='demo' && sid && document.getElementById('sup-add-list')){
@@ -7521,6 +7700,59 @@ function renderRosterTabs(){
   }
 }
 function switchRosterTab(k){ rosterDetailTab = k; renderRosterTabs(); }
+
+// ── Private Docs (Employee File, Super Admins only — Nov 2026) ──
+// Sensitive HR records the employee must NOT see (investigations, discipline, medical/accommodation, legal, separation).
+// Metadata: Firestore 'privateDocs/{id}' {sid,name,label,cat,date,notes,path,size,type,by,at} — Super Admin read/write only
+// (never on the staff record, which all staff can read). Bytes: Storage privateDocs/{sid}/{fileId}/{name} — readable and
+// writable only by the hardcoded super-admin accounts in storage.rules (isSuperStorage).
+const PRIV_CATS=[['investigation','Investigation'],['discipline','Corrective action / discipline'],['medical','Medical & accommodation'],['legal','Legal'],['separation','Separation'],['other','Other']];
+var PRIV={sid:null,list:null};
+function privCatLabel(k){ return (PRIV_CATS.find(function(c){ return c[0]===k; })||[k,k])[1]; }
+async function privDocsLoad(sid){
+  const el=document.getElementById('priv-docs'); if(!el) return;
+  try{ if(!window.privDocsStore){ el.innerHTML='<div class="hs-none">Private Docs load on the live site.</div>'; return; }
+    PRIV.sid=sid; PRIV.list=(await window.privDocsStore.list(sid))||[]; if(!document.getElementById('priv-docs')) return; el.innerHTML=privDocsHtml(sid); }
+  catch(e){ console.error(e); el.innerHTML='<div class="hs-none">Couldn’t load Private Docs.</div>'; }
+}
+function privDocsHtml(sid){
+  const L=(PRIV.list||[]).slice().sort(function(a,b){ return String(b.date||b.at||'').localeCompare(String(a.date||a.at||'')); });
+  const F='font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px';
+  let h='<div class="pa-sec" style="margin-top:6px"><div class="pa-h">🔒 Private Docs<span class="pa-hn">Super Admins only — the employee and other admins can’t see these</span></div><div style="padding:12px 16px">'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end">'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280">Category<select id="priv-cat" style="'+F+'">'+PRIV_CATS.map(function(c){ return '<option value="'+c[0]+'">'+c[1]+'</option>'; }).join('')+'</select></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280">Document date<input id="priv-date" type="date" style="'+F+'" value="'+capISO(new Date())+'"></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#6b7280;grid-column:span 2">Note (optional)<input id="priv-note" style="'+F+'" placeholder="Short description"></label>'
+    +'<label class="btn btn-primary" style="font-size:13px;cursor:pointer;text-align:center">⬆ Upload files<input type="file" multiple style="display:none" onchange="privDocsUpload(\''+sid+'\',this)"></label></div>'
+    +'<div style="font-size:11.5px;color:#9ca3af;margin-top:6px">PDF, Word, Excel or images, up to 25 MB each.</div></div>';
+  if(!L.length) return h+'<div style="padding:4px 16px 16px;color:#9ca3af;font-size:13px">No private documents yet.</div></div>';
+  h+='<div style="overflow-x:auto"><table class="rc-t" style="margin:0"><thead><tr><th class="l">Document</th><th class="l">Category</th><th class="l">Date</th><th class="l">Added by</th><th></th></tr></thead><tbody>'
+    +L.map(function(d){ return '<tr><td class="l"><button class="hcal-link" onclick="privDocsOpen(\''+hesc(d.__id)+'\')">📄 '+hesc(d.name||'file')+'</button>'+(d.notes?'<div class="muted" style="font-size:11.5px">'+hesc(d.notes)+'</div>':'')+'</td>'
+      +'<td class="l">'+hesc(privCatLabel(d.cat))+'</td><td class="l">'+(d.date?usDate(d.date):'')+'</td><td class="l">'+hesc(d.by||'')+(d.at?'<div class="muted" style="font-size:11px">'+usDate(String(d.at).slice(0,10))+'</div>':'')+'</td>'
+      +'<td><button class="hcal-link del" onclick="privDocsDel(\''+hesc(d.__id)+'\')">Delete</button></td></tr>'; }).join('')+'</tbody></table></div></div>';
+  return h;
+}
+async function privDocsUpload(sid,inp){
+  try{ const files=[].slice.call(inp.files||[]); inp.value=''; if(!files.length) return;
+    const cat=(document.getElementById('priv-cat')||{}).value||'other', date=(document.getElementById('priv-date')||{}).value||'', notes=String((document.getElementById('priv-note')||{}).value||'').trim();
+    let ok=0;
+    for(const f of files){
+      if(f.size>25*1024*1024){ showToast('⚠ '+f.name+' is larger than 25 MB'); continue; }
+      const fid='pd_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), path='privateDocs/'+sid+'/'+fid+'/'+fileSafeName(f.name);
+      if(!(await fileUpload(path,f))){ showToast('⚠ Could not upload '+f.name+' — check your access'); continue; }
+      const id=await window.privDocsStore.add({sid:sid,name:f.name,cat:cat,date:date,notes:notes,path:path,size:f.size,type:f.type||'',by:(typeof prWho==='function'?prWho():''),at:new Date().toISOString()});
+      if(!id){ fileRemove(path); showToast('⚠ Could not save '+f.name); continue; } ok++;
+    }
+    if(ok) showToast('🔒 '+ok+' private document'+(ok>1?'s':'')+' saved'); privDocsLoad(sid);
+  }catch(e){ console.error(e); showToast('⚠ Upload failed'); }
+}
+async function privDocsOpen(id){ try{ const d=(PRIV.list||[]).find(function(x){ return x.__id===id; }); if(!d) return; const u=await window.fileStore.url(d.path); if(!u){ showToast('⚠ Could not open the file'); return; } window.open(u,'_blank','noopener'); }catch(e){ showToast('⚠ Could not open the file'); } }
+async function privDocsDel(id){
+  try{ const d=(PRIV.list||[]).find(function(x){ return x.__id===id; }); if(!d) return;
+    if(!confirm('Permanently delete “'+(d.name||'this document')+'”? This can’t be undone.')) return;
+    if(!(await window.privDocsStore.remove(id))){ showToast('⚠ Could not delete'); return; } fileRemove(d.path); showToast('Deleted'); privDocsLoad(PRIV.sid);
+  }catch(e){ console.error(e); }
+}
 
 // ── Comp & Benes ──────────────────────────────────────────────
 // Compliance checklist state, keyed by staff _id. Seeded from the payroll sheet
@@ -19964,6 +20196,11 @@ window.policyStore = {
   setSigned: async (id, patch) => { try { await updateDoc(doc(db, 'policySigs', id), patch); return true; } catch (e) { console.warn(e); return false; } },
   saveSigned: async (name, bytes) => { try { const em = ((auth.currentUser && auth.currentUser.email) || '').toLowerCase(); if (!em) return null;
       const path = 'policySigned/' + em + '/' + name; await uploadBytes(sRef(_sto, path), new Blob([bytes], { type: 'application/pdf' }), { contentType: 'application/pdf' }); return path; } catch (e) { console.warn(e); return null; } }
+};
+window.privDocsStore = {
+  list: async (sid) => { try { const snap = await getDocs(query(collection(db, 'privateDocs'), where('sid', '==', sid))); const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; } catch (e) { console.warn(e); return null; } },
+  add: async (rec) => { try { const ref = doc(collection(db, 'privateDocs')); await setDoc(ref, rec); return ref.id; } catch (e) { console.error(e); return null; } },
+  remove: async (id) => { try { await deleteDoc(doc(db, 'privateDocs', id)); return true; } catch (e) { return false; } }
 };
 window.rsvpStore = {
   // eventRsvps/{eid}__{sid}: one answer per person per event
