@@ -774,3 +774,14 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   yesterday and continues it as a new booking from today (history kept). Requests strip: Approve / Edit first / Decline. Therapists: edit or
   cancel own requests (delete + recreate); for approved bookings "Send change request" (pending, `replaces`) or "Give this office up…"
   (pending `release:true`); approving either retires the original (`obRetire`; `obDecide` handles release/replaces). No rules change.
+- Nov 16: **News attachments** — post editor (`hbmNewsEdit`/`hbmNewsSave`) reuses the event attachment picker (HCAL.att/attKeep/attDrop,
+  `hcalAttCommit(newsId)` → Storage refLibrary/{newsId}/att_*); saved as `files` on the kv app_news item; chips on news cards (`newsAttOpen`);
+  deleted with the post. Upload needs a Storage-admin account (isBootstrap), same as events.
+- **Reference documents**: Documents & sign-offs has "+ Reference document (no signature)" (`polEdit(null,true)`: signature off, category
+  defaults to Employee Handbook, sign-by/audience hidden via `.pol-signonly`). Staff see "No signature needed" on the card and in the reader.
+
+## Nov 17 2026 — Office booking blocks (placeholders)
+- officeBookings doc with `block:true`, `sid:''`, `name` = the block label (required, ≤60 chars). Created only by approvers (CTM/Supervisor+/Admin) via the toolbar "🔒 Block" button or Who → "🔒 Block — placeholder, no person".
+- Blocks hold the office: they clash like normal bookings and count as booked hours in utilization; excluded from Valant "used" accounting and `rcOfficeRecs` per-person stats (byPer key `blk|<label>`).
+- Weekly or one-time. Rendered grey hatched (`obCls` → 'k', `obWho` prefixes 🔒). Therapists see it read-only with a "held by the CTM" hint.
+- "👤 Assign to someone" converts a block to a normal booking (sets sid/name, `block:false`).

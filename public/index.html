@@ -2906,7 +2906,7 @@ function polCard(p,st){
   const pill=st.k==='signed'?'<span class="pol-pill ok">✓ Signed '+(st.sig&&st.sig.atISO?usDate(st.sig.atISO.slice(0,10)):'')+'</span>'
     :st.k==='update'?'<span class="pol-pill warn">Updated — sign again'+(st.due?' by '+usDate(st.due):'')+'</span>'
     :st.k==='todo'?'<span class="pol-pill '+(st.overdue?'bad':'warn')+'">'+(st.overdue?'Overdue · was due ':'Sign by ')+(st.due?usDate(st.due):'')+'</span>'
-    :'<span class="pol-pill">For reference</span>';
+    :'<span class="pol-pill">'+(p.sign===false?'No signature needed':'For reference')+'</span>';
   return '<button class="pol-card'+(st.k==='todo'||st.k==='update'?' need':'')+'" onclick="POL.open=\''+hesc(p.id)+'\';polRerender()"><span class="pol-ic">📄</span><span class="pol-cm"><b>'+hesc(p.title)+'</b>'
     +'<small>'+rcEsc(polCatLabel(p.cat))+' · version '+(ver?ver.v:'—')+(ver&&ver.at?' · '+usDate(ver.at.slice(0,10)):'')+'</small>'+pill+'</span></button>';
 }
@@ -2939,7 +2939,7 @@ async function polDocHtml(pid){
       +'<button class="btn btn-primary" id="pol-sign" style="width:100%;margin-top:10px" disabled onclick="polSign(\''+hesc(p.id)+'\')">Sign</button>'
       +'<div class="pol-fine">Your signature is saved with your Homebase account, the date and time, and the exact version you read. It can’t be changed afterwards.</div>'
       +'<div class="pol-filed">📁 A signed copy (this PDF plus a signature page) is saved to your <b>Employee File → Non-Private Docs → Signed documents</b>.</div></div>';
-  } else h+='<div class="pol-meta" style="margin-top:12px">This policy isn’t assigned to you — it’s here for reference.</div>';
+  } else h+='<div class="pol-meta" style="margin-top:12px">'+(p.sign===false?'📄 For reference — no signature needed.':'This document isn’t assigned to you — it’s here for reference.')+'</div>';
   if(Object.keys(mine).length){ h+='<div class="pol-hist"><b>Your signatures</b>'+Object.keys(mine).sort(function(a,b){ return b-a; }).map(function(v){ const sg=mine[v]; return '<div>Version '+v+' · '+(sg.atISO?usDate(sg.atISO.slice(0,10)):'')+' <button class="hcal-link" onclick="polDownloadSigned(\''+hesc(polSigId(p.id,v,sg.sid))+'\',\''+hesc(p.id)+'\')">signed copy</button></div>'; }).join('')+'</div>'; }
   if(polSA()) h+='<button class="hcal-link" style="margin-top:12px" onclick="polManageOne(\''+hesc(p.id)+'\')">⚙ Manage this policy</button>';
   h+='</aside></div>';
@@ -3086,7 +3086,7 @@ function polAdminHtml(){
   if(POL.adm){ return polAdminDetail(POL.adm); }
   const L=(POL.list||[]).filter(function(p){ return !POL.catF||POL.catF==='all'||(p.cat||'other')===POL.catF; }).slice().sort(function(a,b){ return (a.status==='retired')-(b.status==='retired')||String(a.title).localeCompare(String(b.title)); });
   let h='<div class="pol-head"><div><div class="ou-eyebrow">Documents &amp; sign-offs · Super Admin</div><div class="ou-big" style="margin:2px 0 4px">Documents to sign</div><div class="muted" style="font-size:13px">Upload a PDF, pick its category, choose who signs it and by when. Each upload is a locked version. Upload a new version to have everyone sign again.</div></div>'
-    +'<div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="polEdit()">+ Upload a document</button></div></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary" onclick="polEdit(null,true)" title="For reading only — no signature, no alerts">+ Reference document (no signature)</button><button class="btn btn-primary" onclick="polEdit()">+ Document to sign</button></div></div>'
     +'<div class="ou-row" style="margin:0 0 12px"><span class="ou-lab" style="width:auto">Category</span>'+[['all','All']].concat(POL_CATS).map(function(c){ const n=c[0]==='all'?(POL.list||[]).length:(POL.list||[]).filter(function(p){ return (p.cat||'other')===c[0]; }).length; if(c[0]!=='all'&&!n) return '';
       return '<button class="ou-chip'+((POL.catF||'all')===c[0]?' on':'')+'" onclick="POL.catF=\''+c[0]+'\';polRerender()">'+rcEsc(c[1])+' <small>'+n+'</small></button>'; }).join('')+'</div>';
   if(!L.length) return h+'<div class="pol-empty">No policies yet — upload the first one.</div>';
@@ -3143,17 +3143,18 @@ function polAudEditor(aud){
 }
 function polReadAud(){ const t=(document.getElementById('pol-aud')||{}).value||'all'; const vals=function(n){ return [].slice.call(document.querySelectorAll('input[name="'+n+'"]:checked')).map(function(x){ return x.value; }); };
   return t==='groups'?{type:'groups',groups:vals('pol-g')}:t==='teams'?{type:'teams',teams:vals('pol-t')}:{type:'all'}; }
-function polEdit(pid){
+function polEdit(pid,refOnly){
   if(!polSA()) return; const p=pid?(POL.list||[]).find(function(x){ return x.id===pid; }):null;
   const def=rcAddDays(capISO(new Date()),14);
-  const cat0=p?p.cat:(POL.catF&&POL.catF!=='all'?POL.catF:'clinical');
-  hbmModal(p?'Edit document details':'Upload a document','<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+  const cat0=p?p.cat:(POL.catF&&POL.catF!=='all'?POL.catF:(refOnly?'handbook':'clinical'));
+  const signOn=!((p&&p.sign===false)||(!p&&refOnly)), sd='display:'+(signOn?'contents':'none');
+  hbmModal(p?'Edit document details':(refOnly?'Add a reference document':'Upload a document to sign'),'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +hbmL('Title *','<input id="pol-title" style="'+HBM_F+'" value="'+hesc(p?p.title:'')+'" placeholder="e.g. Employee Handbook 2027, Confidentiality & HIPAA">',true)
     +hbmL('Category','<select id="pol-cat" style="'+HBM_F+'" onchange="var w=document.getElementById(\'pol-where\');if(w)w.textContent=(['+Object.keys(POL_CAT_PAGE).map(function(k){ return '\''+k+'\''; }).join(',')+'].indexOf(this.value)>=0?\'Clinical Policies\':\'Employee Handbook\')">'+POL_CATS.map(function(c){ return '<option value="'+c[0]+'"'+(cat0===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join('')+'</select><span style="font-weight:400;color:#9ca3af;font-size:11px">Shows on the <b id="pol-where">'+(polPageOf({cat:cat0})==='hpol'?'Employee Handbook':'Clinical Policies')+'</b> page</span>')
-    +hbmL('Signature','<label style="display:flex;gap:8px;align-items:center;font-weight:600;color:#374151"><input type="checkbox" id="pol-sign"'+(p&&p.sign===false?'':' checked')+'> Signature required</label><span style="font-weight:400;color:#9ca3af;font-size:11px">Off = reference only (no sign-off, no alerts)</span>')
-    +(p?'':hbmL('Sign by','<input id="pol-due" type="date" style="'+HBM_F+'" value="'+def+'"><span style="font-weight:400;color:#9ca3af;font-size:11px">New hires get '+POL_NEW_HIRE_DAYS+' days from their start date</span>'))
+    +hbmL('Signature','<label style="display:flex;gap:8px;align-items:center;font-weight:600;color:#374151"><input type="checkbox" id="pol-sign"'+(signOn?' checked':'')+' onchange="document.querySelectorAll(\'.pol-signonly\').forEach(function(x){x.style.display=this.checked?\'contents\':\'none\';},this)"> Signature required</label><span style="font-weight:400;color:#9ca3af;font-size:11px">Off = reference only (no sign-off, no alerts)</span>')
+    +'<div class="pol-signonly" style="'+sd+'">'+(p?'':hbmL('Sign by','<input id="pol-due" type="date" style="'+HBM_F+'" value="'+def+'"><span style="font-weight:400;color:#9ca3af;font-size:11px">New hires get '+POL_NEW_HIRE_DAYS+' days from their start date</span>'))+'</div>'
     +hbmL('Short description (optional)','<input id="pol-desc" style="'+HBM_F+'" value="'+hesc(p&&p.desc||'')+'">',true)
-    +polAudEditor(p&&p.aud)
+    +'<div class="pol-signonly" style="'+sd+'">'+polAudEditor(p&&p.aud)+'</div>'
     +(p?'':hbmL('PDF *','<input id="pol-file" type="file" accept="application/pdf,.pdf" style="'+HBM_F+'">',true))
     +'</div>','polSave('+(p?'\''+hesc(p.id)+'\'':'null')+')',p?'Save':'Publish');
 }
@@ -13993,7 +13994,7 @@ function obCss2(){
    +'#offices-body .ob2-board td.room{border-left:0;width:112px;font-weight:700;color:#122B67;font-size:13px}#offices-body .ob2-board td.room small{display:block;font-weight:500;color:#6b7280;font-size:11px}'
    +'#offices-body .ob2-pill{display:block!important;white-space:normal;overflow:hidden;overflow-wrap:anywhere;width:100%;text-align:left;border:0;border-radius:7px;padding:4px 7px;margin-bottom:4px;font:inherit;font-size:11.5px;cursor:pointer;line-height:1.25;color:#1d2433}'
    +'#offices-body .ob2-pill b{display:block;font-size:11.5px;color:#122B67}#offices-body .ob2-pill.w{background:#e0f2f4}#offices-body .ob2-pill.o{background:#eef0f8}'
-   +'#offices-body .ob2-pill.r{background:repeating-linear-gradient(45deg,#fff7e6,#fff7e6 6px,#fdecc8 6px,#fdecc8 12px);border:1px dashed #F2A54B;color:#8a5208}#offices-body .ob2-pill.me{box-shadow:0 0 0 2px #122B67 inset}#offices-body .ob2-pill:hover{filter:brightness(.96)}'
+   +'#offices-body .ob2-pill.r{background:repeating-linear-gradient(45deg,#fff7e6,#fff7e6 6px,#fdecc8 6px,#fdecc8 12px);border:1px dashed #F2A54B;color:#8a5208}#offices-body .ob2-pill.k,#offices-body .ob2-blk.k{background:repeating-linear-gradient(135deg,#eef0f4,#eef0f4 6px,#e2e5eb 6px,#e2e5eb 12px);border:1px solid #c9ced8;color:#374151}#offices-body .ob2-pill.k b,#offices-body .ob2-blk.k b{color:#374151}#offices-body .ob2-pill.me{box-shadow:0 0 0 2px #122B67 inset}#offices-body .ob2-pill:hover{filter:brightness(.96)}'
    +'#offices-body .ob2-add{display:block;width:100%;border:1px dashed #d1d6df;background:transparent;border-radius:7px;color:#9ca3af;font:inherit;font-size:12px;padding:2px;cursor:pointer;opacity:.0}#offices-body td:hover .ob2-add,#offices-body .ob2-add.empty{opacity:1}#offices-body .ob2-add:hover{background:#eef8fa;color:#122B67;border-color:#18A9B6}'
    +'#offices-body .ob2-days{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}'
    +'#offices-body .ob2-tl{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;overflow-x:auto;user-select:none}'
@@ -14021,7 +14022,10 @@ function obCss2(){
 function obB(id){ return (OB.list||[]).find(function(x){ return x.__id===id; }); }
 function obRoomName(site,id){ return (obRooms(site).find(function(x){ return x.id===id; })||{name:id}).name; }
 function obWhen(b){ return b.kind==='weekly'?'Every '+OB_DOW[b.dow]+(b.until?' until '+usDate(b.until):''):OB_DOW[obDate(b.date).getDay()].slice(0,3)+' '+usDate(b.date); }
-function obCls(b){ return b.status==='pending'?'r':b.kind==='weekly'?'w':'o'; }
+function obCls(b){ return b.block?'k':b.status==='pending'?'r':b.kind==='weekly'?'w':'o'; }
+// Blocks (Nov 17): placeholder holds with a label and no person (block:true, sid:'', name = label). Approvers only; they hold the
+// office (no booking over them) and count as booked in Office Utilization; "Assign to someone" turns one into a normal booking.
+function obWho(b){ return b.block?'🔒 '+(b.name||'Blocked'):(b.name||''); }
 async function renderOffices(){
   try{ if(isAdminView()) setTimeout(function(){ ofhBackfill(); },1500); }catch(e){}
   const body=document.getElementById('offices-body'); if(!body) return;
@@ -14042,7 +14046,7 @@ async function renderOffices(){
       +'<button class="ob2-chip" onclick="OB.day=\''+today+'\';renderOffices()">Today</button><span class="ob2-sep"></span>'
       +'<span class="ob2-seg"><button class="'+(OB.view==='week'?'on':'')+'" onclick="OB.view=\'week\';renderOffices()">Week</button><button class="'+(OB.view==='day'?'on':'')+'" onclick="OB.view=\'day\';renderOffices()">Day</button></span>'
       +(meId?'<button class="ob2-chip'+(OB.mine?' on':'')+'" onclick="OB.mine=!OB.mine;renderOffices()">Just mine</button>':'')
-      +'<span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-primary" style="font-size:12.5px" onclick="obEdNew({})">'+(mgr?'+ Book an office':'+ Request an office')+'</button>'
+      +'<span style="margin-left:auto;display:flex;gap:6px">'+(mgr?'<button class="btn btn-secondary" style="font-size:12.5px" title="Hold an office with a label — no person yet" onclick="obEdNew({block:true})">🔒 Block</button>':'')+'<button class="btn btn-primary" style="font-size:12.5px" onclick="obEdNew({})">'+(mgr?'+ Book an office':'+ Request an office')+'</button>'
       +(hbmCanContent()?'<button class="btn btn-secondary" style="font-size:12.5px" title="Office settings" onclick="HBM.sec=\'offices\';OBS.site=OB.site;OBS.draft=null;showPage(\'admin\',document.getElementById(\'nav-admin\'))">⚙</button>':'')+'</span></div>';
     // requests (approvers)
     if(mgr){
@@ -14056,7 +14060,7 @@ async function renderOffices(){
             +'<button class="btn btn-secondary" style="font-size:12px;color:#b91c1c" onclick="obDecide(\''+b.__id+'\',\'declined\')">Decline</button></div>'; }).join('')+'</div>';
     }
     h+=OB.view==='day'?obDayHtml(site,meId):obWeekHtml(site,meId);
-    h+='<div class="ob2-leg"><span><i style="background:#e0f2f4"></i>Weekly</span><span><i style="background:#eef0f8"></i>One time</span><span><i style="background:#fdecc8;border:1px dashed #F2A54B"></i>Requested — waiting for the CTM</span><span><i style="background:#fff;box-shadow:0 0 0 2px #122B67 inset"></i>Yours</span>'
+    h+='<div class="ob2-leg"><span><i style="background:#e0f2f4"></i>Weekly</span><span><i style="background:repeating-linear-gradient(135deg,#eef0f4,#eef0f4 3px,#e2e5eb 3px,#e2e5eb 6px);border:1px solid #c9ced8"></i>Blocked (placeholder)</span><span><i style="background:#eef0f8"></i>One time</span><span><i style="background:#fdecc8;border:1px dashed #F2A54B"></i>Requested — waiting for the CTM</span><span><i style="background:#fff;box-shadow:0 0 0 2px #122B67 inset"></i>Yours</span>'
       +'<span>'+(OB.view==='day'?'Drag across an empty row to book · drag a booking’s edge to change its time · click a booking to edit':'Click a booking to edit · click ＋ to book')+'</span></div>';
     // my bookings
     if(meId){
@@ -14088,7 +14092,7 @@ function obWeekHtml(site,meId){
   });
   return h+'</tbody></table></div>';
 }
-function obPill(b,d,meId){ return '<button class="ob2-pill '+obCls(b)+(b.sid===meId?' me':'')+'" onclick="obEdOpen(\''+b.__id+'\',\''+d+'\')"><b>'+obRange(b.start,b.end)+'</b>'+ppuEsc(b.name||'')+(b.kind==='weekly'?' · weekly':'')+(b.status==='pending'?' · requested':'')+'</button>'; }
+function obPill(b,d,meId){ return '<button class="ob2-pill '+obCls(b)+(b.sid===meId?' me':'')+'" onclick="obEdOpen(\''+b.__id+'\',\''+d+'\')"><b>'+obRange(b.start,b.end)+'</b>'+ppuEsc(obWho(b))+(b.kind==='weekly'?' · weekly':'')+(b.status==='pending'?' · requested':'')+'</button>'; }
 function obDayHtml(site,meId){
   const rooms=obRooms(site), CF=obCfg(site), days=[]; for(let i=0;i<7;i++) days.push(obAdd(OB.week,i));
   const o=CF.open, c=CF.close, n=Math.max(1,c-o), isOpen=CF.on&&CF.days.indexOf(obDate(OB.day).getDay())>=0;
@@ -14099,7 +14103,7 @@ function obDayHtml(site,meId){
     h+='<div class="ob2-tlr"><div class="ob2-rn">'+ppuEsc(r.name)+(r.note?'<small>'+ppuEsc(r.note)+'</small>':'')+'</div><div class="ob2-lane'+(isOpen?'':' closed')+'" data-room="'+r.id+'" style="background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/'+n+' - 1px),#f1f2f4 calc(100%/'+n+' - 1px),#f1f2f4 calc(100%/'+n+'))">'
       +obForDay(site,OB.day).filter(function(b){ return b.room===r.id&&!b.release&&obShow(b,meId); }).map(function(b){ const s=Math.max(o,b.start), e=Math.min(c,b.end); if(e<=s) return '';
         const ed=obCanEdit(b);
-        return '<div class="ob2-blk '+obCls(b)+(b.sid===meId?' me':'')+'" data-id="'+b.__id+'" style="left:'+((s-o)/n*100)+'%;width:'+((e-s)/n*100)+'%" title="'+ppuEsc((b.name||'')+' · '+obRange(b.start,b.end))+'"><b>'+ppuEsc(b.name||'')+'</b>'+obRange(b.start,b.end)+(b.kind==='weekly'?' · weekly':'')+(b.status==='pending'?' · requested':'')
+        return '<div class="ob2-blk '+obCls(b)+(b.sid===meId?' me':'')+'" data-id="'+b.__id+'" style="left:'+((s-o)/n*100)+'%;width:'+((e-s)/n*100)+'%" title="'+ppuEsc(obWho(b)+' · '+obRange(b.start,b.end))+'"><b>'+ppuEsc(obWho(b))+'</b>'+obRange(b.start,b.end)+(b.kind==='weekly'?' · weekly':'')+(b.status==='pending'?' · requested':'')
           +(ed?'<span class="ob2-grip l" data-g="start"></span><span class="ob2-grip r" data-g="end"></span>':'')+'</div>'; }).join('')+'</div></div>';
   });
   return h+(isOpen?'':'<div class="muted" style="padding:8px 2px;font-size:12.5px">'+ppuEsc(obSiteName(site))+' is closed this day.</div>')+'</div>';
@@ -14132,12 +14136,12 @@ function obCanEdit(b){ if(!b) return false; if(obCanManage(b.site)) return true;
 function obEdNew(pre){
   const site=OB.site, CF=obCfg(site), me=obMe(), mgr=obCanManage(site), d=pre.date||OB.day||obIso(new Date());
   const st=pre.start!=null?pre.start:Math.max(CF.open,9);
-  OBE={id:null,orig:null,ctx:d,b:{site:site,room:pre.room||(obRooms(site)[0]||{}).id,sid:mgr?'':(me&&me._id)||'',kind:'date',dows:[obDate(d).getDay()],date:d,until:'',start:st,end:pre.end!=null?pre.end:Math.min(CF.close,st+1),note:''}};
+  OBE={id:null,orig:null,ctx:d,b:{site:site,room:pre.room||(obRooms(site)[0]||{}).id,sid:mgr?'':(me&&me._id)||'',block:!!(mgr&&pre.block),label:'',kind:'date',dows:[obDate(d).getDay()],date:d,until:'',start:st,end:pre.end!=null?pre.end:Math.min(CF.close,st+1),note:''}};
   obEdDraw();
 }
 function obEdOpen(id,ctx,patch){
   const b=obB(id); if(!b) return;
-  OBE={id:id,orig:b,ctx:ctx||OB.day,b:{site:b.site,room:b.room,sid:b.sid,kind:b.kind,dows:[+b.dow],date:b.date,until:b.until||'',start:b.start,end:b.end,note:b.note||''}};
+  OBE={id:id,orig:b,ctx:ctx||OB.day,b:{site:b.site,room:b.room,sid:b.sid,block:!!b.block,label:b.block?(b.name||''):'',kind:b.kind,dows:[+b.dow],date:b.date,until:b.until||'',start:b.start,end:b.end,note:b.note||''}};
   if(patch) Object.assign(OBE.b,patch);
   obEdDraw();
 }
@@ -14145,12 +14149,13 @@ function obEdClose(){ const d=document.getElementById('ob2-dr'); if(d) d.classLi
 function obClose(){ obEdClose(); }
 function obEdSet(k,v){ if(!OBE) return; const b=OBE.b; if(k==='kind'){ b.kind=v; if(v==='date') b.dows=[obDate(b.date||OBE.ctx).getDay()]; }
   else if(k==='dow'){ const i=b.dows.indexOf(v); if(OBE.id){ b.dows=[v]; } else if(i>=0){ if(b.dows.length>1) b.dows.splice(i,1); } else b.dows.push(v); }
+  else if(k==='sid'){ if(v==='__block'){ b.block=true; b.sid=''; } else { b.block=false; b.sid=v; } }
   else b[k]=(k==='start'||k==='end')?+v:v;
   if(k==='date'&&b.kind==='date') b.dows=[obDate(v).getDay()];
   obEdDraw(); }
-function obEdRecs(){ const b=OBE.b, out=[];
-  if(b.kind==='date') out.push({site:b.site,room:b.room,sid:b.sid,kind:'date',dow:obDate(b.date).getDay(),date:b.date,until:'',start:b.start,end:b.end});
-  else b.dows.forEach(function(dw){ let first=b.date||obIso(new Date()); while(obDate(first).getDay()!==dw) first=obAdd(first,1); out.push({site:b.site,room:b.room,sid:b.sid,kind:'weekly',dow:dw,date:first,until:b.until||'',start:b.start,end:b.end}); });
+function obEdRecs(){ const b=OBE.b, out=[]; const blk=!!b.block;
+  if(b.kind==='date') out.push({site:b.site,room:b.room,sid:blk?'':b.sid,block:blk,kind:'date',dow:obDate(b.date).getDay(),date:b.date,until:'',start:b.start,end:b.end});
+  else b.dows.forEach(function(dw){ let first=b.date||obIso(new Date()); while(obDate(first).getDay()!==dw) first=obAdd(first,1); out.push({site:b.site,room:b.room,sid:blk?'':b.sid,block:blk,kind:'weekly',dow:dw,date:first,until:b.until||'',start:b.start,end:b.end}); });
   return out; }
 function obEdClash(){ const ign=OBE.id; let hits=[]; obEdRecs().forEach(function(r){ hits=hits.concat(obConflicts(r,ign).filter(function(x){ return x.status==='approved'&&x.__id!==(OBE.orig&&OBE.orig.replaces); })); }); return hits; }
 function obEdDraw(){
@@ -14164,15 +14169,17 @@ function obEdDraw(){
     const dis=ed?'':' disabled';
     const ppl=(STAFF||[]).filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated'; }).sort(function(a,c){ return String(a['Clinician']||'').localeCompare(String(c['Clinician']||'')); });
     const hrs=function(id,from,to,sel){ let s=''; for(let x=from;x<=to;x++) s+='<option value="'+x+'"'+(x===sel?' selected':'')+'>'+obHour(x)+'</option>'; return '<select'+dis+' onchange="obEdSet(\''+id+'\',this.value)">'+s+'</select>'; };
-    const title=!o?(mgr?'Book an office':'Request an office'):(ed?(ownApproved?'Request a change':'Edit booking'):'Booking');
+    const title=!o?(b.block?'Block an office':mgr?'Book an office':'Request an office'):(o.block?(ed?'Edit block':'Blocked'):ed?(ownApproved?'Request a change':'Edit booking'):'Booking');
     const clash=ed?obEdClash():[];
     let bd='';
     if(o&&o.status==='pending') bd+='<div class="ob2-hint">⏳ '+(o.release?'Request to give this office up':'Requested')+' by '+ppuEsc(o.name||'')+(o.requestedAt?' on '+usDate(o.requestedAt.slice(0,10)):'')+' — waiting for the CTM.'+(o.note?'<br>“'+ppuEsc(o.note)+'”':'')+'</div>';
     if(ownApproved) bd+='<div class="ob2-hint">This booking is approved. Change anything below and send it — your CTM approves the change, and your current booking stays until then. Or ask to give the office up.</div>';
-    if(o&&!ed&&!past) bd+='<div class="ob2-hint">This is '+ppuEsc(o.name||'')+'’s booking. Only they or the site’s CTM can change it.</div>';
+    if(o&&!ed&&!past) bd+='<div class="ob2-hint">'+(o.block?'🔒 This office is held by the CTM as a placeholder (“'+ppuEsc(o.name||'')+'”). Ask your CTM if you need it.':'This is '+ppuEsc(o.name||'')+'’s booking. Only they or the site’s CTM can change it.')+'</div>';
     if(past) bd+='<div class="ob2-hint">This booking is in the past and stays on record.</div>';
     if(o&&mgr&&o.status==='approved'&&o.kind==='weekly'&&o.date<today) bd+='<div class="ob2-hint">This weekly booking has already started. Saving ends it yesterday and continues it with your changes from today, so past weeks stay correct in reports.</div>';
-    bd+=(mgr?'<div class="ob2-f">Who<select'+dis+' onchange="obEdSet(\'sid\',this.value)"><option value="">Choose…</option>'+ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===b.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select></div>'
+    if(o&&o.block&&mgr&&ed) bd+='<div class="ob2-hint">🔒 This is a placeholder block — it holds the office but isn’t anyone’s booking yet. Pick a person under <b>Who</b> (or use “Assign to someone”) and save to turn it into their booking.</div>';
+    bd+=(mgr?'<div class="ob2-f">Who<select'+dis+' id="ob2-who" onchange="obEdSet(\'sid\',this.value)"><option value="">Choose…</option><option value="__block"'+(b.block?' selected':'')+'>🔒 Block — placeholder, no person</option>'+ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(!b.block&&s._id===b.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select></div>'
+          +(b.block?'<div class="ob2-f">Block label *<input'+dis+' maxlength="60" value="'+ppuEsc(b.label||'')+'" placeholder="e.g. New hire (starts Jan), Intake assessments, Group room hold" oninput="if(OBE)OBE.b.label=this.value"></div>':'')
         :(o?'<div class="ob2-f">Who<input disabled value="'+ppuEsc(o.name||'')+'"></div>':''))
       +'<div class="ob2-r2"><div class="ob2-f">Office<select'+dis+' onchange="obEdSet(\'room\',this.value)">'+obRooms(site).map(function(r){ return '<option value="'+r.id+'"'+(r.id===b.room?' selected':'')+'>'+ppuEsc(r.name)+'</option>'; }).join('')+'</select></div>'
       +'<div class="ob2-f">Repeats<div class="ob2-sg"><button'+dis+' class="'+(b.kind==='weekly'?'on':'')+'" onclick="obEdSet(\'kind\',\'weekly\')">Weekly</button><button'+dis+' class="'+(b.kind==='date'?'on':'')+'" onclick="obEdSet(\'kind\',\'date\')">One time</button></div></div></div>'
@@ -14181,15 +14188,16 @@ function obEdDraw(){
         :'<div class="ob2-f">Date<input type="date"'+dis+' value="'+ppuEsc(b.date||'')+'" onchange="obEdSet(\'date\',this.value)"></div>')
       +'<div class="ob2-r2"><div class="ob2-f">Start time'+hrs('start',CF.open,CF.close-1,b.start)+'</div><div class="ob2-f">End time'+hrs('end',CF.open+1,CF.close,b.end)+'</div></div>'
       +'<div class="ob2-f">Note <span style="font-weight:400;color:#9ca3af">(optional)</span><textarea rows="2" maxlength="200"'+dis+' oninput="if(OBE)OBE.b.note=this.value" placeholder="'+(mgr?'e.g. covering while Office 2 is painted':'e.g. need the bigger room for a family session')+'">'+ppuEsc(b.note||'')+'</textarea></div>'
-      +(clash.length?'<div class="ob2-warn">⚠ Already booked: '+clash.slice(0,3).map(function(x){ return '<b>'+ppuEsc(x.name||'')+'</b> '+obRange(x.start,x.end)+' '+(x.kind==='weekly'?'every '+OB_DOW[x.dow]:usDate(x.date)); }).join('; ')+'. Pick another time or office.</div>':'')
+      +(clash.length?'<div class="ob2-warn">⚠ Already booked: '+clash.slice(0,3).map(function(x){ return '<b>'+ppuEsc(obWho(x))+'</b> '+obRange(x.start,x.end)+' '+(x.kind==='weekly'?'every '+OB_DOW[x.dow]:usDate(x.date)); }).join('; ')+'. Pick another time or office.</div>':'')
       +(b.end<=b.start?'<div class="ob2-warn">The end time has to be after the start time.</div>':'');
     let ft='';
     if(!ed){ ft='<button class="btn btn-secondary" onclick="obEdClose()">Close</button>'+(mgr&&o&&o.status==='approved'&&o.kind==='weekly'&&!past?'':''); }
-    else if(!o){ ft='<button class="btn btn-primary" onclick="obEdSave()"'+(clash.length?' disabled':'')+'>'+(mgr?'Book it':'Send request')+'</button><button class="btn btn-secondary" onclick="obEdClose()">Cancel</button>'; }
+    else if(!o){ ft='<button class="btn btn-primary" onclick="obEdSave()"'+(clash.length?' disabled':'')+'>'+(b.block?'Save block':mgr?'Book it':'Send request')+'</button><button class="btn btn-secondary" onclick="obEdClose()">Cancel</button>'; }
     else if(ownApproved){ ft='<button class="btn btn-primary" onclick="obEdSave()"'+(clash.length?' disabled':'')+'>Send change request</button><button class="btn btn-secondary" style="color:#b91c1c" onclick="obEdRelease()">Give this office up…</button>'; }
     else {
       ft=(mgr&&o.status==='pending'?'<button class="btn btn-primary" onclick="obEdSave(\'approve\')"'+(clash.length?' disabled':'')+'>✓ Save &amp; approve</button>':'')
-        +'<button class="btn '+(mgr&&o.status==='pending'?'btn-secondary':'btn-primary')+'" onclick="obEdSave()"'+(clash.length?' disabled':'')+'>Save changes</button>'
+        +'<button class="btn '+(mgr&&o.status==='pending'?'btn-secondary':'btn-primary')+'" onclick="obEdSave()"'+(clash.length?' disabled':'')+'>'+(o.block&&!b.block?'Assign &amp; save':'Save changes')+'</button>'
+        +(mgr&&o.block&&b.block?'<button class="btn btn-secondary" onclick="obEdSet(\'sid\',\'\');var w=document.getElementById(\'ob2-who\');if(w)w.focus()">👤 Assign to someone</button>':'')
         +(mgr&&o.status==='approved'&&o.kind==='weekly'&&E.ctx&&obOn(o,E.ctx)?'<button class="btn btn-secondary" onclick="obSkip(\''+o.__id+'\',\''+E.ctx+'\')">Free up '+usDate(E.ctx)+' only</button>':'')
         +(mgr&&o.status==='pending'?'<button class="btn btn-secondary" style="color:#b91c1c" onclick="obDecide(\''+o.__id+'\',\'declined\')">Decline</button>':'')
         +(mgr&&o.status==='approved'?'<button class="btn btn-secondary" style="color:#b91c1c" onclick="obRemove(\''+o.__id+'\')">'+(o.kind==='weekly'&&o.date<today?'End booking':'Remove')+'</button>':'')
@@ -14203,7 +14211,9 @@ function obEdDraw(){
 async function obEdSave(mode){
   try{
     const E=OBE; if(!E) return; const b=E.b, o=E.orig, site=b.site, mgr=obCanManage(site), me=obMe(), now=new Date().toISOString(), today=obIso(new Date());
-    if(!b.sid){ showToast('Choose who the office is for'); return; }
+    if(b.block&&!mgr){ showToast('Only the site’s CTM can add blocks'); return; }
+    if(b.block&&!String(b.label||'').trim()){ showToast('Give the block a label'); return; }
+    if(!b.block&&!b.sid){ showToast('Choose who the office is for — or pick “Block” for a placeholder'); return; }
     if(!(b.end>b.start)){ showToast('The end time has to be after the start time'); return; }
     if(b.kind==='date'&&!b.date){ showToast('Pick a date'); return; }
     if(b.kind==='weekly'&&b.until&&b.date&&b.until<b.date){ showToast('“Ends on” is before “Starts on”'); return; }
@@ -14211,12 +14221,13 @@ async function obEdSave(mode){
     { const CF=obCfg(site); if(!CF.on){ showToast('Office bookings are paused at this site'); return; } if(b.kind==='date'&&CF.days.indexOf(obDate(b.date).getDay())<0){ showToast(obSiteName(site)+' is closed that day'); return; } }
     if(obEdClash().length){ showToast('That time is already booked'); return; }
     const who=(STAFF||[]).find(function(s){ return s._id===b.sid; })||{};
-    const base=function(r,st){ return Object.assign(r,{name:who['Clinician']||(o&&o.name)||'',status:st,note:String(b.note||'').slice(0,200),skip:[],requestedBy:(me&&me['Clinician'])||'',requestedAt:now},
+    const nm=b.block?String(b.label||'').trim().slice(0,60):(who['Clinician']||(o&&!o.block&&o.name)||'');
+    const base=function(r,st){ return Object.assign(r,{name:nm,status:st,note:String(b.note||'').slice(0,200),skip:[],requestedBy:(me&&me['Clinician'])||'',requestedAt:now},
       st==='approved'?{decidedBy:(me&&me['Clinician'])||'',decidedAt:now}:{}); };
     const recs=obEdRecs();
     // New booking / request
     if(!o){ for(const r of recs){ if(!(await window.officeStore.add(base(r,mgr?'approved':'pending')))){ showToast('⚠ Could not save — try again'); return; } }
-      obEdClose(); showToast(mgr?'✓ Booked':'📨 Request sent — your CTM will approve it'); await obLoad(true); renderOffices(); return; }
+      obEdClose(); showToast(b.block?'🔒 Block saved':mgr?'✓ Booked':'📨 Request sent — your CTM will approve it'); await obLoad(true); renderOffices(); return; }
     const r=recs[0];
     // Therapist: own approved → change request (pending, replaces the original once approved)
     if(!mgr&&o.status==='approved'){ const rec=base(r,'pending'); rec.replaces=o.__id; if(!(await window.officeStore.add(rec))){ showToast('⚠ Could not send'); return; }
@@ -14226,7 +14237,7 @@ async function obEdSave(mode){
       obEdClose(); showToast('Request updated'); await obLoad(true); renderOffices(); return; }
     // Approver
     const status=mode==='approve'?'approved':o.status;
-    const patch={room:r.room,sid:r.sid,name:who['Clinician']||o.name||'',kind:r.kind,dow:r.dow,date:r.date,until:r.until,start:r.start,end:r.end,note:String(b.note||'').slice(0,200),status:status,editedBy:(me&&me['Clinician'])||'',editedAt:now};
+    const patch={room:r.room,sid:r.sid,block:!!r.block,name:nm,kind:r.kind,dow:r.dow,date:r.date,until:r.until,start:r.start,end:r.end,note:String(b.note||'').slice(0,200),status:status,editedBy:(me&&me['Clinician'])||'',editedAt:now};
     if(status==='approved'&&o.status!=='approved'){ patch.decidedBy=(me&&me['Clinician'])||''; patch.decidedAt=now; }
     if(o.status==='approved'&&o.kind==='weekly'&&o.date<today){
       try{ await ofhBackfill(); }catch(e){}
@@ -14235,7 +14246,7 @@ async function obEdSave(mode){
       if(!(await window.officeStore.add(nr))){ showToast('⚠ Could not save'); return; }
     } else if(!(await window.officeStore.update(o.__id,patch))){ showToast('⚠ Could not save'); return; }
     if(status==='approved'&&o.replaces) await obRetire(o.replaces);
-    obEdClose(); showToast(mode==='approve'?'✓ Saved & approved':'Saved'); await obLoad(true); renderOffices();
+    obEdClose(); showToast(mode==='approve'?'✓ Saved & approved':(o.block&&!b.block?'✓ Assigned to '+nm:'Saved')); await obLoad(true); renderOffices();
   }catch(e){ console.error('obEdSave',e); showToast('⚠ Could not save'); }
 }
 // Therapist asks to give an approved booking up (CTM approves → booking ends / is removed).
@@ -14987,8 +14998,11 @@ function newsCardHtml(n,full){
   return '<div class="hn-item'+(n.pinned?' pin':'')+'">'+(n.pinned?'<span class="hn-pin">Pinned</span>':'')+'<div class="hn-t">'+hesc(n.title)+'</div>'
     +'<div class="hn-d">'+(n.date?new Date(n.date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'')+(n.by?' · '+hesc(n.by):'')+'</div>'
     +(n.body?'<div class="hn-b'+(full?' full':'')+'">'+hesc(n.body)+'</div>':'')
-    +(n.link?'<a class="hn-l" href="'+hesc(n.link)+'" target="_blank" rel="noopener">'+hesc(n.linkLabel||'Read more')+' ↗</a>':'')+'</div>';
+    +(n.link?'<a class="hn-l" href="'+hesc(n.link)+'" target="_blank" rel="noopener">'+hesc(n.linkLabel||'Read more')+' ↗</a>':'')
+    +((n.files||[]).length?'<div class="hcal-atts">'+n.files.map(function(f,i){ return '<button class="hcal-att" onclick="newsAttOpen(\''+hesc(n.id)+'\','+i+')" title="Open '+hesc(f.name)+'">'+hcalAttIcon(f.name)+' '+hesc(f.name)+'</button>'; }).join('')+'</div>':'')+'</div>';
 }
+async function newsAttOpen(nid,i){ try{ const n=(NEWS.items||[]).find(function(x){ return x.id===nid; }), f=n&&(n.files||[])[i]; if(!f) return;
+  const u=window.fileStore?await window.fileStore.url(f.path):null; if(!u){ showToast('⚠ Could not open the file'); return; } window.open(u,'_blank','noopener'); }catch(e){ console.error(e); showToast('⚠ Could not open the file'); } }
 function homeNewsHtml(){
   if(NEWS.items===null){ const legacy=CONFIG.announcements||[]; if(legacy.length) return announcementsHtml(); return '<div class="hs-none">Loading…</div>'; }
   const v=newsVisible(); return v.length?v.slice(0,4).map(function(n){ return newsCardHtml(n,false); }).join(''):'<div class="hs-none">No news yet.</div>';
@@ -15122,7 +15136,7 @@ async function hbmRenderNews(el){
   const list=items.slice().sort(function(a,b){ return (b.pinned?1:0)-(a.pinned?1:0)||String(b.date||'').localeCompare(String(a.date||'')); });
   el.innerHTML='<div class="hbm-head"><div><b>News &amp; announcements</b><div class="hbm-sub">The newest four show in <b>Latest Practice News and Updates</b> on My Homebase; all of them on the Announcements page.</div></div><button class="btn btn-primary" onclick="hbmNewsEdit()">+ New post</button></div>'
     +(list.length?'<div class="hbm-list">'+list.map(function(n){ const s=st(n);
-      return '<div class="hbm-row '+s+'"><div class="hbm-main"><div class="hbm-t">'+(n.pinned?'📌 ':'')+hesc(n.title)+'</div><div class="hbm-m">'+(n.date?usDate(n.date):'')+(n.until?' → '+usDate(n.until):'')+(n.by?' · '+hesc(n.by):'')+(n.link?' · has link':'')+'</div>'
+      return '<div class="hbm-row '+s+'"><div class="hbm-main"><div class="hbm-t">'+(n.pinned?'📌 ':'')+hesc(n.title)+'</div><div class="hbm-m">'+(n.date?usDate(n.date):'')+(n.until?' → '+usDate(n.until):'')+(n.by?' · '+hesc(n.by):'')+(n.link?' · has link':'')+((n.files||[]).length?' · 📎 '+n.files.length+' attachment'+(n.files.length>1?'s':''):'')+'</div>'
         +(n.body?'<div class="hbm-d">'+hesc(String(n.body).slice(0,180))+(String(n.body).length>180?'…':'')+'</div>':'')+'</div>'
 
         +'<span class="hbm-st '+s+'">'+({active:'Live',scheduled:'Scheduled',ended:'Expired'})[s]+'</span>'
@@ -15132,6 +15146,7 @@ async function hbmRenderNews(el){
 function hbmNewsEdit(id){
   const n=id?(NEWS.items||[]).find(function(x){ return x.id===id; }):null;
   const v=n||{title:'',body:'',link:'',linkLabel:'',date:hbmToday(),until:'',ticker:false,pinned:false};
+  try{ HCAL.att=[]; HCAL.attDrop=[]; HCAL.attKeep=((n&&n.files)||[]).slice(); }catch(e){}
   hbmModal(n?'Edit post':'New post','<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +hbmL('Headline *','<input id="nw-title" style="'+HBM_F+'" value="'+hesc(v.title)+'" placeholder="e.g. Welcome our new Hadley clinicians!">',true)
     +hbmL('Message','<textarea id="nw-body" rows="5" style="'+HBM_F+';resize:vertical">'+hesc(v.body||'')+'</textarea>',true)
@@ -15139,7 +15154,10 @@ function hbmNewsEdit(id){
     +hbmL('Link text','<input id="nw-linklabel" style="'+HBM_F+'" value="'+hesc(v.linkLabel||'')+'" placeholder="Read more">')
     +hbmL('Publish on','<input id="nw-date" type="date" style="'+HBM_F+'" value="'+hesc(v.date||'')+'">')
     +hbmL('Take down after (optional)','<input id="nw-until" type="date" style="'+HBM_F+'" value="'+hesc(v.until||'')+'">')
-    +''
+    +'<div style="grid-column:1/-1;border-top:1px solid #eef0f3;padding-top:10px"><div style="font-size:12px;font-weight:700;color:#4b5563;margin-bottom:5px">Attachments (optional)</div>'
+      +'<div id="hcal-f-atts">'+hcalAttListHtml()+'</div>'
+      +'<label class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;cursor:pointer;margin-top:6px;display:inline-block">📎 Attach files<input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt" style="display:none" onchange="hcalAttPick(this)"></label>'
+      +'<div style="font-size:11.5px;color:#9ca3af;margin-top:4px">PDFs, Word, Excel, PowerPoint or images, up to 20 MB each. Everyone who can see the post can open them.</div></div>'
     +'<label class="hbm-ck" style="grid-column:1/-1"><input type="checkbox" id="nw-pinned"'+(v.pinned?' checked':'')+'> Pin to the top</label></div>',
     "hbmNewsSave("+(n?"'"+hesc(n.id)+"'":'null')+")",n?'Save changes':'Publish');
 }
@@ -15152,13 +15170,17 @@ async function hbmNewsSave(id){
     if(n.link&&!/^https?:\/\//i.test(n.link)) n.link='https://'+n.link;
     await hbmLoad('app_news',NEWS);
     const now=new Date().toISOString(), who=(typeof libWhoAmI==='function'?libWhoAmI():'')||'';
+    const nid=id||('nw_'+Date.now().toString(36));
+    if((HCAL.att||[]).length||(HCAL.attDrop||[]).length||(HCAL.attKeep||[]).length){ if((HCAL.att||[]).length) showToast('Uploading attachments…'); const files=await hcalAttCommit(nid); if(files===false) return; n.files=files; } else n.files=[];
     if(id){ const i=NEWS.items.findIndex(function(x){ return x.id===id; }); if(i>=0) NEWS.items[i]=Object.assign({},NEWS.items[i],n,{updatedAt:now}); }
-    else NEWS.items.push(Object.assign({id:'nw_'+Date.now().toString(36),createdAt:now,by:who},n));
+    else NEWS.items.push(Object.assign({id:nid,createdAt:now,by:who},n));
     if(!(await hbmSave('app_news',NEWS))){ showToast('⚠ Could not save — check your access'); return; }
     hbmClose(); showToast('📣 '+(id?'Post updated':'Post published')); hbmRefresh();
   }catch(e){ console.error(e); showToast('⚠ Could not save the post'); }
 }
-async function hbmNewsDel(id){ if(!confirm('Delete this post? It disappears for everyone.')) return; await hbmLoad('app_news',NEWS); NEWS.items=NEWS.items.filter(function(x){ return x.id!==id; }); if(!(await hbmSave('app_news',NEWS))){ showToast('⚠ Could not delete'); return; } hbmRefresh(); }
+async function hbmNewsDel(id){ if(!confirm('Delete this post? It disappears for everyone.')) return; await hbmLoad('app_news',NEWS);
+  try{ const n=NEWS.items.find(function(x){ return x.id===id; }); ((n&&n.files)||[]).forEach(function(f){ if(f&&f.path) fileRemove(f.path); }); }catch(e){}
+  NEWS.items=NEWS.items.filter(function(x){ return x.id!==id; }); if(!(await hbmSave('app_news',NEWS))){ showToast('⚠ Could not delete'); return; } hbmRefresh(); }
 // ── Events calendar ──
 async function hbmRenderEvents(el){
   el.innerHTML='<div class="hs-none">Loading…</div>';
@@ -19711,7 +19733,7 @@ function ofhLiveDay(iso){
   const dow=obDate(iso).getDay(), sites={};
   officeSitesAll().forEach(function(x){ const st=x[0], CF=obCfg(st), rooms=obRooms(st).map(function(r){ return {id:r.id,name:r.name}; });
     const openDay=CF.on&&CF.days.indexOf(dow)>=0;
-    const occ=(OB.list||[]).filter(function(b){ return b.site===st&&b.status==='approved'&&obOn(b,iso); }).map(function(b){ return {id:b.__id,room:b.room,sid:b.sid,name:b.name||'',start:+b.start,end:+b.end,kind:b.kind}; });
+    const occ=(OB.list||[]).filter(function(b){ return b.site===st&&b.status==='approved'&&obOn(b,iso); }).map(function(b){ return {id:b.__id,room:b.room,sid:b.sid,name:b.name||'',start:+b.start,end:+b.end,kind:b.kind,block:!!b.block}; });
     sites[st]={open:CF.open,close:CF.close,openDay:openDay,rooms:rooms,occ:occ}; });
   return {sites:sites};
 }
@@ -19763,14 +19785,14 @@ async function rcOfficeHtml(){
         let used=0, vin=0;
         if(sa){ (byPD[o.sid+'|'+d]||[]).forEach(function(L){ if(L.st==null) return; const a=Math.max(L.st,o.start*60), z=Math.min(L.en!=null&&L.en>L.st?L.en:L.st+60,o.end*60); if(z<=a) return;
           if(inPerson(L)&&(rcFacSite(L.fac)===st||!rcFacSite(L.fac))){ used+=(z-a)/60; covered[L.sid+'|'+d+'|'+L.st]=1; } else if(!inPerson(L)) vin+=(z-a)/60; }); used=Math.min(used,bh); }
-        if(sa&&hasData(d)){ T.bkd+=bh; SI.bkd=(SI.bkd||0)+bh; }
+        if(sa&&hasData(d)&&!o.block){ T.bkd+=bh; SI.bkd=(SI.bkd||0)+bh; }
         T.booked+=bh; T.used+=used; T.vin+=vin; T.occN++; SI.booked+=bh; SI.used+=used; SI.vin+=vin; SI.n++; WS.booked+=bh;
         const R=site0(byRoom,st+'|'+o.room,obSiteName(st)+' · '+roomName); R.booked+=bh; R.used+=used; R.vin+=vin; R.n++;
-        const P=site0(byPer,o.sid,o.name||o.sid); P.booked+=bh; P.used+=used; P.vin+=vin; P.n++;
+        const P=site0(byPer,o.block?'blk|'+(o.name||''):o.sid,o.block?'🔒 '+(o.name||'Blocked'):(o.name||o.sid)); P.booked+=bh; P.used+=used; P.vin+=vin; P.n++;
         for(let hh=Math.max(o.start,S.open); hh<Math.min(o.end,S.close); hh++){
           const hk=dw+'|'+hh; if(heat[hk]) heat[hk].b++;
           if(dowSel===''||dowSel===String(dw)){ const c=roomHeat[st+'|'+o.room+'|'+hh]; if(c){ c.b++; c.who[o.name||o.sid]=1;
-            if(sa&&hasData(d)){ c.k++; if((byPD[o.sid+'|'+d]||[]).some(function(L){ const fs=rcFacSite(L.fac); return inPerson(L)&&(!fs||fs===st)&&L.st!=null&&L.st<(hh+1)*60&&(L.en!=null&&L.en>L.st?L.en:L.st+60)>hh*60; })) c.u++; } } } }
+            if(sa&&hasData(d)&&!o.block){ c.k++; if((byPD[o.sid+'|'+d]||[]).some(function(L){ const fs=rcFacSite(L.fac); return inPerson(L)&&(!fs||fs===st)&&L.st!=null&&L.st<(hh+1)*60&&(L.en!=null&&L.en>L.st?L.en:L.st+60)>hh*60; })) c.u++; } } } }
         record.push([d,obSiteName(st),roomName,o.name||'',obRange(o.start,o.end),o.kind==='weekly'?'Weekly':'One-off',saved?'saved':'live']);
       });
     });
@@ -19853,7 +19875,7 @@ function rcOfficeRecs(sites,sa,DD,lines,byPD,inPerson,hasData){
   try{
     const today=ofhToday(), out=[];
     if(sa){
-      (OB.list||[]).filter(function(b){ return b.status==='approved'&&b.kind==='weekly'&&sites.indexOf(b.site)>=0&&(!b.until||b.until>=today); }).forEach(function(b){
+      (OB.list||[]).filter(function(b){ return b.status==='approved'&&!b.block&&b.kind==='weekly'&&sites.indexOf(b.site)>=0&&(!b.until||b.until>=today); }).forEach(function(b){
         const occs=[]; for(let d=DD.start; d<=DD.end&&d<today; d=obAdd(d,1)){ if(!obOn(b,d)||!hasData(d)) continue; const CF=obCfg(b.site); if(!(CF.on&&CF.days.indexOf(obDate(d).getDay())>=0)) continue;
           const used=(byPD[b.sid+'|'+d]||[]).some(function(L){ if(!inPerson(L)||L.st==null) return false; const fs=rcFacSite(L.fac); if(fs&&fs!==b.site) return false; const en=L.en!=null&&L.en>L.st?L.en:L.st+60; return L.st<b.end*60&&en>b.start*60; });
           occs.push({d:d,u:used}); }
