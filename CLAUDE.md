@@ -785,3 +785,53 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - Blocks hold the office: they clash like normal bookings and count as booked hours in utilization; excluded from Valant "used" accounting and `rcOfficeRecs` per-person stats (byPer key `blk|<label>`).
 - Weekly or one-time. Rendered grey hatched (`obCls` → 'k', `obWho` prefixes 🔒). Therapists see it read-only with a "held by the CTM" hint.
 - "👤 Assign to someone" converts a block to a normal booking (sets sid/name, `block:false`).
+
+## Nov 17 2026 — Office booking approvers (per site)
+- Homebase Settings → Office settings → "Who can approve at <site>": Admins/Super Admins always; checkbox for the site's CTM / CPM (title-detected, `obIsCtmOf`); plus "Also allow these people" (any active staff, any team).
+- Stored in Firestore `officeApprovers/{site}` = {ids:[staffId], ctm:bool, updatedBy, updatedAt} via `window.officeApprStore` (all/set); loaded into `OB.appr` by `obLoad`. `obApprCfg(site)` → {ids, ctm}; `obCanManage(site)` uses it. Picked people also see that site (`obSitesVisible`).
+- Saved with the rest of the site's Office settings (`obsSave`; draft `OBS.draft.appr`; UI `obsApprHtml`/`obsApprCtm`/`obsApprAdd`/`obsApprDel`).
+- firestore.rules: new `isOfficeApprover(site)` lets picked people create/update/delete officeBookings at that site; `officeApprovers` read = signed in, write = Admin. **Rules deploy needed.**
+- Note: Supervisor-level accounts still pass the rules at any site (unchanged); the CTM checkbox only controls the app UI.
+
+## Nov 17 2026 — Event RSVP comments + Who's going
+- RSVP comment box (optional, ≤500 chars) under the RSVP buttons on calendar event cards; saved with the RSVP click or via "Save comment". Private: stored separately in Firestore `eventRsvpNotes/{eid}__{sid}` = {eid,sid,note,at} (rsvpStore.notesMine/notesFor/setNote/removeNote). Only the author + Admins read.
+- "Who's going" on every RSVP event card for everyone who can see it (`hcalWhoHtml`): Going chips (you first, +guests, first 10 then "+N more"), Maybe names. Names only, never comments. `hcalRsvpLoadAll` now runs for everyone from `hcalLoad` (RSVP events ended ≤14 days ago).
+- Organizer "See responses" modal has a Comments section; CSV gains a Comment column.
+- firestore.rules: `eventRsvps` read opened to all signed-in; new `eventRsvpNotes` match. **Rules deploy needed.**
+
+## Nov 17 2026 — Needs your attention sections, alert statuses/threads, full event view
+- My Homebase → Needs your attention now has sections (`.hs-sec` / `.hs-secb`, hidden when empty by `homeWatchAlerts`):
+  **Practice alerts** (`home-practicealerts` + individual alerts in clinical/documentation/hr/credentialing/compliance realms → `home-adminalerts`),
+  **Billing & Ops alerts** (realms in `SA_OPS` = billing, scheduling, it, other → `home-opsalerts`), **Your to-dos** (`#home-todo`: everything else).
+  Only to-dos rotate in the ticker (`homeAlertsClamp`); the header count covers all.
+- staffAlerts gain `st` ('seen'|'working'|'question'|'moretime'), `stAt`, `eta`, `thread[{who:'emp'|'iss',name,kind,text,at}]` (≤40), `newFor` ('iss'|'emp'|''), `issuedBySid`.
+  Employee row (`saEmpRow`, state `HSA`): status buttons + Mark done; Question / Need more time / Reply open an inline box. Issuer: `homeLoadAlertUpdates` (`#home-alertupd`, alerts they sent with `newFor:'iss'`; legacy alerts match by issuedBy name) → `saThread` modal (reply, Mark resolved). Status pills + "Updates" also in the Employee File alert list (`saList`) and Homebase Settings → Practice alerts.
+- firestore.rules: staffAlerts employee update may touch status/ackAt/ackBy/st/stAt/thread/newFor/eta (validated). **Rules deploy needed.**
+- Full event view `hcalOpenEvent(eid)` (`#hcal-ev`, state `HEV`): picture, details, PDF attachments rendered inline with PDF.js (first 6 pages, click = open full size; iframe fallback), other attachments, RSVP + comment + Who's going (`#hev-dyn`, refreshed from `hcalPaint`). Opened from the event title / "Open event →" on calendar cards and the RSVP alert. `hcalCmEl` scopes the comment box to the open view.
+- PDF.js preview of Storage files needs the bucket CORS (`storage-cors.json`, gsutil) — otherwise it falls back to the browser viewer.
+
+## Nov 17 2026 — Office permissions in Roles & permissions
+- New abilities (PERM_CAPS / `PERM_OFFC`): `approve-offices` (approve/decline, book for others, blocks — every site) and `manage-offices` (Homebase Settings → Office settings: offices, names, notes, order, hours/open days, per-site approvers). Any level can be given them.
+- Roles/levels saved before this have no `offCaps` flag → keep the old rule (Admin level and up have both). Saving a role/level sets `offCaps:true`; the editor pre-ticks both for legacy Admin/Super Admin records (`permOffcLegacy`).
+- `obCanManage` = hbCan('approve-offices') || per-site approvers (officeApprovers/{site}) || site CTM/CPM. Office settings section + the ⚙ on Office Bookings follow hbCan('manage-offices'); `canSeePage('admin')` allows it too.
+- Server copy: `officeApprovers/_perm` {approve:[staffId], manage:[staffId]} written by Admins (`obPermSync`, on every Roles & permissions save and when an Admin opens Office settings; `permCanFor(s,cap)` computes effective abilities). firestore.rules `officePermHas('approve'|'manage')` lets those people write officeBookings, officeApprovers/{site} (not _perm) and kv app_office_rooms / app_office_cfg. **Rules deploy needed.**
+- The approvers card in Office settings lists everyone with "Approve office bookings" (link to Roles & permissions).
+
+## Nov 17 2026 (later) — Needs your attention simplified; "alerts" → "notifications" in the UI
+- The Practice / Billing & Ops / To-dos sections were too busy: Needs your attention is one list again (all notifications + to-dos, critical pinned, rotating, "Show all"). Practice news stays its own card.
+- Notification rows are compact (`saEmpRow`): right side **Respond ▾** (opens the status chips: Seen / Working on it / I have a question / Need more time) and **Done ✓**; the current status shows as a small pill; the thread collapses to "💬 N messages" (`saThrToggle`, `HSA.thr`); an unread reply from the sender shows inline with Got it / Reply. Rotation pauses while a response panel (`.sa-pan`) is open. Functionality unchanged.
+- Admin-facing wording now says "notification(s)" (Practice notifications, Send a notification, Notifications & flags, Send notifications to employees …). Code names, Firestore collections (staffAlerts, kv app_practice_alerts) and the `issue-alerts` capability key are unchanged.
+
+## Nov 17 2026 — Handbook & Manuals (merged page) + document views
+- Employee Handbook and Clinical Policies & How-To Manuals merged into ONE page: My Homebase → **Handbook & Manuals** (page id stays `clin-policies`, nav `#nav-clin-policies`; `showPage('handbook')` and `clin-howtos` redirect to it). Tabs: `hpol` Employee Handbook · `pol` Clinical Policies Manual · `chowto` Clinical How-To Manual ("Coming soon" card + any documents placed there). Only those three tabs (extra tabs for handbook chapters / How-To drafts / old manual removed Nov 17 at Michael’s request — their library content is kept, just not shown). Custom roles that had the old `handbook` page still get the merged page.
+- Documents carry `sec` ('hpol'|'pol'|'howto', `POL_SECS`) and `order`; `polPageOf` uses `sec`, else the category mapping. Nav badge = all documents to sign.
+- Homebase Settings → Documents & sign-offs: section + category filters; rows grouped by section with ↑/↓ (`polReorder`), Move (`polMove`), signature on/off (`polToggleSign`), Stats, Edit (section, category, signature, sign-by date of the current version), Delete (`polDelete`: hard delete when nobody signed; otherwise `status:'deleted'` — hidden everywhere but kept so signed copies in Employee Files still open). `policyStore.remove` added.
+- Views: `policyViews/{pid}__{sid}` {pid,sid,v,first,last,n(increment),readToEnd,endV,endAt,pages,name} written when someone opens a document (`polViewLog`) and when they reach the end (`polViewEnd`). Stats: "👁 viewed X/Y" per row; the document's Stats page has **Who has opened it** (filters, CSV) for everyone in its audience, signed or not; reference-only documents show views + versions. firestore.rules: new `policyViews` match (own write, Admin read). **Rules deploy needed.** Views count from Nov 17 2026.
+
+## Nov 17 2026 — Capacity chart data labels
+- Capacity chart (`dataLabels` in the cumulative chart builder): each quarter benchmark is labelled "Q1/Q2/Q3 goal N", the year-end benchmark "Year-end goal N" (bold navy), and each COMPLETED quarter gets "Actual N (x%)" at its last plotted pay period (status colour). Labels go up-left / down-right of their point (both lines rise to the right) and swap sides when actual is above the goal so they don't collide; white halo via paint-order stroke. The in-progress quarter keeps the existing "Through PPn · N hrs" marker.
+
+## Nov 17 2026 — Standard KPIs (note completion + no-shows)
+- One set of KPIs everywhere (`kpiRates`, `kpiCardHtml`, `kpiSitesTableHtml`, CSS `kpiCss`): **Note completion** = notes signed after 24 hrs (count + % of signed notes; `late24` = signed > 1 calendar day after the session) and avg days to sign, each vs practice; **No-shows** = no-show rate (paid + unpaid ÷ sessions + no-shows) vs the person's site and vs the practice. Lower is better for all three.
+- Where: Capacity Dashboard detail (replaces the old 6-tile "Progress this year"; sessions-by-type table kept), Capacity Dashboard overview bottom (`#cap-kpi`, practice + each site), Pay Period Snapshot (`#ps-kpi`, the person's YTD through the shown period), My Team (top tiles, "team vs practice" rows, per-person columns "after 24 hrs" and "no-show · site"; Late-notes flag = ≥20% signed after 24 hrs (≥40% needs action)), Report Center → **✅ KPIs** tab (practice, sites, each clinician).
+- Data: `ppuProgressOf` counts `late24`; `app_practice_stats[ppId]` gains `late24` + `bySite{team:{sessions,noShows,signed,daysSum,late24,unsigned,clinicians}}`; `app_team_stats` gains `late24`. Older closed periods are rebuilt from their frozen snapshots by `kpiBackfill()` (Super Admin; runs automatically once when a Super Admin opens Capacity Dashboard / Report Center → KPIs and data is missing; also a "↻ Rebuild KPI history" button). No rules change.

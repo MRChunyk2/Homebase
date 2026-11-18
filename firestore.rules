@@ -148,10 +148,15 @@ service cloud.firestore {
       allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
       allow create: if isAdmin() && request.resource.data.sid is string && request.resource.data.size() < 20;
       allow delete: if isAdmin();
+      // The employee can mark it done, set a status (seen / working / question / more time), add to the thread
+      // with the sender and set a new target date (Nov 17 2026). Nothing else on the alert.
       allow update: if isAdmin()
         || (isDomain() && resource.data.sid == myStaffId()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ackAt', 'ackBy'])
-            && request.resource.data.status == 'done');
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ackAt', 'ackBy', 'st', 'stAt', 'thread', 'newFor', 'eta'])
+            && request.resource.data.status in ['open', 'done']
+            && request.resource.data.get('st', 'seen') in ['seen', 'working', 'question', 'moretime']
+            && request.resource.data.get('newFor', '') in ['iss', '']
+            && (!('thread' in request.resource.data) || (request.resource.data.thread is list && request.resource.data.thread.size() <= 40)));
     }
 
     // Suggestion box (My Homebase). Anyone signed in can send one (create only, small,
@@ -166,14 +171,33 @@ service cloud.firestore {
     // Office bookings (My Homebase → Office Bookings). Everyone signed in reads the calendar.
     // Staff create pending requests for themselves and may cancel (delete) their own pending ones;
     // Supervisor level and up (CTMs/CPMs) and Admins assign, approve, decline, free up days and remove.
+    // People picked as approvers for a site (Homebase Settings → Office settings → Who can approve).
+    // Who holds "Approve office bookings" / "Manage office settings" (Roles & permissions), copied by Admins
+    // into officeApprovers/_perm {approve:[staffId], manage:[staffId]}.
+    function officePermHas(field) {
+      return isDomain() && exists(/databases/$(database)/documents/officeApprovers/_perm)
+        && myStaffId() in get(/databases/$(database)/documents/officeApprovers/_perm).data[field];
+    }
+    function isOfficeApprover(site) {
+      return isDomain() && site is string
+        && exists(/databases/$(database)/documents/officeApprovers/$(site))
+        && myStaffId() in get(/databases/$(database)/documents/officeApprovers/$(site)).data.ids;
+    }
     match /officeBookings/{bid} {
       allow read: if isDomain();
       allow create: if isDomain() && request.resource.data.size() < 24 && request.resource.data.sid is string
-        && (isAdmin() || myRole() == 'supervisor'
+        && (isAdmin() || myRole() == 'supervisor' || isOfficeApprover(request.resource.data.site) || officePermHas('approve')
             || (request.resource.data.sid == myStaffId() && request.resource.data.status == 'pending'));
-      allow update: if isAdmin() || (isDomain() && myRole() == 'supervisor');
-      allow delete: if isAdmin() || (isDomain() && myRole() == 'supervisor')
+      allow update: if isAdmin() || (isDomain() && myRole() == 'supervisor') || isOfficeApprover(resource.data.site) || officePermHas('approve');
+      allow delete: if isAdmin() || (isDomain() && myRole() == 'supervisor') || isOfficeApprover(resource.data.site) || officePermHas('approve')
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'pending');
+    }
+    // Office booking approvers per site: {ids:[staffId], ctm:bool, updatedBy, updatedAt}. Admins edit.
+    match /officeApprovers/{site} {
+      allow read: if isDomain();
+      allow write: if (site == '_perm' && isAdmin() && request.resource.data.approve is list && request.resource.data.manage is list)
+        || (site != '_perm' && (isAdmin() || officePermHas('manage'))
+            && request.resource.data.ids is list && request.resource.data.ids.size() <= 50);
     }
 
     // Private Docs (Employee File, Nov 2026): sensitive HR documents about an employee. Super Admins only —
@@ -186,6 +210,14 @@ service cloud.firestore {
     match /policies/{pid} {
       allow read: if isDomain();
       allow write: if isSuperAdmin();
+    }
+    // Document views (Handbook & Manuals, Nov 17 2026): one record per person per document, id '{pid}__{staffId}'.
+    // You only write your own; Admins read them all for the "who has viewed it" stats.
+    match /policyViews/{rid} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create, update: if isDomain() && request.resource.data.size() < 14
+        && request.resource.data.sid == myStaffId() && request.resource.data.pid is string
+        && rid == request.resource.data.pid + '__' + myStaffId();
     }
     // Policy signatures: one per person per version, id '{pid}_v{n}_{staffId}'. You can only sign as yourself, with your own
     // Google account, at the server's time, for a policy that exists — and never change it afterwards (except to attach
@@ -207,11 +239,21 @@ service cloud.firestore {
     }
 
     // Event RSVPs (My Homebase → Practice calendar). One doc per person per event, id '{eventId}__{staffId}'.
-    // Each person writes only their own answer; Admins read all (headcounts) and can clear one.
+    // Each person writes only their own answer; everyone signed in reads them (Who's going, Nov 17) — no comments here.
     match /eventRsvps/{rid} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isDomain();
       allow create, update: if isDomain() && request.resource.data.size() < 8
         && request.resource.data.resp in ['yes', 'maybe', 'no']
+        && request.resource.data.eid is string
+        && (isAdmin() || (request.resource.data.sid == myStaffId()
+            && rid == request.resource.data.eid + '__' + myStaffId()));
+      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+    }
+    // Optional RSVP comments, id '{eventId}__{staffId}' = {eid,sid,note,at}. Private: the author and Admins only.
+    match /eventRsvpNotes/{rid} {
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create, update: if isDomain() && request.resource.data.size() < 6
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500
         && request.resource.data.eid is string
         && (isAdmin() || (request.resource.data.sid == myStaffId()
             && rid == request.resource.data.eid + '__' + myStaffId()));
@@ -345,7 +387,9 @@ service cloud.firestore {
       allow write: if ((key in ['app_payroll_detail', 'app_comp_data'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key in ['app_recruit', 'app_comp_checklist'] && isAdmin())
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}')
-            && isAdmin());
+            && isAdmin())
+        // Office settings (offices, notes, hours): also people with "Manage office settings" (Nov 17 2026)
+        || (key in ['app_office_rooms', 'app_office_cfg'] && officePermHas('manage'));
     }
   }
 }
