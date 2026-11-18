@@ -835,3 +835,96 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - One set of KPIs everywhere (`kpiRates`, `kpiCardHtml`, `kpiSitesTableHtml`, CSS `kpiCss`): **Note completion** = notes signed after 24 hrs (count + % of signed notes; `late24` = signed > 1 calendar day after the session) and avg days to sign, each vs practice; **No-shows** = no-show rate (paid + unpaid ÷ sessions + no-shows) vs the person's site and vs the practice. Lower is better for all three.
 - Where: Capacity Dashboard detail (replaces the old 6-tile "Progress this year"; sessions-by-type table kept), Capacity Dashboard overview bottom (`#cap-kpi`, practice + each site), Pay Period Snapshot (`#ps-kpi`, the person's YTD through the shown period), My Team (top tiles, "team vs practice" rows, per-person columns "after 24 hrs" and "no-show · site"; Late-notes flag = ≥20% signed after 24 hrs (≥40% needs action)), Report Center → **✅ KPIs** tab (practice, sites, each clinician).
 - Data: `ppuProgressOf` counts `late24`; `app_practice_stats[ppId]` gains `late24` + `bySite{team:{sessions,noShows,signed,daysSum,late24,unsigned,clinicians}}`; `app_team_stats` gains `late24`. Older closed periods are rebuilt from their frozen snapshots by `kpiBackfill()` (Super Admin; runs automatically once when a Super Admin opens Capacity Dashboard / Report Center → KPIs and data is missing; also a "↻ Rebuild KPI history" button). No rules change.
+
+## Nov 18 2026 — Repeating events
+- Event editor: **🔁 Repeats** (Does not repeat · Every day · Every weekday · Every week · Every 2 weeks · Every month (same date) · Every month (same weekday, e.g. 2nd Tuesday) · Every year) + **Ends** (Never · On a date · After N times). Stored as `ev.repeat={f,until,count,skip[]}` in kv/app_events (no new collection, no rules change).
+- Occurrences are virtual: `hcalOccDates(e,to)`, `hcalOcc(e,date)` → id `'{seriesId}@{date}'`, `sid`=series, `occ:true`; RSVP-by / reminder dates shift with each date. `hcalExpand(list,from,to)` is used by the calendar (month dots + list), RSVP loading and the RSVP reminder; `hcalFind(id)` resolves an event or occurrence everywhere (event view, RSVP, comments, attachments). Each occurrence has its own RSVPs, comments and Who's going (eventRsvps ids use the occurrence id).
+- Calendar "Coming up" shows a repeating event's next date only (pick a day to see others). Cards/event view for an occurrence: **Edit series**, **Skip this date** (`hcalSkipDate` → `repeat.skip`), **Delete series**; skipped dates can be restored in the editor. Homebase Settings → Events lists the series with its repeat text (upcoming until the series ends: `hcalSeriesLast`).
+
+## Nov 18 2026 — Fix: "Edit their own profile" button not showing
+- The "✏️ Update my information" button was only rendered at the very bottom of the Employee File (`#m-actions`), so people with the ability never saw it. It now also sits in the profile header (`#m-self-top`, `selfEditButtons(p)`), cleared when other records/applicants open.
+- `selfEditAllowed` also accepts the record a Super Admin is "viewing as" (so testing via View-as matches what the employee sees), and the button re-checks once Roles & permissions finish loading (`loadPermRoles().then(...)`) in case the file opens first.
+- Reminder: a custom role's own abilities decide for people in it — tick "Edit their own profile" on that role too, not just on the access level.
+
+## Nov 18 2026 — Permissions rebuild (in progress)
+- Plan (approved): Stage 1 inventory → Stage 2 real Roles & permissions screen in practice mode (templates + per-person, "What would change" report) → Stage 3 app switch with Super Admin on/off toggle (bootstrap accounts always full) → Stage 4 server rules accept old roles OR new perms, then old removed → Stage 5 cleanup.
+- Model (from the approved mockup, `Claude outputs/permissions` + /mnt/user-data/outputs/permissions-mockup.html): areas × {Doesn't see, View only, Manage} × whose data {own, supervisees, site, all}; templates Everyone (auto), Super Admin (Manage on everything, locked), SLT (auto from Senior Leadership; no other SLT pay rates; can't grant Super Admin or 🔒 items), Leadership, CTM/CPM, Clinical Supervisor, HR, Billing, Credentialing, Intake, Front Desk/Ops, Marketing; a person can hold several (widest wins) + per-person tweaks; change log.
+- Michael's rule: at go-live everyone except Super Admins starts at the lowest level (Everyone baseline) unless assigned in practice mode.
+- Stage 1 inventory: `Claude outputs/permissions/stage1-inventory.md` (268 app checks in 162 functions, all mapped; rules blocks mapped; flags listed).
+- Stage 1 decisions (Nov 18): go-live = Super Admins only keep full access; new areas added: Private personal details, CAQH & PECOS logins 🔒, Supply Ordering, Therapy Thrive; "See it as" stays Super Admin-only (not a permission); clearing a pay period's hours lives under Payroll Processing (Manage).
+- **Stage 2 built (practice mode):** Homebase Settings → "🧪 Permissions (new)" (section `perm2`, shown to whoever can manage roles). Code: `PV2_CAT` (areas: [key,name,[view text, manage text],levels,scoped,🔒]), `pv2Defaults()` (12 templates; others start from Everyone), `pv2Load/pv2Save` (kv/app_perm_v2 {tpl, ppl:{sid:{tpl:[],ov:{}}}, log}), `pv2TplOf` (Everyone + SLT auto from Senior Leadership role + Super Admin from level + assigned), `pv2Eff` (widest wins; per-person overrides; Super Admin can't be overridden), `pv2Suggest` (templates suggested from title/service types), `pv2Today` (today's access per area, evaluated as the person by temporarily swapping currentViewer/currentRole/VIEW_AS_ID — approximate), `pv2Diff`, UI `pv2Render/pv2Paint` (tabs Templates · People · What would change · Change log), `pv2Set` (🔒 rows need a Super Admin editor; SLT detection via `pv2Editor`). NOTHING reads these settings for access yet — Stage 3 adds the switch.
+- Nov 18: the new screen IS "🔐 Roles & permissions" in Homebase Settings (section `perm2`); the old screen moved to "🗂 Current roles (in effect now)" (section `roles`) with a banner pointing to the new one. Profile Admin-actions link and Office settings link go to the new screen.
+- Nov 18: Roles & permissions uses the mockup's row layout (area name | three boxes | whose data); on that section Homebase Settings' menu folds into a row across the top (`.hbm-wide`) to give the grid room; template/people lists are chip rows above.
+
+## Nov 18 2026 — Site safety: panic buttons & safety protocols
+- My Homebase → Your Site & Emergency has a red "🚨 Panic button & safety protocols" button → popout (`safetyOpen`, `#safety-modal`) with a quick-action banner and two tabs: Panic buttons · Office Safety Policy (Michael's text, lightly formatted). Print button prints both.
+- Text in kv/app_safety_doc {panic, policy, updatedAt, updatedBy}; defaults `SAFETY_DEFAULT` in code (people named by ROLE only — names go in via the editor, never in code). Rendered with `libRender` markdown.
+- Edit = `safetyCanEdit()` (manage-homebase today). New permission area `safety` ("Site safety: panic buttons & protocols", View only / Manage; Everyone = View; Front Desk/Ops = Manage).
+- Nov 18: "Update own demographics" set to Manage on the NEW Roles & permissions screen now works immediately (bridge in `selfEditAllowed` via `pv2Eff(p).selfdemo`; PV2 loads when an Employee File opens). Old ability `edit-own-profile` still works too. Form = SELF_FIELDS only (names, pronouns, DOB, address, alternate phone/email, emergency contact) — no start date, title, team, capacity or pay. TODO Stage 4: tighten firestore `staff/{sid}` self-write to those keys (today rules let a person write any field of their own staff doc; other self-service writes like CEU must be whitelisted first).
+
+## Nov 18 2026 — First Date Working in Office + 90-day ramp
+- New profile field `First Office Date` ("First date working in office", clinicians; shown under Date of hire; edit form `#ef-office`, date input). `capRampStartRaw(s)` = First Office Date, else Date of Hire (silently).
+- Capacity goal is 0 before the ramp start; ramp = 90 days in 30-day steps from it (`rampFraction`: 1–30 25% · 31–60 50% · 61–90 75% · 91+ 100%). `capHireDate`, `daysSinceHire`, `capRampEnd` (+90), `capRampCheck`, `capUsesRamp` (90), starting-capacity and capacity-dialog "From the start" all use the ramp start. Goal cache key includes First Office Date.
+- `ONBOARDING_DAYS` = 90: Onboarding→Active promotion, `isRamping` flags ("New hire — ramping up"), HR tiles count from the ramp start. Hire date still drives anniversaries, tenure, raises etc.
+- Existing ramping clinicians' goals change (longer, slower ramp) — expected.
+
+## Nov 18 2026 — Signing: no scroll gate + click-to-sign legal name
+- Signing a document no longer requires scrolling to the end of the in-page reader (people may read it in the "Open in a new tab" pop-out). The statement checkbox and name field are enabled immediately; reaching the end in the reader is still recorded on the signature (readToEnd/pages/readEndAt) when it happens.
+- Name field offers their legal name (`staffLegalName`) as a datalist suggestion plus a "✍ Sign as <legal name>" button (`polUseName`) that fills it. The existing mismatch confirm still applies if they type a different name.
+
+## Nov 18 2026 — Fresh start at capacity changes
+- Any Weekly Capacity change (up or down, always automatic, applies to changes already entered) forgives the shortfall built up before it: at the start of the pay period containing the change, the cumulative goal drops to the hours actually credited by then (if behind); being ahead is kept. Only applies once all pay periods before it have hours entered.
+- Code: `capActualPeriods`, `capGoalTables(s)` → {raw, adj, forg}; `capGoalTable`/`capGoalTo` = adjusted (attainment, benchmarks, annual goal, chart pace, catch-up); `capGoalToRaw`/`capGoalBetween` = true day goals (per-pay-period "expected", Report Center windows). `capForgiven(s)` lists forgiven hours; shown in the dashboard's "goal is adjusted" note. Cache key includes the person's entered hours.
+- Example: 25→15 hrs/wk on 7/6 with 450 of 570 hrs done → year goal 450 + 342 = 792 (120 hrs forgiven); if ahead (600), goal stays 570 + 342 = 912.
+- Nov 18: "First date working in office" renamed **First Client Day** everywhere it shows (data key stays `First Office Date` — no migration). New profile field **Orientation date** (`Orientation Date`, everyone, date input `#ef-orient`) — stored only, not used in any calculation yet.
+- Nov 18: Roles & permissions no longer autosaves — edits are staged (`pv2Stage`, PV2.pending/dirty) and saved with Save bars at the top (sticky) and bottom (`pv2SaveBar`, `pv2Commit`, `pv2Discard`); leaving the section with unsaved changes asks first.
+- Nov 18 (later): "Update own demographics" now defaults to **Manage** on the Everyone template (one-time upgrade of saved settings unless the Everyone row was deliberately changed; flag `selfdemoV2`). Everyone sees "✏️ Update my information" on their own file; set View only on a template or person to block it. Admins (edit-profiles) still use the full editor.
+
+## Nov 18 2026 — Permissions Stage 3 + 4: the app AND firestore.rules follow the new Roles & permissions ⚠ rules
+- **Switch:** `kv/app_perm_v2.on` (missing = ON) + server copy `permConfig/live.on`. Roles & permissions shows a banner with
+  "↩ Switch back to old roles" / "Turn new permissions on" (Super Admins, `pvSetOn`). Off = the old access levels + custom roles,
+  in the app and the rules, instantly. The app runs on the SAVED copy (`PV2.live`, `pvSetLive`), never on unsaved edits.
+- **App (Stage 3):** core helpers next to `currentRole()`: `pvOn`, `pvIsSA` (Super Admin level / bootstrap / previewing the SA template),
+  `pvMe` (effective map, cached), `pvLv`, `pvSc`, `pvCan(area,lv)`, `pvSees(area,lv,sid)` (whose data: own / supervisees / site = Team / all; View uses the widest scope of any template that shows the area (`vsc` from `pv2EffIds`), Manage the scope that came with Manage),
+  `pvIds`, `pvWide`, `pvSolo`. Drop-ins used at every former admin check: `pvA(area,lv,sid)` (was isAdminView), `pvS(area,lv,sid)`
+  (was isSuperAdminView), `pvAllA` (needs whose data = all) — each returns exactly the old check when the switch is off.
+  With it on: `isAdminView()`/`isSuperAdminView()` = Super Admin only (there is no Admin), `currentRole()` = 'superadmin' | 'therapist',
+  `hbCan(cap)` maps to areas (`PV_CAPMAP`; profile abilities check the open Employee File, `PV_TGT` via `pvSetTgt` in openRoster/closeDetail;
+  SLT never sees other SLT members' comp), `canSeePage` → `pvPage` (`PV_PAGE` page→area), `visibleStaffIds(area)`, `clScope` (team area),
+  `hbmSections` → `pvHbmSections` (one area per settings section), office/calendar/safety/library/intake helpers.
+  `pv2Today` evaluates the OLD rules (`PV_FORCE_LEGACY`). `pv2Eff(s,D)` / `pv2EffIds(ids,P,D)` / `pv2TplOf(s,D)` take the data set.
+- **Identity:** boot loads `pv2Load()` before `__applyIdentity`. With the switch on only real Super Admins (`window.PV_REAL_SA`: level
+  superadmin or bootstrap) get ADMIN_SESSION / god view; everyone else sees Homebase as themselves. `saveStaffArray` lets non-SA
+  writes through for records in their Roster / Private details / CAQH Manage scope (`pvStaffWriteOK`); `syncUserRoles` lets
+  Roster = Manage create a NEW hire's userRoles entry at Therapist level only.
+- **See it as:** top-bar menu lists every template (`setViewAs('tpl:<id>')` → `PV_PREVIEW`, shown on your own record). The preview
+  build's "See it as" lists Super Admin + each template (CTM on "Sample CTM", Clinical Supervisor on "Sample Supervisor", others on
+  "Sample Therapist") + old roles (only meaningful when switched off).
+- **Server (Stage 4):** the app writes `userPerms/{email}` = {sid, lv:{area:1|2}, vsc/msc:{area:'sup'|'site'|'all'} (whose data for viewing /
+  managing; missing = own), vids/mids:{area:[staffId]} (supervisees / same-Team list), team} for every staff member (`pvDocFor`, `pvPublish`, `window.permStore`) on every Save, and a Super Admin's
+  sign-in republishes when anything changed (signature `pvHash`; teams/supervisors/hires). firestore.rules: `permsOn()`, `pvLv(a)`, `pvSc(a,n)`,
+  `pvAll(a,n)`, `pvFor(a,n,sid)`, `pvSite(a,site)`; while on, `isAdmin()` = Super Admin and old Supervisor grants (`isOldSupervisor`,
+  `officePermHas`) stop. Every block now also accepts the matching area (see the comments in firestore.rules; kv keys via `kvArea`).
+  `userPerms` write = Super Admin, or Roles & permissions = Manage for others (not yourself); `permConfig` write = Super Admin.
+- **Self-write tightened (always):** your own `staff` doc may only change Legal/Preferred Name, Pronouns, Clinician (display name),
+  `_ceus`, `_files`, and Employee Status → 'Active' (the auto promotion); names need "Update own demographics" = Manage when on.
+  Own `staffPrivate` write needs that too when on.
+- **Known limits:** Storage rules still use the hardcoded bootstrap accounts (no Firestore lookups in this project's Storage rules), so
+  uploads to library/event/private-doc storage paths stay with those accounts. Blob keys (kv app_comp_data, app_comp_checklist) can't be
+  split per person — they need whose data = All. Collection-wide reads (e.g. everyone's private details, all notifications) need whose
+  data = All; site/supervisee scopes work per document. 🔒 rows are protected in the app; the rules trust whoever can save Roles &
+  permissions. A few screens have no read-only mode yet, so their View = Doesn't see (Payroll Processing page, Insurance Catalogue,
+  Benefits, Payroll Settings need Manage). Firestore emulator wasn't reachable from the build machine, so the rules were reviewed by hand.
+- **Deploy:** `firebase deploy --only hosting,firestore:rules --project advance-intranet`. Right after: a Super Admin signs in (publishes
+  everyone's permissions + switches the server on), then assigns templates in Roles & permissions → People and Saves.
+
+## Nov 18 2026 — Leave of absence tied to Status
+- The leave dates (`staff._leaves`) drive "On Leave": `effectiveStatus` shows On Leave while a leave covers today and goes back to
+  Active/Onboarding once every leave has ended (`staffLeaveNow`, `staffLeavesAllEnded`); saving leave dates also sets the stored
+  Employee Status (`staffLeaveSyncStatus`). The roster status pill now uses `effectiveStatus`.
+- Employee File edit form: choosing (or keeping) Status = On Leave always shows the leave date fields — a new leave, or the
+  current one to change (`staffLeaveCurrentIdx`); a leave can't be saved without a first day.
+- One leave editor: **⏸ Leave of absence…** (`leaveDlgOpen` / `leaveDlgSave`) — Admin actions, the edit form link, and Capacity
+  adjustments (+ Leave / Set return) all open it (date inputs, several leaves, overlap check). Old prompt versions kept as *Old.
+- Capacity Dashboard → Capacity Attainment by Week: pay periods with leave days show ⏸ ON LEAVE (· N days when partial); a fully-on-
+  leave period shows 0 expected and an ON LEAVE pill instead of OVER/UNDER, and appears even when payroll recorded no hours (`capPeriodRows` leaveDays).

@@ -45,34 +45,110 @@ service cloud.firestore {
         ? get(/databases/$(database)/documents/userRoles/$(em())).data.staffId
         : '__none__';
     }
+    // ── New permissions (Nov 18 2026) ──
+    // permConfig/live.on == true → the new Roles & permissions are in force: there is no "Admin" level any
+    // more (isAdmin() = Super Admin) and the old Supervisor-level grants stop; instead each person's saved
+    // permissions are read from userPerms/{email} = {sid, lv:{area:1 view|2 manage}, vsc/msc:{area:'sup'|'site'|'all'}
+    // (whose data for viewing / managing; missing = their own), vids/mids:{area:[staffId]} (the supervisees /
+    // same-site people that scope covers), team} — written by the app on every Save in Roles & permissions.
+    // permConfig/live missing or on == false → exactly the old rules (the instant switch back).
+    function permsOn() {
+      return exists(/databases/$(database)/documents/permConfig/live)
+        && get(/databases/$(database)/documents/permConfig/live).data.get('on', false) == true;
+    }
+    function oldRoles() { return !permsOn(); }
+    function hasUp() {
+      return exists(/databases/$(database)/documents/userPerms/$(em()));
+    }
+    function up() {
+      return get(/databases/$(database)/documents/userPerms/$(em())).data;
+    }
+    // level 0 / 1 (view) / 2 (manage) for an area — 0 while the old roles are in force
+    function pvLv(a) {
+      return isDomain() && permsOn() && hasUp() ? up().lv.get(a, 0) : 0;
+    }
+    // whose data at level n: 'own' | 'sup' | 'site' | 'all'
+    function pvSc(a, n) {
+      return n >= 2 ? up().get('msc', {}).get(a, 'own') : up().get('vsc', {}).get(a, 'own');
+    }
+    // that level for everyone (whose data = all)
+    function pvAll(a, n) {
+      return pvLv(a) >= n && pvSc(a, n) == 'all';
+    }
+    // that level for staff record `sid` (all · their own · their supervisees/site list)
+    function pvFor(a, n, sid) {
+      return pvLv(a) >= n && (pvSc(a, n) == 'all' || sid == myStaffId()
+        || sid in (n >= 2 ? up().get('mids', {}).get(a, []) : up().get('vids', {}).get(a, [])));
+    }
+    // Office Bookings Manage for a site (whose data = all, or site = their own Team)
+    function pvSite(a, site) {
+      return pvLv(a) >= 2 && (pvSc(a, 2) == 'all' || (pvSc(a, 2) == 'site' && site == up().get('team', '__none__')));
+    }
+
     function isAdmin() {
-      return isDomain() && (isBootstrap() || myRole() in ['admin', 'superadmin']);
+      return isDomain() && (isBootstrap() || myRole() == 'superadmin' || (oldRoles() && myRole() == 'admin'));
     }
     function isSuperAdmin() {
       return isDomain() && (isBootstrap() || myRole() == 'superadmin');
     }
+    // Old Supervisor-level grants (office bookings, My Team stats) — only while the old roles are in force
+    function isOldSupervisor() {
+      return isDomain() && oldRoles() && myRole() == 'supervisor';
+    }
+    // Your own staff record: only the self-service fields (Update my information, CEUs, your files, and the
+    // automatic Onboarding → Active promotion). Names/pronouns need "Update own demographics" = Manage when
+    // the new permissions are on.
+    function selfStaffOK() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['Legal Name', 'Preferred Name', 'Pronouns', 'Clinician', '_ceus', '_files', 'Employee Status'])
+        && (!('Employee Status' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data['Employee Status'] == 'Active')
+        && (oldRoles() || pvLv('selfdemo') >= 2
+            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['Legal Name', 'Preferred Name', 'Pronouns', 'Clinician']));
+    }
 
     match /staff/{sid} {
       allow read: if isDomain();
-      allow write: if isAdmin() || (isDomain() && sid == myStaffId());
+      allow create, delete: if isAdmin() || pvFor('roster', 2, sid);
+      allow update: if isAdmin() || pvFor('roster', 2, sid)
+        || (isDomain() && sid == myStaffId() && selfStaffOK());
     }
 
     match /staffPrivate/{sid} {
-      allow read, write: if isAdmin() || (isDomain() && sid == myStaffId());
+      allow read: if isAdmin() || (isDomain() && sid == myStaffId()) || pvAll('privdet', 1) || pvFor('privdet', 1, sid);
+      allow write: if isAdmin() || pvAll('privdet', 2) || pvFor('privdet', 2, sid)
+        || (isDomain() && sid == myStaffId() && (oldRoles() || pvLv('selfdemo') >= 2));
     }
 
     match /staffCredentials/{sid} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || pvAll('caqh', 1) || pvFor('caqh', 1, sid);
+      allow write: if isAdmin() || pvAll('caqh', 2) || pvFor('caqh', 2, sid);
     }
 
     match /photos/{sid} {
       allow read: if isDomain();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || pvFor('roster', 2, sid);
     }
 
+    // Access levels (Super Admin comes from here). With the new permissions on, only Super Admins write it,
+    // so nobody else can make a Super Admin.
     match /userRoles/{email} {
       allow read: if isDomain();
       allow write: if isAdmin();
+      // Roster = Manage (new permissions) can add a NEW hire's entry, lowest level only
+      allow create: if pvLv('roster') >= 2 && request.resource.data.role == 'therapist' && request.resource.data.size() < 5;
+    }
+
+    // New permissions: each person's saved permissions (see pvLv) and the on/off switch.
+    // Super Admins write everything; people with Roles & permissions = Manage write everyone else's (not their own).
+    match /userPerms/{email} {
+      allow read: if isSuperAdmin() || (isDomain() && email == em()) || pvLv('perm') >= 1;
+      allow write: if isSuperAdmin() || (pvLv('perm') >= 2 && email != em()
+        && request.resource.data.size() < 12 && request.resource.data.lv is map);
+    }
+    match /permConfig/{d} {
+      allow read: if isDomain();
+      allow write: if isSuperAdmin();
     }
 
     // Public application "mail slot" (the /apply.html form). Anyone may drop
@@ -90,7 +166,8 @@ service cloud.firestore {
         // v2 form (Nov 2026): uploaded resume / cover letter must point at this application's own Storage folder
         && (!('_resume' in request.resource.data) || request.resource.data['_resume'].path.matches('applications/[0-9a-f]{36}/.*'))
         && (!('_cover' in request.resource.data) || request.resource.data['_cover'].path.matches('applications/[0-9a-f]{36}/.*'));
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin() || pvLv('rec') >= 1;
+      allow update, delete: if isAdmin() || pvLv('rec') >= 2;
     }
 
     // Individual staff files (CEU certificates and similar), one doc per file
@@ -100,9 +177,12 @@ service cloud.firestore {
     // New uploads keep only metadata + `path` here; the bytes are in Firebase Storage
     // (staffFiles/{staffId}/…). Older certificates carry a base64 data: URL in `data`.
     match /staffFiles/{fid} {
-      allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId());
-      allow create, update: if isAdmin() || (isDomain() && request.resource.data.sid == myStaffId());
-      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvFor('npd', 1, resource.data.sid) || pvFor('ceu', 1, resource.data.sid);
+      allow create, update: if isAdmin() || (isDomain() && request.resource.data.sid == myStaffId())
+        || pvFor('npd', 2, request.resource.data.sid) || pvFor('ceu', 2, request.resource.data.sid);
+      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvFor('npd', 2, resource.data.sid) || pvFor('ceu', 2, resource.data.sid);
     }
 
     // Candidate interview-availability responses. Written from the public
@@ -111,7 +191,7 @@ service cloud.firestore {
     match /availability/{token} {
       allow create, update: if request.resource.data.size() < 12
         && token.size() >= 20;
-      allow read, delete: if isAdmin();
+      allow read, delete: if isAdmin() || pvLv('rec') >= 2;
     }
 
 
@@ -123,7 +203,7 @@ service cloud.firestore {
       allow get: if token.size() >= 20 || isAdmin();
       allow create, update: if token.size() >= 20
         && request.resource.data.size() < 40;
-      allow list, delete: if isAdmin();
+      allow list, delete: if isAdmin() || pvLv('onb') >= 2 || pvLv('rec') >= 2;
     }
 
     // Onboarding document uploads (resume, diploma, signed forms, headshot):
@@ -136,7 +216,7 @@ service cloud.firestore {
         && request.resource.data.b64 is string
         && request.resource.data.b64.size() < 900000
         && request.resource.data.size() < 10;
-      allow read, delete: if isAdmin();
+      allow read, delete: if isAdmin() || pvLv('onb') >= 2 || pvLv('rec') >= 2;
     }
 
     // Meeting & Admin Pay submissions (the in-app Meeting Pay form). Each
@@ -145,12 +225,15 @@ service cloud.firestore {
     // Alerts issued to one employee from their Employee File (Admins / Super Admins issue;
     // the employee reads their own and can only mark one done).
     match /staffAlerts/{aid} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
-      allow create: if isAdmin() && request.resource.data.sid is string && request.resource.data.size() < 20;
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvAll('snot', 1) || pvFor('snot', 1, resource.data.sid);
+      // Notifications are also sent by license updates (Credentialing / Roster Manage) and payroll (anniversaries)
+      allow create: if (isAdmin() || pvFor('snot', 2, request.resource.data.sid) || pvLv('cred') >= 2 || pvLv('roster') >= 2 || pvLv('ppu') >= 2)
+        && request.resource.data.sid is string && request.resource.data.size() < 20;
+      allow delete: if isAdmin() || pvFor('snot', 2, resource.data.sid);
       // The employee can mark it done, set a status (seen / working / question / more time), add to the thread
       // with the sender and set a new target date (Nov 17 2026). Nothing else on the alert.
-      allow update: if isAdmin()
+      allow update: if isAdmin() || pvFor('snot', 2, resource.data.sid)
         || (isDomain() && resource.data.sid == myStaffId()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ackAt', 'ackBy', 'st', 'stAt', 'thread', 'newFor', 'eta'])
             && request.resource.data.status in ['open', 'done']
@@ -165,7 +248,8 @@ service cloud.firestore {
       allow create: if isDomain() && request.resource.data.size() < 12
         && request.resource.data.text is string && request.resource.data.text.size() <= 4000
         && request.resource.data.status == 'new';
-      allow read, update, delete: if isSuperAdmin();
+      allow read: if isSuperAdmin() || pvLv('sugg') >= 1;
+      allow update, delete: if isSuperAdmin() || pvLv('sugg') >= 2;
     }
 
     // Office bookings (My Homebase → Office Bookings). Everyone signed in reads the calendar.
@@ -175,7 +259,7 @@ service cloud.firestore {
     // Who holds "Approve office bookings" / "Manage office settings" (Roles & permissions), copied by Admins
     // into officeApprovers/_perm {approve:[staffId], manage:[staffId]}.
     function officePermHas(field) {
-      return isDomain() && exists(/databases/$(database)/documents/officeApprovers/_perm)
+      return isDomain() && oldRoles() && exists(/databases/$(database)/documents/officeApprovers/_perm)
         && myStaffId() in get(/databases/$(database)/documents/officeApprovers/_perm).data[field];
     }
     function isOfficeApprover(site) {
@@ -186,35 +270,37 @@ service cloud.firestore {
     match /officeBookings/{bid} {
       allow read: if isDomain();
       allow create: if isDomain() && request.resource.data.size() < 24 && request.resource.data.sid is string
-        && (isAdmin() || myRole() == 'supervisor' || isOfficeApprover(request.resource.data.site) || officePermHas('approve')
+        && (isAdmin() || isOldSupervisor() || isOfficeApprover(request.resource.data.site) || officePermHas('approve')
+            || pvSite('ob', request.resource.data.site)
             || (request.resource.data.sid == myStaffId() && request.resource.data.status == 'pending'));
-      allow update: if isAdmin() || (isDomain() && myRole() == 'supervisor') || isOfficeApprover(resource.data.site) || officePermHas('approve');
-      allow delete: if isAdmin() || (isDomain() && myRole() == 'supervisor') || isOfficeApprover(resource.data.site) || officePermHas('approve')
+      allow update: if isAdmin() || isOldSupervisor() || isOfficeApprover(resource.data.site) || officePermHas('approve') || pvSite('ob', resource.data.site);
+      allow delete: if isAdmin() || isOldSupervisor() || isOfficeApprover(resource.data.site) || officePermHas('approve') || pvSite('ob', resource.data.site)
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'pending');
     }
     // Office booking approvers per site: {ids:[staffId], ctm:bool, updatedBy, updatedAt}. Admins edit.
     match /officeApprovers/{site} {
       allow read: if isDomain();
       allow write: if (site == '_perm' && isAdmin() && request.resource.data.approve is list && request.resource.data.manage is list)
-        || (site != '_perm' && (isAdmin() || officePermHas('manage'))
+        || (site != '_perm' && (isAdmin() || officePermHas('manage') || pvLv('obs') >= 2)
             && request.resource.data.ids is list && request.resource.data.ids.size() <= 50);
     }
 
     // Private Docs (Employee File, Nov 2026): sensitive HR documents about an employee. Super Admins only —
     // never the employee themself, never Admins.
     match /privateDocs/{id} {
-      allow read, write: if isSuperAdmin();
+      allow read: if isSuperAdmin() || pvAll('pd', 1);
+      allow write: if isSuperAdmin() || pvAll('pd', 2);
     }
 
     // Policies (Clinical Policies → PDF sign-offs, Nov 2026). Everyone signed in reads the list; Super Admins publish.
     match /policies/{pid} {
       allow read: if isDomain();
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || pvLv('hbm') >= 2;
     }
     // Document views (Handbook & Manuals, Nov 17 2026): one record per person per document, id '{pid}__{staffId}'.
     // You only write your own; Admins read them all for the "who has viewed it" stats.
     match /policyViews/{rid} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isAdmin() || pvLv('hbm') >= 2 || (isDomain() && resource.data.sid == myStaffId());
       allow create, update: if isDomain() && request.resource.data.size() < 14
         && request.resource.data.sid == myStaffId() && request.resource.data.pid is string
         && rid == request.resource.data.pid + '__' + myStaffId();
@@ -223,7 +309,8 @@ service cloud.firestore {
     // Google account, at the server's time, for a policy that exists — and never change it afterwards (except to attach
     // the link to your signed PDF copy). Nobody can delete a signature.
     match /policySigs/{id} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvLv('hbm') >= 2 || pvFor('npd', 1, resource.data.sid);
       allow create: if isDomain()
         && request.resource.data.sid == myStaffId()
         && request.resource.data.v is int
@@ -245,29 +332,30 @@ service cloud.firestore {
       allow create, update: if isDomain() && request.resource.data.size() < 8
         && request.resource.data.resp in ['yes', 'maybe', 'no']
         && request.resource.data.eid is string
-        && (isAdmin() || (request.resource.data.sid == myStaffId()
+        && (isAdmin() || pvLv('cal') >= 2 || (request.resource.data.sid == myStaffId()
             && rid == request.resource.data.eid + '__' + myStaffId()));
-      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow delete: if isAdmin() || pvLv('cal') >= 2 || (isDomain() && resource.data.sid == myStaffId());
     }
     // Optional RSVP comments, id '{eventId}__{staffId}' = {eid,sid,note,at}. Private: the author and Admins only.
     match /eventRsvpNotes/{rid} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isAdmin() || pvLv('cal') >= 2 || (isDomain() && resource.data.sid == myStaffId());
       allow create, update: if isDomain() && request.resource.data.size() < 6
         && request.resource.data.note is string && request.resource.data.note.size() <= 500
         && request.resource.data.eid is string
-        && (isAdmin() || (request.resource.data.sid == myStaffId()
+        && (isAdmin() || pvLv('cal') >= 2 || (request.resource.data.sid == myStaffId()
             && rid == request.resource.data.eid + '__' + myStaffId()));
-      allow delete: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow delete: if isAdmin() || pvLv('cal') >= 2 || (isDomain() && resource.data.sid == myStaffId());
     }
 
     match /meetings/{mid} {
       allow create: if isDomain()
         && request.resource.data.sid is string
-        && (isAdmin() || request.resource.data.sid == myStaffId())
+        && (isAdmin() || request.resource.data.sid == myStaffId() || pvFor('mtg', 2, request.resource.data.sid) || pvLv('ppu') >= 2)
         && request.resource.data.size() < 20;
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
-      allow update: if isAdmin();
-      allow delete: if isAdmin()
+      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvAll('mtg', 1) || pvFor('mtg', 1, resource.data.sid) || pvLv('ppu') >= 1;
+      allow update: if isAdmin() || pvFor('mtg', 2, resource.data.sid) || pvLv('ppu') >= 2;
+      allow delete: if isAdmin() || pvFor('mtg', 2, resource.data.sid) || pvLv('ppu') >= 2
         || (isDomain() && resource.data.sid == myStaffId() && resource.data.status == 'UNPAID');
     }
 
@@ -277,25 +365,25 @@ service cloud.firestore {
     // Handbook) are Super Admin–only; other article pages stay Admin-editable.
     match /library/{aid} {
       allow read: if isDomain();
-      allow create: if isSuperAdmin()
-        || (isAdmin() && !(request.resource.data.cat in ['cmanual', 'manual']));
-      allow update: if isSuperAdmin()
-        || (isAdmin() && !(resource.data.cat in ['cmanual', 'manual'])
+      allow create: if isSuperAdmin() || pvLv('hbm') >= 2
+        || ((isAdmin() || pvLv('paper') >= 2) && !(request.resource.data.cat in ['cmanual', 'manual']));
+      allow update: if isSuperAdmin() || pvLv('hbm') >= 2
+        || ((isAdmin() || pvLv('paper') >= 2) && !(resource.data.cat in ['cmanual', 'manual'])
             && !(request.resource.data.cat in ['cmanual', 'manual']));
-      allow delete: if isSuperAdmin()
-        || (isAdmin() && !(resource.data.cat in ['cmanual', 'manual']));
+      allow delete: if isSuperAdmin() || pvLv('hbm') >= 2
+        || ((isAdmin() || pvLv('paper') >= 2) && !(resource.data.cat in ['cmanual', 'manual']));
     }
 
     // Manual sign-off rounds: Super Admins publish a version for signature;
     // everyone signed in can see them.
     match /libSignoffs/{rid} {
       allow read: if isDomain();
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdmin() || pvLv('hbm') >= 2;
     }
     // One signature per person per round, id = {rid}_{staffId}. You can only
     // sign as yourself, and can't change a signature afterwards.
     match /libSignatures/{id} {
-      allow read: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow read: if isAdmin() || pvLv('hbm') >= 2 || (isDomain() && resource.data.sid == myStaffId());
       allow create: if isDomain()
         && request.resource.data.sid == myStaffId()
         && id == request.resource.data.rid + '_' + myStaffId()
@@ -308,7 +396,7 @@ service cloud.firestore {
     // videos, and files. Everyone signed in reads; admins add and curate.
     match /refLibrary/{rid} {
       allow read: if isDomain();
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin() || pvLv('paper') >= 2;
     }
     // Files uploaded to the Reference Library — base64, one doc per file
     // (same free-plan pattern as onboardFiles). Firestore's 1 MB doc cap
@@ -317,14 +405,14 @@ service cloud.firestore {
     // are in Firebase Storage (refLibrary/…). Older uploads carry the bytes as base64 in `b64`.
     match /refLibraryFiles/{fid} {
       allow read: if isDomain();
-      allow create: if isAdmin()
+      allow create: if (isAdmin() || pvLv('paper') >= 2)
         && request.resource.data.size() < 12
         && ((request.resource.data.path is string
               && request.resource.data.path.matches('refLibrary/.*')
               && !('b64' in request.resource.data))
             || (request.resource.data.b64 is string
               && request.resource.data.b64.size() < 900000));
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || pvLv('paper') >= 2;
     }
 
     // Clinical Profile for Intake: one doc per clinician (id = staff id).
@@ -332,26 +420,34 @@ service cloud.firestore {
     // the clinician edits their own, admins edit anyone's.
     match /intakeProfiles/{sid} {
       allow read: if isDomain();
-      allow create, update: if (isAdmin() || (isDomain() && sid == myStaffId()))
+      allow create, update: if (isAdmin() || (isDomain() && sid == myStaffId()) || pvFor('ip', 2, sid))
         && request.resource.data.size() < 30;
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || pvFor('ip', 2, sid);
     }
 
     // ── Payroll Review (Valant import → attainment + compensation) — Super Admin only ──
     // Working data: config (mappings, provider rates, rules), pay periods, imports and
     // their de-identified rows (no patient names or notes are stored).
-    match /payrollConfig/{d}  { allow read, write: if isSuperAdmin(); }
-    match /payrollPeriods/{d} { allow read, write: if isSuperAdmin(); }
-    match /payrollImports/{d} { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
-    match /payrollRows/{d}    { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    // New permissions: Payroll Processing (ppu) View reads / Manage writes; settings, insurance and benefits
+    // (payrollConfig docs) also follow Payroll Settings / Insurance / Benefits.
+    function payRead() { return isSuperAdmin() || pvLv('ppu') >= 1; }
+    function payWrite() { return isSuperAdmin() || pvLv('ppu') >= 2; }
+    match /payrollConfig/{d}  {
+      allow read: if payRead() || pvLv('pset') >= 1 || pvLv('ins') >= 1 || pvLv('ben') >= 1;
+      allow write: if payWrite() || pvLv('pset') >= 2 || pvLv('ins') >= 2 || pvLv('ben') >= 2;
+    }
+    match /payrollPeriods/{d} { allow read: if payRead(); allow write: if payWrite(); }
+    match /payrollImports/{d} { allow read: if payRead(); allow create: if payWrite(); allow update, delete: if false; }
+    match /payrollRows/{d}    { allow read: if payRead(); allow create: if payWrite(); allow update, delete: if false; }
     // Closed pay periods: immutable once written. Reopening writes a NEW version.
-    match /payrollSnapshots/{d} { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
-    match /payrollPaid/{d}      { allow read, create: if isSuperAdmin(); allow update, delete: if false; }
+    match /payrollSnapshots/{d} { allow read: if payRead(); allow create: if payWrite(); allow update, delete: if false; }
+    match /payrollPaid/{d}      { allow read: if payRead(); allow create: if payWrite(); allow update, delete: if false; }
     // Pay-period sheets: one per employee per closed version. Clinical-hour credit and FFS units
     // only (no dollars); clients by code only. Each person reads only their own.
     match /payStatements/{d} {
-      allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId());
-      allow create: if isSuperAdmin();
+      allow read: if isSuperAdmin() || (isDomain() && resource.data.sid == myStaffId())
+        || pvAll('snap', 1) || pvFor('snap', 1, resource.data.sid);
+      allow create: if payWrite();
       allow update, delete: if false;
     }
 
@@ -359,16 +455,16 @@ service cloud.firestore {
     // their assigned reviewer read and write their own review; admins (HR)
     // manage all of them. Creation/deletion is HR's (window generation).
     match /reviews/{rid} {
-      allow read, update: if isAdmin()
+      allow read, update: if isAdmin() || pvFor('rev', 2, resource.data.sid)
         || (isDomain() && (resource.data.sid == myStaffId() || resource.data.reviewerSid == myStaffId()));
-      allow create, delete: if isAdmin();
+      allow create, delete: if isAdmin() || pvAll('rev', 2);
     }
 
     // Interview-panel availability requests. Admins create one per panel
     // member; the member reads and answers their own from the Home page.
     match /panelAvail/{pid} {
-      allow create, delete: if isAdmin();
-      allow read, update: if isAdmin() || (isDomain() && resource.data.sid == myStaffId());
+      allow create, delete: if isAdmin() || pvLv('rec') >= 2;
+      allow read, update: if isAdmin() || pvLv('rec') >= 2 || (isDomain() && resource.data.sid == myStaffId());
     }
 
     // kv tiers:
@@ -376,20 +472,40 @@ service cloud.firestore {
     //   admin-only:      recruiting pipeline, compensation data & checklist
     //   everyone else:   read for all signed-in staff; writes admin-only.
     //                    (Nov 2026: the retired therapist-profile drafts — tp_* — are no longer writable by staff.)
+    // New permissions: the area that edits each kv key (Manage writes it; '' = Super Admin only)
+    function kvArea(key) {
+      return key.matches('app_office_hist_.*') ? 'ob'
+        : key.matches('app_(clinical_hours|group_hours|group_credit)(_[0-9]{4})?') ? 'ppu'
+        : key.matches('app_payroll_detail(_[0-9]{4})?') ? 'ppu'
+        : {'app_config': 'loc', 'app_events': 'cal', 'app_news': 'news', 'app_practice_alerts': 'pnot',
+           'app_office_rooms': 'obs', 'app_office_cfg': 'obs', 'app_safety_doc': 'safety', 'app_perm_v2': 'perm',
+           'app_rc_facmap': 'rc', 'app_code_guide': 'ppu', 'app_practice_stats': 'ppu', 'app_team_stats': 'ppu',
+           'app_recruit': 'rec', 'app_comp_checklist': 'npd', 'app_comp_data': 'comp'}.get(key, '');
+    }
     match /kv/{key} {
       // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)
       allow read: if ((key in ['app_payroll_detail', 'app_comp_data'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
+        || (key.matches('app_payroll_detail(_[0-9]{4})?') && pvLv('ppu') >= 1)
+        || (key == 'app_comp_data' && pvAll('comp', 1))
         // app_comp_checklist (handbook + HIPAA on file) — Admins since Nov 16 (shown on Non-Private Docs; no pay data)
         || (key in ['app_recruit', 'app_comp_checklist'] && isAdmin())
-        // app_team_stats = per-person note status / no-show counts for My Team: Supervisor level and up
-        || (key == 'app_team_stats' && isDomain() && (isAdmin() || myRole() == 'supervisor'))
+        || (key == 'app_recruit' && pvLv('rec') >= 1)
+        || (key == 'app_comp_checklist' && pvAll('npd', 1))
+        // app_team_stats = per-person note status / no-show counts for My Team: Supervisor level and up (new: My Team View)
+        || (key == 'app_team_stats' && isDomain() && (isAdmin() || isOldSupervisor() || pvLv('team') >= 1 || pvLv('ppu') >= 1))
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist', 'app_team_stats']) && !key.matches('app_payroll_detail_[0-9]{4}') && isDomain());
       allow write: if ((key in ['app_payroll_detail', 'app_comp_data'] || key.matches('app_payroll_detail_[0-9]{4}')) && isSuperAdmin())
         || (key in ['app_recruit', 'app_comp_checklist'] && isAdmin())
         || (!(key in ['app_payroll_detail', 'app_recruit', 'app_comp_data', 'app_comp_checklist']) && !key.matches('app_payroll_detail_[0-9]{4}')
             && isAdmin())
         // Office settings (offices, notes, hours): also people with "Manage office settings" (Nov 17 2026)
-        || (key in ['app_office_rooms', 'app_office_cfg'] && officePermHas('manage'));
+        || (key in ['app_office_rooms', 'app_office_cfg'] && officePermHas('manage'))
+        // New permissions: Manage on the key's area (pay / comp / checklist need whose data = all)
+        || (kvArea(key) != '' && !(key in ['app_comp_data', 'app_comp_checklist']) && pvLv(kvArea(key)) >= 2)
+        || (key in ['app_comp_data', 'app_comp_checklist'] && pvAll(kvArea(key), 2))
+        // Report Center can save its office history / KPI rebuilds
+        || (key.matches('app_office_hist_.*') && pvLv('rc') >= 2)
+        || (key == 'app_practice_stats' && pvLv('rc') >= 2);
     }
   }
 }
