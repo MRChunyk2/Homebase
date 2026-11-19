@@ -928,3 +928,8 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   adjustments (+ Leave / Set return) all open it (date inputs, several leaves, overlap check). Old prompt versions kept as *Old.
 - Capacity Dashboard → Capacity Attainment by Week: pay periods with leave days show ⏸ ON LEAVE (· N days when partial); a fully-on-
   leave period shows 0 expected and an ON LEAVE pill instead of OVER/UNDER, and appears even when payroll recorded no hours (`capPeriodRows` leaveDays).
+
+## Nov 18 2026 — Renames
+- **Report Center → Insights & Reports** and **Homebase Settings → Homebase Control Panel** everywhere they show (nav, page titles,
+  tour, links, help text). Page ids (`report-center`, `admin`) and code names (`rc*`, `hbm*`) are unchanged. Older notes in this file
+  still use the old names.

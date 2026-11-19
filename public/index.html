@@ -214,7 +214,7 @@ tr.rw-new td{background:#fafafa}
 .cg-g{margin-bottom:12px}.cg-gh{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#122B67;padding:6px 0;border-bottom:2px solid #122B67}
 .cg-t{width:100%;border-collapse:collapse;font-size:13px}.cg-t th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f9e;text-align:left;padding:6px 8px}.cg-t td{padding:7px 8px;border-top:1px solid #eef0f4;vertical-align:top}.cg-t td div{font-size:12px;color:#6b7280}
 .cg-t td:nth-child(2),.cg-t td:nth-child(3){white-space:nowrap;font-weight:700;color:#1f2937}.cg-foot{font-size:11.5px;color:#9ca3af;margin-top:8px}
-/* Homebase Settings */
+/* Homebase Control Panel */
 .hbm-intro{font-size:13px;color:#4b5563;margin-bottom:10px}
 .sa-realm{display:inline-block;font-size:11px;font-weight:800;color:#122B67;background:#e6e9f5;border-radius:999px;padding:1px 8px;vertical-align:1px}.sa-client{font-size:12px;font-weight:800;color:#92400e}.sa-stop{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#b91c1c;border-radius:6px;padding:1px 7px}
 .hbm-tabs{margin-bottom:16px}
@@ -873,14 +873,14 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
       <button class="nav-item" id="nav-recruitment" data-page="recruitment" onclick="showPage('recruitment',this)"><span class="nav-icon">🧑‍💼</span>Candidate Management</button>
     </div>
     <div class="nav-sec" id="nav-sec-admin"><div class="nav-sec-label">Admin Logistics</div>
-      <button class="nav-item" id="nav-admin" data-page="admin" onclick="showPage('admin',this)"><span class="nav-icon">🛠️</span>Homebase Settings</button>
+      <button class="nav-item" id="nav-admin" data-page="admin" onclick="showPage('admin',this)"><span class="nav-icon">🛠️</span>Homebase Control Panel</button>
       <button class="nav-item" id="nav-ceu-upload" data-page="ceu-upload" onclick="showPage('ceu-upload',this)" style="display:none"><span class="nav-icon">📂</span>Bulk Record Upload</button>
       <button class="nav-item" id="nav-supplies" data-page="supplies" onclick="showPage('supplies',this)"><span class="nav-icon">📦</span>Supply Ordering</button>
       <button class="nav-item" id="nav-team-dashboard" data-page="team-dashboard" onclick="showPage('team-dashboard',this)"><span class="nav-icon">📊</span>Leadership Dashboard</button>
       <button class="nav-item" id="nav-ppu" data-page="ppu" onclick="showPage('ppu',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
       <button class="nav-item" id="nav-coderules" data-page="coderules" onclick="showPage('coderules',this)" style="display:none"><span class="nav-icon">⚙️</span>Payroll Settings</button>
       <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Birdseye</button>
-      <button class="nav-item" id="nav-report-center" data-page="report-center" onclick="showPage('report-center',this)"><span class="nav-icon">📑</span>Report Center</button>
+      <button class="nav-item" id="nav-report-center" data-page="report-center" onclick="showPage('report-center',this)"><span class="nav-icon">📑</span>Insights & Reports</button>
     </div>
     <div style="margin-top:auto;padding:10px 9px 16px">
       <button class="nav-item" onclick="window.__signOut && window.__signOut()"><span class="nav-icon">🚪</span>Sign out</button>
@@ -1803,7 +1803,7 @@ const CONFIG_DEFAULTS = {
   roleOpts: ['Psychotherapist I','Psychotherapist II','Clinical Supervisor','Supervisor','Interim Hourly Supervisor','Clinical Team Manager (CTM)','Program Manager','Senior Leadership','Marketing','Credentialing'],
   // ONE job title per person (Title field). Titles already on records are offered too; "Other" adds a new one.
   jobTitleOpts: ['Psychotherapist','Clinical Supervisor','Clinical Team Manager','Program Manager','Clinical Director','Executive Director','Social Media Specialist'],
-  // Built-in roles / titles an admin deleted (Homebase Settings) — not re-added from the defaults.
+  // Built-in roles / titles an admin deleted (Homebase Control Panel) — not re-added from the defaults.
   removedRoleOpts: [], removedJobTitleOpts: [],
   // Legacy Role values hidden from the form and dropped on the next save.
   retiredRoleValues: ['Service Provider'],
@@ -2805,11 +2805,11 @@ function renderRoster(){
 // People hired after a version was published are due 14 days after their hire date (or the version's due date if later).
 // Firestore: 'policies' (all staff read, Super Admin write), 'policySigs' (see rules). Storage: policies/, policySigned/.
 var POL={list:null, mine:null, sigs:{}, open:null, admin:false, adm:null, sel:'all', viewed:{}, busy:false};
-// Nov 16: managed in Homebase Settings → Documents & sign-offs. Each category shows on one staff page (POL_CAT_PAGE):
+// Nov 16: managed in Homebase Control Panel → Documents & sign-offs. Each category shows on one staff page (POL_CAT_PAGE):
 // clinical/safety → Clinical Policies; everything else → Employee Handbook (tab "Handbook & HR documents"). sign:false = reference only.
 const POL_CATS=[['clinical','Clinical policy'],['handbook','Employee Handbook'],['hr','HR & employment'],['compliance','Compliance & privacy'],['safety','Safety'],['forms','Forms & agreements'],['other','Other']];
 const POL_CAT_PAGE={clinical:'pol',safety:'pol'};
-// p.sec (Nov 17) = the section it shows in, set/moved in Homebase Settings; without it the category decides.
+// p.sec (Nov 17) = the section it shows in, set/moved in Homebase Control Panel; without it the category decides.
 const POL_SECS=[['hpol','📘 Employee Handbook'],['pol','📕 Clinical Policies Manual'],['howto','🧭 Clinical How-To Manual']];
 function polSecLabel(k){ return (POL_SECS.find(function(x){ return x[0]===k; })||['',''])[1].replace(/^\S+\s/,''); }
 function polPageOf(p){ if(p&&POL_SECS.some(function(x){ return x[0]===p.sec; })) return p.sec; return POL_CAT_PAGE[(p&&p.cat)||'other']||'hpol'; }
@@ -2894,10 +2894,10 @@ function polListHtml(page){
   const mineOf=function(p){ const o={}; if(me) o[me._id]=(POL.mine||{})[p.id]||{}; return o; };
   let h='<div class="pol-head"><div><div class="ou-eyebrow">'+(hb?'Employee Handbook':ht?'Clinical How-To Manual':'Clinical Policies Manual')+'</div><div class="ou-big" style="margin:2px 0 4px">'+(hb?'The handbook &amp; HR documents':ht?'Step-by-step clinical guides':'Clinical policies')+'</div>'
     +'<div class="muted" style="font-size:13px">'+(ht?'Practical, step-by-step guides for clinical systems and workflows.':'Open each PDF and read it. Documents that need your signature ask you to sign at the end — you’ll be asked again when one is updated.')+'</div></div>'
-    +(polSA()?'<button class="btn btn-primary" onclick="polManage()">⚙ Manage in Homebase Settings</button>':'')+'</div>';
+    +(polSA()?'<button class="btn btn-primary" onclick="polManage()">⚙ Manage in Homebase Control Panel</button>':'')+'</div>';
   if(ht) h+='<div class="pol-soon"><div class="ic">🧭</div><div><b>Coming soon</b><div>The Clinical How-To Manual is being written. Step-by-step guides will appear here as they’re ready.</div>'
     +'</div></div>';
-  if(!live.length) return h+(ht?'':'<div class="pol-empty">Nothing has been published here yet.'+(polSA()?' Upload documents in Homebase Settings → Documents &amp; sign-offs.':'')+'</div>');
+  if(!live.length) return h+(ht?'':'<div class="pol-empty">Nothing has been published here yet.'+(polSA()?' Upload documents in Homebase Control Panel → Documents &amp; sign-offs.':'')+'</div>');
   if(todo.length) h+='<div class="pol-sec">To sign <span class="pol-n red">'+todo.length+'</span></div><div class="pol-grid">'+todo.map(function(x){ return polCard(x.p,x.st); }).join('')+'</div>';
   const rest=live.filter(function(p){ return !todo.some(function(x){ return x.p.id===p.id; }); });
   if(rest.length){
@@ -3176,7 +3176,7 @@ async function polToggleSign(pid){
 async function polDelete(pid){
   try{ const p=(POL.list||[]).find(function(x){ return x.id===pid; }); if(!p) return;
     let sigs=POL.sigs[pid]; if(!sigs&&window.policyStore){ sigs=(await window.policyStore.sigsFor(pid))||[]; POL.sigs[pid]=sigs; } const n=(sigs||[]).length;
-    if(!confirm('Delete “'+p.title+'”?\n\n'+(n?'It disappears from Handbook & Manuals and Homebase Settings, and nobody will be asked to sign it. The '+n+' signed cop'+(n===1?'y':'ies')+' already filed in Employee Files stay there.':'It disappears from Handbook & Manuals for everyone. Nobody has signed it.'))) return;
+    if(!confirm('Delete “'+p.title+'”?\n\n'+(n?'It disappears from Handbook & Manuals and Homebase Control Panel, and nobody will be asked to sign it. The '+n+' signed cop'+(n===1?'y':'ies')+' already filed in Employee Files stay there.':'It disappears from Handbook & Manuals for everyone. Nobody has signed it.'))) return;
     let ok=false; if(!n&&window.policyStore.remove) ok=await window.policyStore.remove(pid);
     if(!ok) ok=await polPatch(pid,{status:'deleted',deletedAt:new Date().toISOString(),deletedBy:polWho()});
     if(!ok){ showToast('⚠ Could not delete'); return; }
@@ -5306,7 +5306,7 @@ function ifCss(){ return '<style>'
 var PLACEHOLDERS={
   "discharge":     {icon:"🔁", t:"Discharge & Transfer",        d:"The workflow for discharging clients and transferring care between clinicians."},
   "ecans":         {icon:"📋", t:"eCANS",                       d:"Everything for CANS assessments with MassHealth clients under 21 — due dates, reminders and resources in one place."},
-  "report-center": {icon:"📑", t:"Report Center",               d:"Practice reports in one place."},
+  "report-center": {icon:"📑", t:"Insights & Reports",               d:"Practice reports in one place."},
   "therapy-thrive":{icon:"🌱", t:"Therapy Thrive",              d:"Therapy Thrive resources and tools for clinicians — this page is on its way."}
 };
 function renderPlaceholder(id){
@@ -8250,7 +8250,7 @@ function buildCompPanel(id){
     (benRows || '<div style="color:#aaa;font-size:13px">No employer benefit contributions on file.</div>');
 }
 // Benefits on the Comp & Benes tab: each type's plan, coverage, monthly premium, APP share, employee share
-// (priced from Homebase Settings → Benefits & premiums). Older sheet amounts (med/den/vis) show when no enrollment is set.
+// (priced from Homebase Control Panel → Benefits & premiums). Older sheet amounts (med/den/vis) show when no enrollment is set.
 function compBenViewHtml(id,p,c){
   try{
     if(!BEN.cat){ benLoad().then(function(){ if(window._rosterPanels&&window._rosterStaffId===id){ window._rosterPanels.comp=buildCompPanel(id); if(rosterDetailTab==='comp') renderRosterTabs(); } }).catch(function(){}); return '<div class="muted" style="font-size:12.5px">Loading benefits…</div>'; }
@@ -8313,7 +8313,7 @@ function compBenEditHtml(p,c){
     const sel='font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d1d5db;border-radius:7px';
     let h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px;color:#374151"><b>APP share based on</b><select id="cmpb-group" onchange="compBenSync()" style="'+sel+'">'
       +'<option value=""'+(g===''?' selected':'')+'>Automatic — '+(auto==='part'?'part time':auto==='full'?'full time':'not set')+' (Capacity Tier)</option><option value="full"'+(g==='full'?' selected':'')+'>Full time</option><option value="part"'+(g==='part'?' selected':'')+'>Part time</option></select></div>';
-    if(!(cat.plans||[]).length) h+='<div class="muted" style="font-size:12.5px;margin-bottom:8px">No plans set up yet — add them in Homebase Settings → 🩺 Benefits &amp; premiums.</div>';
+    if(!(cat.plans||[]).length) h+='<div class="muted" style="font-size:12.5px;margin-bottom:8px">No plans set up yet — add them in Homebase Control Panel → 🩺 Benefits &amp; premiums.</div>';
     h+=(cat.types||[]).map(function(t){ const e=ben[t.k]||{}, pl=(cat.plans||[]).filter(function(x){ return x.type===t.k; });
       return '<div style="display:grid;grid-template-columns:110px 1fr 170px;gap:8px;align-items:center;margin-bottom:8px"><b style="font-size:13px">'+hesc(t.l)+'</b>'
         +'<select id="cmpb-p-'+t.k+'" onchange="compBenSync()" style="'+sel+'"><option value="">Not enrolled / unknown</option><option value="waived"'+(e.plan==='waived'?' selected':'')+'>Waived</option>'
@@ -10707,7 +10707,7 @@ function canSeePageBase(role, pageId){
   if((pageId==='reviews'||pageId==='reviews-hr') && HB_REVIEWS_HIDDEN) return false;
   if(pageId==='ppu'||pageId==='coderules') return role==='superadmin'; // pay period upload + its rules: super admin only
   if(pageId==='clin-leadership'){ if(role!==currentRole()) return role!=='therapist'; try{ return !!clScope(); }catch(e){ return false; } }  // supervisors and above
-  if(pageId==='admin')   return role==='superadmin'||role==='admin';  // Homebase Settings (Roles & permissions inside: Super Admin)
+  if(pageId==='admin')   return role==='superadmin'||role==='admin';  // Homebase Control Panel (Roles & permissions inside: Super Admin)
   if(pageId==='hr-dashboard') return role!=='therapist';  // birthdays/anniversaries/raises: not for therapists
   if(role==='admin' || role==='superadmin') return true;
   if(pageId==='team-dashboard') return false;        // leadership view: admin only
@@ -10718,7 +10718,7 @@ function canSeePageBase(role, pageId){
   if(pageId==='ceu-upload') return false;            // bulk CEU filing: admin only
   if(pageId==='meetings-hr') return false;           // meeting-pay management: admin only
   if(pageId==='reviews-hr') return false;            // review management: admin only
-  if(pageId==='report-center') return false;         // Report Center: admin only (CTM/CPM later)
+  if(pageId==='report-center') return false;         // Insights & Reports: admin only (CTM/CPM later)
   if(pageId==='intake-finder') return false;
   if(pageId==='supplies') return false;              // Supply Ordering: admins only (Admin Logistics)         // Intake Finder: admin only (Intake/CTM role later)
   return true;                                        // roster + capacity: scoped, allowed
@@ -10740,9 +10740,9 @@ var PERM_CAPS=[
   {k:'see-comp',l:'See Comp & Benes (pay data)',d:'Pay rates, increases and benefits on profiles',need:'admin'},
   {k:'edit-library',l:'Edit manuals and library articles',d:'Clinical manuals, how-tos, handbook',need:'admin'},
   {k:'issue-alerts',l:'Send notifications to employees',d:'“Send a notification” on an Employee File — shows on their My Homebase (critical = red)',need:'admin'},
-  {k:'manage-homebase',l:'Manage Homebase content',d:'Homebase Settings: practice alerts, news & announcements, events calendar',need:'admin'},
+  {k:'manage-homebase',l:'Manage Homebase content',d:'Homebase Control Panel: practice alerts, news & announcements, events calendar',need:'admin'},
   {k:'approve-offices',l:'Approve office bookings (every site)',d:'Approve / decline requests, book for others and create blocks at all sites. Per-site approvers are picked in Office settings.',need:'therapist'},
-  {k:'manage-offices',l:'Manage office settings',d:'Homebase Settings → Office settings: add, rename, reorder and remove offices, office notes, hours and open days, and who approves at each site',need:'therapist'},
+  {k:'manage-offices',l:'Manage office settings',d:'Homebase Control Panel → Office settings: add, rename, reorder and remove offices, office notes, hours and open days, and who approves at each site',need:'therapist'},
   {k:'manage-permissions',l:'Manage roles & permissions',d:'Open this page, create/edit roles and assign people',need:'admin'},
   {k:'edit-own-profile',l:'Edit their own profile (demographics only)',d:'“Update my information” on their own Employee File: legal / preferred name, pronouns, date of birth, address, alternate phone & email, emergency contact. Nothing else on the record.',need:'therapist'}];
 var PERM_LEVELS=['therapist','supervisor','admin','superadmin'];
@@ -11630,7 +11630,7 @@ async function capDeletePeriod(i){
 }
 
 // ══ STANDARD KPIs (Nov 17 2026) — the same three numbers everywhere (Capacity Dashboard, Pay Period
-// Snapshot, My Team, Report Center → KPIs):
+// Snapshot, My Team, Insights & Reports → KPIs):
 //   Note completion: notes signed MORE THAN 24 HRS after the session (count + % of signed notes) and the
 //                    average days to sign — each compared with the practice.
 //   No-shows:        no-show rate (paid + unpaid no-shows ÷ sessions + no-shows) vs the person's site and the practice.
@@ -11678,7 +11678,7 @@ function kpiCardHtml(o){
         +'<div class="kpi-s">'+(main?main.noShows+' of '+(main.sessions+main.noShows)+' appointments':'')+'</div>'
         +(me?(o.siteName?kpiCmp(me.ns,S?S.ns:null,'%',o.siteName):'')+kpiCmp(me.ns,P.ns,'%','practice'):(S?kpiCmp(P.ns,S.ns,'%',o.siteName||'site'):''))+'</div></div></div></div>'
       +(main&&main.unsigned?'<div class="kpi-note">'+main.unsigned+' note'+(main.unsigned===1?' was':'s were')+' still unsigned when '+(main.unsigned===1?'its':'their')+' pay period closed (not counted above).</div>':'')
-      +(main&&main.late==null&&(main.sessions||main.noShows)?'<div class="kpi-note">The 24-hour count fills in once the KPI history is rebuilt (Report Center → KPIs).</div>':'')
+      +(main&&main.late==null&&(main.sessions||main.noShows)?'<div class="kpi-note">The 24-hour count fills in once the KPI history is rebuilt (Insights & Reports → KPIs).</div>':'')
       +'</div>';
     return h;
   }catch(e){ console.error(e); return ''; }
@@ -11696,7 +11696,7 @@ function kpiCssOnce(){ try{ if(!document.getElementById('kpi-css')) document.hea
 function kpiFromStatements(list,yr){ const latest={};
   (list||[]).forEach(function(x){ if(x.kind!=='ppu'||String(x.ppId||x.start||'').slice(0,4)!==String(yr||CAP_YEAR)) return; if(!latest[x.periodId]||(latest[x.periodId].version||1)<(x.version||1)) latest[x.periodId]=x; });
   return kpiRates(kpiSum(Object.keys(latest).map(function(k){ return ppuProgressOf(latest[k].lines); }))); }
-// Practice table (Capacity Dashboard overview + Report Center): the practice, then each site.
+// Practice table (Capacity Dashboard overview + Insights & Reports): the practice, then each site.
 function kpiSitesTableHtml(yr){
   const P=kpiPractice(yr), sites={}; const d=KPI.prac||{}; kpiYearKeys(d,yr).forEach(function(k){ Object.keys((d[k]||{}).bySite||{}).forEach(function(s){ sites[s]=1; }); });
   const cell=function(v,suf,pv){ if(v==null) return '<span class="muted">—</span>'; const dd=pv==null?null:Math.round((v-pv)*10)/10; return '<b>'+v+(suf||'')+'</b>'+(dd&&Math.abs(dd)>=0.05?' <small style="color:'+(dd<0?'#0f6f78':'#b45309')+';font-weight:700">'+(dd>0?'▲':'▼')+Math.abs(dd)+'</small>':''); };
@@ -11736,7 +11736,7 @@ async function capKpiFill(){
     el.innerHTML='<div class="kpi-card"><div class="kpi-h"><span>Practice KPIs — '+CAP_YEAR+'</span><small>note completion &amp; no-shows · from closed pay periods</small></div><div style="padding:10px 16px 12px">'+kpiSitesTableHtml(CAP_YEAR)+'</div></div>';
   }catch(e){ console.error(e); el.innerHTML=''; }
 }
-// Report Center → KPIs: practice, sites and (Supervisor level and up) each clinician.
+// Insights & Reports → KPIs: practice, sites and (Supervisor level and up) each clinician.
 async function rcKpiHtml(){
   kpiCssOnce(); await kpiLoad(true);
   if(rcSA()&&kpiNeedsBackfill(CAP_YEAR)&&!KPI.tried){ KPI.tried=true; await kpiBackfill(true); }
@@ -11925,7 +11925,7 @@ function applyRoleVisibility(){
     if(_cr && b.id==='nav-roster') ok=(_cr.pages||[]).indexOf('roster')>=0;
     if(b.id==='nav-myfile') ok=true;
     if(b.id==='nav-coderules'||b.id==='nav-meetings-hr'||b.id==='nav-ceu-upload') ok=false;
-    if(b.id==='nav-offices'&&ok){ try{ ok=obShowFor(currentViewer()||STAFF.find(function(x){ return x._id===window.AUTH_STAFF_ID; })); }catch(e){} }   // moved: Payroll Settings → Homebase Settings; meetings HR → Payroll Processing
+    if(b.id==='nav-offices'&&ok){ try{ ok=obShowFor(currentViewer()||STAFF.find(function(x){ return x._id===window.AUTH_STAFF_ID; })); }catch(e){} }   // moved: Payroll Settings → Homebase Control Panel; meetings HR → Payroll Processing
     b.style.display = ok ? '' : 'none';
   });
   document.querySelectorAll('.nav-sec').forEach(function(sec){
@@ -11934,7 +11934,7 @@ function applyRoleVisibility(){
     sec.style.display = any ? '' : 'none';
   });
   const dashBtn=document.getElementById('nav-team-dashboard');
-  if(dashBtn) dashBtn.style.display = 'none';   // archived (Nov 16) — its leaderboard lives in Report Center › Attainment Tracking
+  if(dashBtn) dashBtn.style.display = 'none';   // archived (Nov 16) — its leaderboard lives in Insights & Reports › Attainment Tracking
   ['nav-ppu'].forEach(function(id){ const b=document.getElementById(id); if(b) b.style.display = canSeePage(b.dataset.page) ? '' : 'none'; });
   const recBtn=document.getElementById('nav-recruitment');
   if(recBtn) recBtn.style.display = canSeePage('recruitment') ? '' : 'none';
@@ -11944,7 +11944,7 @@ function applyRoleVisibility(){
   const obBtn=document.getElementById('nav-onboarding-real');
   if(obBtn) obBtn.style.display = canSeePage('onboarding') ? '' : 'none';
   const ceuBtn=document.getElementById('nav-ceu-upload');
-  if(ceuBtn) ceuBtn.style.display = 'none';   // Bulk Record Upload lives in Homebase Settings now
+  if(ceuBtn) ceuBtn.style.display = 'none';   // Bulk Record Upload lives in Homebase Control Panel now
   const mhrBtn=document.getElementById('nav-meetings-hr');
   if(mhrBtn) mhrBtn.style.display = 'none';   // retired Nov 2026 — managed in Payroll Processing → Meeting & Admin Time
   const rvBtn=document.getElementById('nav-reviews-hr');
@@ -11985,7 +11985,7 @@ let adminExpanded=null;   // supervisor id whose supervisee editor is open
 var ADMIN_TAB='roles';
 function adminTabsHtml(){ const t=function(k,l){ return '<button class="hb-subtab'+(ADMIN_TAB===k?' on':'')+'" onclick="ADMIN_TAB=\''+k+'\';PERM.edit=null;renderAdmin()">'+l+'</button>'; };
   return '<div class="hb-subtabs">'+t('roles','Roles & permissions')+t('people','Who has which level')+t('rt','Staff roles & titles')+'</div>'; }
-// ── Homebase Settings → Roles & permissions → Staff roles & titles ──
+// ── Homebase Control Panel → Roles & permissions → Staff roles & titles ──
 // Add, rename and delete the staff ROLES (checkboxes, 'Service Types') and job TITLES (one per person,
 // 'Title'). Renaming or deleting one that people hold asks where to move them and updates every
 // record. Roles Homebase relies on (supervisor access, CTM office approvals, Psychotherapist I/II,
@@ -12440,7 +12440,7 @@ function licUpdOpen(id){
     ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
     const iso=function(v){ const d=capDateOf(v); return d&&!isNaN(d)?capISO(d):''; };
     const f=function(id,label,val,type,ph){ return '<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#4b5563">'+label+'<input id="'+id+'" type="'+(type||'text')+'" value="'+hesc(val||'')+'" placeholder="'+hesc(ph||'')+'" style="padding:7px 9px;border:1px solid #d1d5db;border-radius:7px;font:inherit;font-size:13px"></label>'; };
-    const who=function(arr,role){ return arr.length?arr.map(function(x){ return hesc(x['Clinician']||''); }).join(', '):'<span style="color:#b45309">nobody has the '+role+' role yet — add it in Homebase Settings → Roles & permissions → Staff roles, or on their Employee File</span>'; };
+    const who=function(arr,role){ return arr.length?arr.map(function(x){ return hesc(x['Clinician']||''); }).join(', '):'<span style="color:#b45309">nobody has the '+role+' role yet — add it in Homebase Control Panel → Roles & permissions → Staff roles, or on their Employee File</span>'; };
     ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);padding:18px 20px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:17px;color:#122B67">🪪 License update — '+hesc(p['Clinician']||'')+'</h3><button class="pr-x" onclick="document.getElementById(\'licdlg\').remove()" aria-label="Close">✕</button></div>'
       +'<div style="font-size:12px;color:#6b7280;margin-top:4px">Current: '+hesc(p['License']||'no license on file')+(p['License #']?' #'+hesc(p['License #']):'')+((p['Lic Exp Date']||p['License Expiration'])?' · expires '+hesc(usDate(p['Lic Exp Date']||p['License Expiration'])):'')+'</div>'
@@ -13422,13 +13422,13 @@ const PAGE_META={
   'therapy-thrive':{title:'Therapy Thrive',sub:'Coming soon'},
   'ecans':{title:'eCANS',sub:'Coming soon'},
   'intake-finder':{title:'Intake Birdseye',sub:'Match new clients to clinicians and see openings across every team'},
-  'report-center':{title:'Report Center',sub:'Attainment, clinical hours, sessions, office use and workforce'},
+  'report-center':{title:'Insights & Reports',sub:'Attainment, clinical hours, sessions, office use and workforce'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
   'paysnap':{title:'Pay Period Snapshot',sub:'Your results for each pay period — clinical hours credited and meeting & admin time paid'},
   'meetings-hr':{title:'Meeting and Admin Time (HR)',sub:'Everyone\'s submissions, every pay period — review and pay'},
   'team-dashboard':{title:'Leadership Dashboard',sub:'Site leaderboard — clinical-hours attainment'},
-  'admin':{title:'Homebase Settings',sub:'What everyone sees on Homebase, sites, access and payroll setup'},
+  'admin':{title:'Homebase Control Panel',sub:'What everyone sees on Homebase, sites, access and payroll setup'},
   'hr-dashboard':{title:'HR Dashboard',sub:'Birthdays, anniversaries, and raise eligibility'},
   'clin-leadership':{title:'My Team',sub:'Your team and supervisees — capacity, alerts and insights'},
   'ppu':{title:'Payroll Processing',sub:'Upload one pay period’s Valant export, review every employee, close and save'},
@@ -13560,9 +13560,9 @@ function hbGoBack(){
 }
 function showPage(id,btn,_fromHistory){
   if(id==='coderules'){ try{ HBM.sec='payset'; }catch(e){} id='admin'; btn=document.getElementById('nav-admin'); }
-  if(id==='ceu-upload'){ try{ HBM.sec='bulk'; }catch(e){} id='admin'; btn=document.getElementById('nav-admin'); }   // Bulk Record Upload lives in Homebase Settings   // Payroll Settings lives in Homebase Settings now
+  if(id==='ceu-upload'){ try{ HBM.sec='bulk'; }catch(e){} id='admin'; btn=document.getElementById('nav-admin'); }   // Bulk Record Upload lives in Homebase Control Panel   // Payroll Settings lives in Homebase Control Panel now
   if(id==='meetings-hr'){ try{ PPU.view='mtg'; }catch(e){} id='ppu'; btn=document.getElementById('nav-ppu'); }   // old HR page lives in Payroll Processing now
-  if(id==='team-dashboard'){ try{ RC.tab='hours'; }catch(e){} id='report-center'; btn=document.getElementById('nav-report-center'); }   // Leadership Dashboard archived (Nov 16) → Report Center › Attainment Tracking
+  if(id==='team-dashboard'){ try{ RC.tab='hours'; }catch(e){} id='report-center'; btn=document.getElementById('nav-report-center'); }   // Leadership Dashboard archived (Nov 16) → Insights & Reports › Attainment Tracking
   // Unsaved edits anywhere → hard stop; leaving re-runs this navigation.
   if(typeof hbConfirmLeave==='function' && !hbConfirmLeave(function(){ showPage(id,btn,_fromHistory); })) return;
   // Clinical How-Tos now lives on the Clinical Manual page (How-Tos tab).
@@ -14098,7 +14098,7 @@ function filesSectionHtml(s){
     +'<div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<select id="file-sec-'+s._id+'" aria-label="File into" style="font:inherit;font-size:12.5px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px">'+DOC_SECTIONS.filter(function(x){ return x[0]!=='ceus'&&x[0]!=='comp'; }).map(function(x){ return '<option value="'+x[0]+'"'+(x[0]==='other'?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'
     +'<button onclick="triggerFileUpload(\''+s._id+'\')" style="background:#122b67;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">📎 Upload File</button>'
-    +'<span style="font-size:11px;color:#aaa">Up to 20 MB · many at once: Homebase Settings → Bulk record upload</span></div>';
+    +'<span style="font-size:11px;color:#aaa">Up to 20 MB · many at once: Homebase Control Panel → Bulk record upload</span></div>';
 }
 
 // ══ SITE INFO ══
@@ -14368,7 +14368,7 @@ function renderHome() {
 // Room names live in kv/app_office_rooms {SITE:[{id,name,note}]} (Admins edit); defaults = "Office 1..N".
 // Rules: everyone signed in reads; staff create pending requests for themselves and delete their own
 // pending ones; Supervisor level and up (CTMs) and Admins create/update/delete anything.
-// OFFICE_SITES ([code, offices]) is derived from Locations (Homebase Settings) — see LOCATIONS below.
+// OFFICE_SITES ([code, offices]) is derived from Locations (Homebase Control Panel) — see LOCATIONS below.
 var OFFICE_OPEN=7, OFFICE_CLOSE=20;                                // default hours 7am–8pm (per site in Office settings)
 var OB={site:null, day:null, week:null, list:null, rooms:null, cfg:null, loading:false};
 function obIso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -14799,11 +14799,11 @@ async function obCancel(id){
   try{ if(!confirm('Cancel this request?')) return;
     if(!(await window.officeStore.remove(id))){ showToast('⚠ Could not cancel'); return; } obClose(); showToast('Request cancelled'); await obLoad(true); renderOffices(); }catch(e){ console.error(e); }
 }
-// ── Suggestions (Homebase Settings → Suggestions, Super Admins) ──
+// ── Suggestions (Homebase Control Panel → Suggestions, Super Admins) ──
 var SUGG={list:null,filter:'open'};
 var SUGG_ST=[['new','New','warn'],['read','Read','info'],['done','Done','good']];
 // ══ PERMISSIONS v2 (Nov 18 2026) — PRACTICE MODE ══
-// Homebase Settings → "Permissions (new)". Areas × {none, view, manage} × whose data {own, sup, site, all}.
+// Homebase Control Panel → "Permissions (new)". Areas × {none, view, manage} × whose data {own, sup, site, all}.
 // Templates (Everyone auto, Super Admin locked, SLT auto from "Senior Leadership", + editable ones), several per person
 // (widest wins) + per-person tweaks, change log, and a "What would change" report vs today's access.
 // Stored in kv/app_perm_v2 = {tpl:{id:{n,c,d,m:{area:{lv,sc}}}}, ppl:{staffId:{tpl:[ids],ov:{area:{lv,sc}},seeded}}, log:[...], updatedAt}.
@@ -14858,10 +14858,10 @@ const PV2_CAT=[
   ['ben','Benefits & premiums',['See benefit plans and premiums.','Change plans, premiums and the practice’s share for full- and part-time staff.'],['none','view','manage'],0,1],
  ]],
  ['📊 Reports',[
-  ['rc','Report Center',['See Attainment Tracking, Sessions & Peak Times, Office Utilization, Workforce Analysis and KPIs, and download CSVs.','Also rebuild report history from closed pay periods.'],['none','view','manage'],1],
+  ['rc','Insights & Reports',['See Attainment Tracking, Sessions & Peak Times, Office Utilization, Workforce Analysis and KPIs, and download CSVs.','Also rebuild report history from closed pay periods.'],['none','view','manage'],1],
   ['revn','Projected Revenue',['See projected revenue.','Change the revenue assumptions.'],['none','view','manage'],0,1],
  ]],
- ['⚙ Homebase Settings',[
+ ['⚙ Homebase Control Panel',[
   ['loc','Locations',['See sites, addresses and emergency details.','Add and edit sites, addresses and emergency info, and open or close sites.'],['none','view','manage'],0],
   ['bulk','Bulk record upload',['See past uploads.','Bulk-upload records into Employee Files.'],['none','view','manage'],0,1],
   ['sugg','Suggestion box',['Read suggestions.','Mark suggestions read, reply, resolve and delete.'],['none','view','manage'],0],
@@ -15140,7 +15140,7 @@ async function homeLoadSuggAlert(){
     host.innerHTML=n?homeAlertRow('📬','navy',n+' new suggestion'+(n===1?'':'s')+' in the Suggestion box','','Read →',"HBM.sec='sugg';SUGG.filter='new';showPage('admin',document.getElementById('nav-admin'))"):'';
   }catch(e){ host.innerHTML=''; }
 }
-// ── Office settings (Homebase Settings → Office settings) ──
+// ── Office settings (Homebase Control Panel → Office settings) ──
 // kv/app_office_cfg = {SITE:{open:7, close:20, days:[0..6 open days], on:true}}; offices in kv/app_office_rooms.
 function obCfg(site){
   const c=(OB.cfg||{})[site]||{};
@@ -15843,7 +15843,7 @@ async function homeLoadRsvpAlerts(){
   }catch(e){ console.error(e); }
 }
 
-// ══ LOCATIONS (Homebase Settings → Locations, Nov 2026) ══
+// ══ LOCATIONS (Homebase Control Panel → Locations, Nov 2026) ══
 // A location = an entry in CONFIG.siteDirectory {l:name, addr, phone, police, fire, offices:N, closed:'YYYY-MM-DD', closedNote}
 // plus its team label (CONFIG.teamLabels), colours (CONFIG.siteMeta), place in CONFIG.siteOrder / teamOpts — all saved in
 // kv/app_config. The location code is also the staff 'Team' code and the Office Bookings site code, so it never changes.
@@ -15939,7 +15939,7 @@ async function locSave(code){
     hbmClose(); showToast('📍 '+(isNew?name+' added':'Location saved')); hbmRefresh();
   }catch(e){ console.error(e); showToast('⚠ Could not save the location'); }
 }
-// Team pills (.t-CODE) for locations added in Homebase Settings.
+// Team pills (.t-CODE) for locations added in Homebase Control Panel.
 function locApplyCss(){
   try{ let st=document.getElementById('loc-css'); if(!st){ st=document.createElement('style'); st.id='loc-css'; document.head.appendChild(st); }
     const meta=CONFIG.siteMeta||{}, builtIn=['AMH','HAD','NOHO','SOWK','RSTI','NCA'];
@@ -15950,7 +15950,7 @@ function locClose(code){
     const d=locDir()[code]||{}, ppl=locActiveStaff(code), today=obIso(new Date());
     const fut=(OB.list||[]).filter(function(b){ return b.site===code&&b.status!=='declined'&&(b.kind==='weekly'?(!b.until||b.until>=today):b.date>=today); });
     hbmModal('Close '+hesc(d.l||code),
-      '<div style="font-size:13px;color:#374151;margin-bottom:10px">From the closing date, '+hesc(d.l||code)+' is hidden from the emergency-number picker, event and alert pickers'+(locOfficeCount(code)?' and <b>Office Bookings</b>':'')+'. Past bookings and hours stay in the Report Center.</div>'
+      '<div style="font-size:13px;color:#374151;margin-bottom:10px">From the closing date, '+hesc(d.l||code)+' is hidden from the emergency-number picker, event and alert pickers'+(locOfficeCount(code)?' and <b>Office Bookings</b>':'')+'. Past bookings and hours stay in the Insights & Reports.</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+hbmL('Closing date (first day closed)','<input id="loc-cdate" type="date" style="'+HBM_F+'" value="'+today+'">')+hbmL('Note (optional)','<input id="loc-cnote" style="'+HBM_F+'" placeholder="e.g. Moved to Hadley">')+'</div>'
       +(fut.length?'<label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:13px;color:#374151"><input type="checkbox" id="loc-cbook" checked style="margin-top:3px"> <span>End <b>'+fut.length+'</b> office booking'+(fut.length>1?'s':'')+' on or after that date (weekly bookings end the day before; one-time bookings are declined).</span></label>':'')
       +(ppl.length?'<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff8ee;border:1px solid #F2A54B;font-size:12.5px;color:#7a4a0a"><b>'+ppl.length+' active staff are still on '+hesc(teamLabel(code))+'</b>: '+ppl.slice(0,12).map(function(s){ return hesc(s['Clinician']||''); }).join(', ')+(ppl.length>12?' and '+(ppl.length-12)+' more':'')+'. Move them to their new team from their profile (Team history keeps the date).</div>':''),
@@ -16066,7 +16066,7 @@ async function renderAnnouncements(){
 }
 // ══ the page ══
 function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
-// New permissions: one area per Homebase Settings section (Nov 18 2026)
+// New permissions: one area per Homebase Control Panel section (Nov 18 2026)
 function pvHbmSections(){ const s=[], C=function(k,l){ return pvCan(k,l||'manage'); };
   if(C('pnot')) s.push(['alerts','🔔 Practice notifications']); if(C('news')) s.push(['news','📣 News & announcements']); if(C('cal')) s.push(['events','📅 Events calendar']);
   if(C('loc')) s.push(['locations','📍 Locations']); if(C('obs')) s.push(['offices','🚪 Office settings']);
@@ -16075,7 +16075,7 @@ function pvHbmSections(){ const s=[], C=function(k,l){ return pvCan(k,l||'manage
   if(C('ins')) s.push(['ins','🏥 Insurance Catalogue']); if(C('ben')) s.push(['ben','🩺 Benefits & premiums']); if(C('pset')) s.push(['payset','💵 Payroll Settings']);
   return s; }
 function hbmShell(body){
-  const secs=hbmSections(); if(!secs.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Homebase Settings is for Admins.</div>'; return null; }
+  const secs=hbmSections(); if(!secs.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Homebase Control Panel is for Admins.</div>'; return null; }
   if(!HBM.sec||!secs.some(function(x){ return x[0]===HBM.sec; })) HBM.sec=secs[0][0];
   // Side navigation (Nov 2026): sections grouped down the left instead of rows of tabs across the top.
   const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
@@ -16085,7 +16085,7 @@ function hbmShell(body){
   let nav='';
   GROUPS.forEach(function(g){ const ks=g[1].filter(function(k){ return by[k]; }); if(!ks.length) return; nav+='<div class="hbm-ng"><div class="hbm-ngh">'+g[0]+'</div>'+ks.map(item).join('')+'</div>'; });
   secs.forEach(function(x){ if(!GROUPS.some(function(g){ return g[1].indexOf(x[0])>=0; })) nav+=item(x[0]); });
-  body.innerHTML='<div class="hbm-layout'+(HBM.sec==='perm2'?' hbm-wide':'')+'"><nav class="hbm-nav" aria-label="Homebase Settings sections">'+nav+'<div class="hbm-navnote">Changes show for everyone on their next page load.</div></nav><div class="hbm-content"><div id="hbm-sec"></div></div></div>';
+  body.innerHTML='<div class="hbm-layout'+(HBM.sec==='perm2'?' hbm-wide':'')+'"><nav class="hbm-nav" aria-label="Homebase Control Panel sections">'+nav+'<div class="hbm-navnote">Changes show for everyone on their next page load.</div></nav><div class="hbm-content"><div id="hbm-sec"></div></div></div>';
   return document.getElementById('hbm-sec');
 }
 function hbmGoSec(k){
@@ -20121,7 +20121,7 @@ function rcDates(){
 function rcRange(){ const D=rcDates(); return ALL_PPS.filter(function(x){ return x.endISO>=D.start&&x.startISO<=D.end; }); }
 function rcInDates(iso){ const D=rcDates(); return iso>=D.start&&iso<=D.end; }
 function rcSA(){ try{ return isSuperAdminView(); }catch(e){ return false; } }
-// ── Report Center → 🎯 Attainment Tracking (Nov 16) ──
+// ── Insights & Reports → 🎯 Attainment Tracking (Nov 16) ──
 // Replaces the Clinical Hours Analysis tab: attainment (year to date, capCompute) on top — practice tiles, the site
 // leaderboard (from the archived Leadership Dashboard), every clinician's catch-up hours, capacity/tier changes and a
 // cross-check against their New Client Request in Intake Birdseye — then the clinical-hours charts (rcHoursHtml) below.
@@ -20257,7 +20257,7 @@ function rcCss(){ return '<style>.rc-f{display:flex;gap:8px;flex-wrap:wrap;align
   +'.rc-c{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin-bottom:12px}.rc-c h3{margin:0 0 2px;font-size:14.5px;color:#122B67}.rc-c .sub{font-size:12px;color:#6b7280;margin-bottom:10px}'
   +'.rc-t{width:100%;border-collapse:collapse;font-size:12.5px}.rc-t th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;padding:6px 8px;border-bottom:1px solid #e5e7eb;cursor:default}.rc-t td{text-align:right;padding:6px 8px;border-bottom:1px solid #f1f2f4}.rc-t .l{text-align:left}'
   +'.rc-bar{display:inline-block;height:8px;border-radius:0 4px 4px 0;background:#122B67;vertical-align:middle}.rc-gl{stroke:#9ca3af;stroke-width:2;stroke-dasharray:4 3}.rc-svg text{font:11px Inter,system-ui,sans-serif;fill:#6b7280}</style>'; }
-// ══ Report Center — shared filter chips + chart headers (Nov 2026) ══
+// ══ Insights & Reports — shared filter chips + chart headers (Nov 2026) ══
 // The office-utilization chip style is used for every filter: a labelled row of pill buttons, "All …" first.
 // Long lists show the first few with "+N more". Every chart/stat card gets a header (rcHead) that says what it is
 // and which filters are on (rcTags), so a screenshot always explains itself.
@@ -20319,7 +20319,7 @@ function rcFilterBar(kind){
   }catch(e){ console.error(e); return ''; }
 }
 
-// ══ WORKFORCE ANALYSIS (Report Center, Nov 2026) ══
+// ══ WORKFORCE ANALYSIS (Insights & Reports, Nov 2026) ══
 // Admins. From the staff records only (no pay data): Date of Hire, Term Date, Employee Status, Team (+ Team history),
 // title, roles, Format, Capacity Tier, License, Lic Exp Date. Headcount on a date = hired on/before it and not yet
 // past their Term Date (former staff with no Term Date are left out and counted in a note).
@@ -20487,12 +20487,12 @@ function wfTrendSvg(M){
 }
 function wfCsv(){ try{ const g=RC._wfGroup||[], D=wfDates(); rcCsv('workforce_'+WF.by+'_'+D.start+'_to_'+D.end+'.csv',[['Group','Headcount now','At start','Hires','Separations','Turnover %','Avg tenure (yrs)']].concat(g.map(function(x){ const av=(x.s+x.e)/2; return [x.k,x.e,x.s,x.hi,x.se,av?Math.round(x.se/av*1000)/10:'',x.e?Math.round(x.ten/x.e*10)/10:'']; }))); }catch(e){ console.error(e); } }
 
-// ══ INSURANCE CATALOGUE (Homebase Settings, Super Admin, in progress — Nov 2026) ══
+// ══ INSURANCE CATALOGUE (Homebase Control Panel, Super Admin, in progress — Nov 2026) ══
 // Practice REVENUE per CPT code (what payers reimburse APP) — not clinician pay. Stored in payrollConfig/insCatalog
 // (Super Admin only): {codes:[{cpt,desc,avg}], payers:[{id,name,notes,rates:{cpt:amount}}], updatedAt, updatedBy}.
 // `avg` is the average used for projections; per-payer rates are what we know some payers pay, and the table shows
 // their average beside it. Seeded with APP's average reimbursement by CPT code.
-// ── Benefits & premiums (Homebase Settings → Billing & payroll, Super Admins) — Nov 16 2026 ──
+// ── Benefits & premiums (Homebase Control Panel → Billing & payroll, Super Admins) — Nov 16 2026 ──
 // payrollConfig/benefitPlans = {types:[{k,l}], plans:[{id,type,name,prem:{ee,es,ec,fam} (monthly $),notes}],
 //   share:{typeKey:{full:%,part:%,basis:'plan'|'ee'}}, updatedAt, updatedBy, history:[{at,by,note}]}
 // Each employee's enrollment lives in COMP_DATA[id].ben = {typeKey:{plan:id|'waived'|'', tier:'ee'|'es'|'ec'|'fam'}}
@@ -20592,7 +20592,7 @@ async function insRender(el){
     const D=INS.draft, P=D.payers||[];
     const inp=function(val,on,w,ph){ return '<input value="'+hesc(val==null?'':val)+'" oninput="'+on+'" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d1d5db;border-radius:7px;width:'+(w||'90px')+'"'+(ph?' placeholder="'+hesc(ph)+'"':'')+'>'; };
     let h='<div class="hbm-head"><div><b>Insurance Catalogue <span style="font-size:11px;font-weight:800;color:#8a5208;background:#fdefdc;border-radius:999px;padding:2px 9px;vertical-align:2px">In progress</span></b>'
-      +'<div class="hbm-sub">What payers reimburse the practice for each CPT code. The <b>average</b> column drives the Projected Revenue report (Report Center, Super Admins only). Add payers and what they pay as you learn them — their average shows beside each code. This is practice revenue, not clinician pay.</div></div>'
+      +'<div class="hbm-sub">What payers reimburse the practice for each CPT code. The <b>average</b> column drives the Projected Revenue report (Insights & Reports, Super Admins only). Add payers and what they pay as you learn them — their average shows beside each code. This is practice revenue, not clinician pay.</div></div>'
       +'<div style="display:flex;gap:8px;align-items:center"><span class="pill '+(INS.dirty?'warn':'good')+'" id="ins-pill">'+(INS.dirty?'Unsaved changes':'Saved')+'</span><button class="btn btn-secondary" onclick="insAddPayer()">+ Add payer</button><button class="btn btn-primary" id="ins-save" onclick="insSave()"'+(INS.dirty?'':' disabled')+'>Save</button></div></div>';
     h+='<div style="overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:6px 10px"><table class="rc-t" style="min-width:'+(640+P.length*120)+'px"><thead><tr><th class="l">CPT</th><th class="l">Service</th><th>Average reimbursement</th><th>Known payers’ average</th>'
       +P.map(function(p,i){ return '<th style="min-width:110px">'+inp(p.name,'insPayerName('+i+',this.value)','100px','Payer name')+'<div><button class="hcal-link del" style="font-size:11px" onclick="insDelPayer('+i+')">remove</button></div></th>'; }).join('')+'<th></th></tr></thead><tbody>'
@@ -20630,7 +20630,7 @@ async function insSave(){
   }catch(e){ console.error(e); showToast('⚠ Could not save'); }
 }
 
-// ══ PROJECTED REVENUE (Report Center, Super Admin) ══
+// ══ PROJECTED REVENUE (Insights & Reports, Super Admin) ══
 // Estimated revenue = each counted Valant appointment's CPT code × its average reimbursement from the Insurance Catalogue
 // (logged group sessions: attendees × the 90853 rate; attendees = clinical credit ÷ the group factor). Codes with no CPT
 // or no rate earn nothing and are listed. Projection: actual for the selected dates + run rate (average of the last
@@ -20697,7 +20697,7 @@ function rcRevHtml(){
     RC._revCpt=CL.map(function(c){ return [c.k,descOf(c.k),c.n,c.u,rate[c.k],Math.round(c.v*100)/100]; });
     h+='<div class="rc-g2"><div class="rc-c">'+rcHead('By site','Estimated revenue by site',rcTags())+'<div style="margin-top:12px">'+rcHBars(Object.keys(R.bySite).map(function(k){ return R.bySite[k]; }).sort(function(a,b){ return b.v-a.v; }).map(function(x){ return {label:x.label,v:Math.round(x.v),sub:x.n+' appts'}; }),{narrow:1,unit:'',color:'#122B67'})+'</div></div>'
       +'<div class="rc-c">'+rcHead('By clinician','Top clinicians by estimated revenue',rcTags())+'<div style="margin-top:12px">'+rcHBars(Object.keys(R.byPer).map(function(k){ return R.byPer[k]; }).sort(function(a,b){ return b.v-a.v; }).slice(0,12).map(function(x){ return {label:x.label,v:Math.round(x.v)}; }),{narrow:1,unit:'',color:'#18A9B6'})+'</div></div></div>';
-    h+='<div class="muted" style="font-size:11.5px">Estimates use the Insurance Catalogue average for each CPT code (Homebase Settings → Insurance Catalogue), not actual payments, so they don’t reflect denials, copays, write-offs or payer mix. Projection = average weekly revenue over the last 8 weeks with Valant data × the weeks ahead. Super Admins only.</div>';
+    h+='<div class="muted" style="font-size:11.5px">Estimates use the Insurance Catalogue average for each CPT code (Homebase Control Panel → Insurance Catalogue), not actual payments, so they don’t reflect denials, copays, write-offs or payer mix. Projection = average weekly revenue over the last 8 weeks with Valant data × the weeks ahead. Super Admins only.</div>';
     return h;
   }catch(e){ console.error(e); return '<div class="ppu-card">⚠ Projected Revenue couldn’t load.</div>'; }
 }
@@ -20738,7 +20738,7 @@ async function rcEnsure(body,tabs){
 // Speed (Nov 2026): the counted lines of each pay period are saved as one summary doc
 // (payrollConfig/rcLines_<pp>, Super Admin only like the rest of payrollConfig) with a fingerprint of everything
 // that feeds them — upload, status/version, corrections, rules in effect, provider links, logged groups. If the
-// fingerprint still matches, Report Center reads that one doc instead of every Valant row + re-running payroll math.
+// fingerprint still matches, Insights & Reports reads that one doc instead of every Valant row + re-running payroll math.
 function rcHash(str){ let h=2166136261>>>0; str=String(str||''); for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h.toString(36)+'_'+str.length.toString(36); }
 function rcSig(id){
   try{ const p=PPU.periods[id]||{}, pp=ppuPP(id);
@@ -20932,11 +20932,11 @@ function rcFacSite(fac){
   const byName=officeSitesAll().find(function(x){ const n=String(obSiteName(x[0])||'').toUpperCase(); return n&&(u.indexOf(n)>=0||n.indexOf(u)>=0); }); return byName?byName[0]:'';
 }
 async function rcSetFac(fac,v){ RC.facMap=RC.facMap||{}; RC.facMap[fac]=v; try{ await window.storage.set('app_rc_facmap',JSON.stringify(RC.facMap)); }catch(e){ showToast('⚠ Could not save'); } renderReportCenter(); }
-// ══ OFFICE UTILIZATION (Report Center) ═════════════════════════════════════════════════════════
+// ══ OFFICE UTILIZATION (Insights & Reports) ═════════════════════════════════════════════════════════
 // Two parts: a LIVE view (right now / today, straight from Office Bookings) and a HISTORICAL record.
 // History: every past day is frozen into kv/app_office_hist_YYYY_MM {days:{iso:{at,sites:{SITE:{open,close,
 // openDay,rooms:[{id,name}],occ:[{id,room,sid,name,start,end,kind}]}}}}} — written by an Admin's visit to
-// Report Center or Office Bookings (backfilling every missing day up to yesterday). Bookings themselves are
+// Insights & Reports or Office Bookings (backfilling every missing day up to yesterday). Bookings themselves are
 // never deleted once they've started (removing a weekly booking ends it; past one-offs stay), so a late
 // backfill is still accurate. Frozen days keep the office names, hours and bookings as they were.
 // Occupancy = booked office-hours ÷ available office-hours (offices × open hours on open days).
@@ -21132,7 +21132,7 @@ function rcOfficeRecs(sites,sa,DD,lines,byPD,inPerson,hasData){
 async function rcRecEnd(id){
   try{ const b=(OB.list||[]).find(function(x){ return x.__id===id; }); if(!b||!window.officeStore) return;
     if(!confirm('End '+(b.name||'this')+'’s weekly booking ('+OB_DOW[+b.dow]+'s '+obRange(b.start,b.end)+' at '+obSiteName(b.site)+') as of today? Past days stay in the history.')) return;
-    const me=obMe(); if(!(await window.officeStore.update(id,{until:obAdd(ofhToday(),-1),endedBy:(me&&me['Clinician'])||'',endedAt:new Date().toISOString(),endedNote:'Freed up from Report Center'}))){ showToast('⚠ Could not end the booking'); return; }
+    const me=obMe(); if(!(await window.officeStore.update(id,{until:obAdd(ofhToday(),-1),endedBy:(me&&me['Clinician'])||'',endedAt:new Date().toISOString(),endedNote:'Freed up from Insights & Reports'}))){ showToast('⚠ Could not end the booking'); return; }
     try{ await obLoad(true); }catch(e){} showToast('Booking ended — the office is free from today'); renderReportCenter();
   }catch(e){ console.error(e); }
 }
@@ -21329,8 +21329,8 @@ var HB_TOUR_STEPS=[
   ['#nav-meetings','Meeting & Admin Time','Log meetings, admin time and group sessions so payroll can pay them.'],
   ['#nav-paysnap','Pay Period Snapshot','After each payroll closes: the clinical hours you were credited and what was paid, by pay period.'],
   ['#nav-roster','Roster','Everyone’s employee file — profiles, credentials, alerts and capacity.'],
-  ['#nav-report-center','Report Center','Clinical hours analysis, sessions & peak times, and office utilization.'],
-  ['#nav-admin','Homebase Settings','Alerts, news, events, offices, roles & permissions and more.'],
+  ['#nav-report-center','Insights & Reports','Clinical hours analysis, sessions & peak times, and office utilization.'],
+  ['#nav-admin','Homebase Control Panel','Alerts, news, events, offices, roles & permissions and more.'],
   ['#nav-ppu','Payroll Processing','Upload Valant, approve time, close the pay period and download the Paychex CSV.']
 ];
 var HBT={i:0,steps:[],mode:'menu'};
