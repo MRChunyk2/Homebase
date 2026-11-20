@@ -2883,6 +2883,8 @@ async function polRender(body,tabs){
     body.innerHTML=tabs+'<div class="hs-none" style="padding:24px">Loading policies…</div>';
     await polLoad();
     let h=tabs+polCss();
+    // an open document belongs to its own tab (Nov 20): if it isn't this tab's, show this tab's list instead
+    try{ if(POL.open){ const op=(POL.list||[]).find(function(x){ return x.id===POL.open; }); const pg=op?polPageOf(op):null; if(op&&(pg==='howto'?'chowto':pg)!==LIB_CAT) POL.open=null; } }catch(e){}
     if(POL.open){ h+=await polDocHtml(POL.open); body.innerHTML=h; polAfterRender(); return; }
     body.innerHTML=h+polListHtml(LIB_CAT==='hpol'?'hpol':LIB_CAT==='chowto'?'howto':'pol');
   }catch(e){ console.error(e); body.innerHTML=tabs+'<div class="ppu-card">⚠ Couldn’t load policies.</div>'; }
@@ -3473,7 +3475,8 @@ async function renderLibrary(){
     +'<div style="font-size:12px;color:#888;background:#e8f6f8;border:1px solid #dbe3fa;border-radius:11px;padding:10px 14px;margin-bottom:14px;line-height:1.55">This is the practice’s living reference. '+cat.hint+' It’s always the current version; every change is tracked with who, when, and what changed.</div>'
     +list;
 }
-function libSwitch(k){ LIB_CAT=k; LIB_OPENID=null; LIB_EDIT=false; LIB_BOOKVIEW="read"; renderLibrary(); }
+function libSwitch(k){ LIB_CAT=k; LIB_OPENID=null; try{ POL.open=null; POL.adm=null; }catch(e){}   // a document open on one tab must not follow you to another
+  LIB_EDIT=false; LIB_BOOKVIEW="read"; renderLibrary(); }
 function libOpen(id){ LIB_OPENID=id; LIB_EDIT=false; LIB_LOG=false; renderLibrary(); }
 function libBack(){ LIB_OPENID=null; LIB_EDIT=false; renderLibrary(); }
 function libNew(){ LIB_OPENID="__new"; LIB_EDIT=true; renderLibrary(); }

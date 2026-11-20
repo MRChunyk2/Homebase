@@ -933,3 +933,5 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - **Report Center → Insights & Reports** and **Homebase Settings → Homebase Control Panel** everywhere they show (nav, page titles,
   tour, links, help text). Page ids (`report-center`, `admin`) and code names (`rc*`, `hbm*`) are unchanged. Older notes in this file
   still use the old names.
+- Nov 20: Handbook & Manuals fix — switching tabs while a document was open kept showing that document (POL.open survived the tab
+  change). `libSwitch` now clears `POL.open`/`POL.adm`, and `polRender` drops an open document that doesn't belong to the current tab.
