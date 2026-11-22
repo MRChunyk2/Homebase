@@ -935,3 +935,129 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   still use the old names.
 - Nov 20: Handbook & Manuals fix — switching tabs while a document was open kept showing that document (POL.open survived the tab
   change). `libSwitch` now clears `POL.open`/`POL.adm`, and `polRender` drops an open document that doesn't belong to the current tab.
+
+## Nov 22 2026 — Capacity Dashboards fill from uploaded (not yet closed) pay periods
+- Before: clinical hours reached the Capacity Dashboard only when a pay period was CLOSED (`ppuWriteCapacity` at close).
+- Now: every open pay period of the capacity year that has a Valant upload is computed exactly like Payroll Processing and its hours
+  are written as PROVISIONAL (`capProvWrite`, `capSyncOpenPeriods`; marker `CLINICAL_HOURS_DATA.prov[idx]`). It runs 1.5 s after
+  Payroll Processing computes an open period (upload, links, corrections, approvals), once per sign-in for people who can manage
+  Payroll Processing, and from Capacity Dashboard → 🗓 Pay periods → "↻ Update from uploaded pay periods". Closing replaces them
+  (prov cleared). Pay-period rows show "NOT CLOSED YET".
+- Safety: `capLoadPersistedHours` / `capLoadPersistedGroupHours` no longer write the empty built-in copy to Firestore when a read
+  fails (that could erase everyone's hours), and `ppuWriteCapacity` re-reads the saved hours before writing.
+- flows.js: the office-booking flow now books in next week (this week's cell could be in the past).
+
+## Nov 22 2026 — Capacity changes: tier change, notes, part-time → full-time ramp
+- Change capacity dialog (`capDlgBody`) has **Capacity tier** (current tier + "New tier" select; a different tier = tier change,
+  also sets the profile's Capacity Tier) and a **Note** (≤400 chars). Saved on that `_capHist` entry: `tier`, `tierOld`, `note`,
+  `ramp`, `by`, `at` (`capDlgSave`). Lists show them (`capHistExtra`); the dashboard's "goal is adjusted" banner (`capAdjustNotes`)
+  lists each change with its tier change, ramp and note — seen by the clinician, their leaders and admins.
+- **Part-time → full-time ramp:** Part Time/Fractional → Full Time/Salary with more hours (`capTierRamps`) gets a 60-day ramp from the
+  start date (`CAP_TIER_RAMP_DAYS`): days 1–30 = old + ½ of the increase, 31–60 = old + ¾, full from day 61 (`capWeeklyAt`, entry
+  `ramp:{old,days}`). The dialog shows the steps and the goal effect includes them (`capEfEffect(..., newTier)`). Other increases take
+  effect immediately. Not applied to "From the start" (starting capacity — the new-hire ramp covers that).
+- Nov 22: Leave in the dashboard notes — each leave now reads like "Leave of absence 8/24 – 10/4 (6 weeks): no clinical hours are expected on
+  leave days, so the goal line stays flat during the leave and this year's goal is N hrs lower than it would have been. Note: “…”"
+  (`capLeaveNoteText`; N = the day goals the leave removed within the capacity year). Leaves can carry an optional note (≤200 chars,
+  `_leaves[].note`) from the Leave of absence window or the edit form (`#ef-leavenote`); the UI asks to keep it general (no medical details).
+- Nov 22: My Homebase → Your Site & Emergency is smaller: emergency numbers fold into one line (label · 911 · Show ▸; open/closed
+  remembered in localStorage `hb_em_open`; `homeEmergencyCollapsed` wraps `homeEmergencyInner`, site picker still inside). The panic
+  button stays visible. **My office** (this week's bookings, Book an office, Calendar) moved into this card (`homeOfficeSecHtml`, same
+  `#home-ob` loader); the separate My office card beside the capacity card is gone (`homeCapRowHtml`).
+- Nov 22 (later): **🚨 Emergency & Safety page** (page `safety`, nav under My Homebase, open to everyone; `safetyPageRender`/`safetyPaint`):
+  red 911 + panic-button banner, emergency numbers card with site picker (`safetyNumbersHtml`, `SAFETY.site`: 911, site police/fire,
+  crisis lines, leadership on call, address), and tabs Panic buttons · Office Safety Policy (editable with Site safety = Manage) · Crisis
+  guide (the old Crisis & Safety page's Clinical Response Guide, `#crisis-proto`, `safetyCrisisHtml`). `showPage('crisis')` redirects
+  here; `safetyOpen(tab)` now opens this page (the popout is retired). Your Site & Emergency widget shows one line instead
+  (`homeEmergencyLine`: 🚨 Emergency · 911 · "Emergency & safety page →"); `homeEmergencyCollapsed` is unused.
+- Nov 22: Locations (Homebase Control Panel) buttons renamed for clarity — **+ Add location**, **Change**, **Deactivate…** / **Reactivate**
+  (same `locEdit` / `locClose` / `locReopen`). Open locations with no offices (e.g. RSTI) get **＋ Add offices** (`locEdit(code,true)`
+  focuses "Offices for booking"); saving creates Office 1..N in kv app_office_rooms, which gives the site its Office Bookings calendar.
+
+## Nov 22 2026 — Group control panel + Meeting & admin time settings ⚠ rules
+- Homebase Control Panel → new side-menu group **Groups & meetings** (Meeting & Admin Time = Manage under new permissions; Admins in
+  the old roles):
+  - **👪 Group control panel** (`hbmRenderGroups`, list + edit modal `grpEdit`/`grpSave`/`grpDelete`): kv `app_groups` {items:[{id,name,
+    code (Service Code Workbook group code), status active|paused|ended, site, format, dow (0=Mon), start, startDate, endDate, leaders:[sid],
+    notes}]}. Filters Active/Paused/Ended/All + site. "Current" = active and today inside its dates (`grpIsCurrent`, `grpCurrent`).
+  - **🕒 Meeting & admin time settings** (`hbmRenderMtgSet`, `recmEdit`/`recmSave`/`recmDelete`): kv `app_mtg_recurring` {items:[{id,name,
+    type (a CONFIG.meetingTypes label → pay rate), sched (text), start, mins, teams:[] (empty = everyone), status active|inactive}]}.
+- Meeting & Admin Time page now has two tabs (`MTG_TAB`, `mtgTabsHtml`): **👪 Log a group I led** (group-session type only, auto-selected;
+  "Group" is a dropdown of ALL current groups + "Other (not listed)" — `mtgGroupSelHtml`/`mtgGroupPicked` fill the service code and usual
+  start time) and **🕒 Meetings & admin time** (all other types). Group prep & admin also picks from current groups. Choosing a kind of time
+  that has recurring meetings shows "Which meeting?" (`mtgRecmPaint`/`mtgRecmPicked`: fills start + length). The chosen group / meeting
+  name is saved in the entry's existing `group` field (no new key — meetings rule caps fields at 20). Editing an entry opens the right tab.
+- firestore.rules: `kvArea` maps app_groups / app_mtg_recurring → 'mtg' (Manage writes). **Rules deploy needed.**
+- flows.js: group-session flow uses the new tab + "Other".
+- Nov 22 (later): "Log a group I led" simplified — service code is only **In person · 90853 (G 90853)** or **Virtual · 90853 (GV 90853)**
+  (two buttons, `mtgSetGCode`, hidden `#mtg-gcode`), plus Attended, plus **Date only** (no start/length; the entry stores the group's usual
+  start time from the Group control panel if it has one, else none; always 60 min). Group control panel: no code picker — "In person or
+  virtual" sets the code (`grpCodeOf`); blank = the leader picks each time. `mtgClock('')` returns ''.
+- Nov 22 (later): Meeting & Admin Time form redesigned (Michael picked "form + summary card", both tabs): fields in a two-column grid on
+  the left (`mtgFormCss`, `.mf-*`), a sticky "You're logging" card on the right with the live summary (`mtgDurPreview` → `mtgSumCard`
+  rows; missing items in amber) and the Submit buttons. Groups: Group · Date · Clients who attended (−/+ stepper, `mtgHcStep`) · In person /
+  Virtual segmented (90853) · note. Meetings: "Kind of time" is a dropdown (`#mtg-type`, `mtgPickTypeSel`; `mtgCurType` reads it first) with
+  its description under it · Which meeting? · Which group? (prep) · Date · Start time · How long chips · note. Today/Yesterday chips removed.
+
+## Nov 22 2026 — Capacity Dashboard detail redesign (Michael picked option 1 of capacity-options-4) ⚠ rules
+- `capDrillHTML` layout (`.cdx-*`, `capCdxCss`): top row = attainment ring + text | the "hours to add" catch-up callout; full-width chart
+  card with a **View** dropdown (`capViewSet`, `CAPV.view`): Year to date (the existing cumulative chart with its quarter/year-end/actual
+  data labels) · Over/under by pay period (diverging bars from `capPeriodRows`, value labels, leave bars, click → `prOpenSheetForPP`) ·
+  No-shows (stacked charged 11111 / not charged 11112 per pay period, bar height = rate, dashed practice average) · Groups (90853 count)
+  · Session types (individual / couples-family / groups). Then a quarters row (goal vs actual; current quarter = quarter to date), then
+  tabs (`capTabSet`): Sessions & clients (pie + sessions-by-heading + the old hours breakdown) · No-shows & notes (explicit sentences vs
+  site and practice averages, charged vs not charged) · How your goal is figured (`capAdjustBannerHtml` + admin Capacity adjustments,
+  moved out of the detail header) · Pay period table. Graph notes at the bottom.
+- Session kind (`capLineKind`): group = 90853 / "G "/"GV " codes / logged groups / group headings; couples = 90846, 90847, COUPFAM codes or
+  Couples/Family headings; everything else individual. No-shows and supervision are left out of session counts.
+- Data: `capVLoad(sid)` reads the person's latest ppu payStatements per pay period (so the extra views and tabs show for the clinician,
+  leaders with Pay Period Snapshot access to that person, and Super Admins; others see a short explanation) + kv app_practice_stats
+  (practice + bySite[Team]). Cache `CAPV.data[sid]`.
+- **Graph notes:** Firestore `capNotes/{id}` {sid, by, byName, date, text ≤400, vis 'all'|'lead', at} via `window.capNoteStore`
+  (`capNotesLoad`, `capNoteAdd`, `capNoteDel`). Writers: the clinician (always 'all'), their leaders (Capacity Dashboard view of that
+  person) and admins, who choose "Everyone who sees this dashboard" or "Leaders & admins only". Delete: author or admin. No edits.
+  firestore.rules: new `capNotes` match + `capLead(sid)`. **Rules deploy needed.**
+- Nov 22 (later): Sessions & clients pie restored to the approved mockup — five slices (`capLineKind5`, `CAP_K5`): Individual 60 min
+  (90837) · Individual 45 min (90834) · Family / couples · Groups (90853, with session count) · Intake & other; right side = sessions this
+  year, individual/family credit hrs and group credit hrs (sum of statement `clin`, stored in hundredths). The chart's View dropdown has a
+  pulsing orange "NEW ⟶" tag + orange border until `CAP_VIEW_NEW_UNTIL` ('2026-12-22'; `capViewNewOn`) — it disappears on its own.
+- Nov 22 (later): Clicking a pay period on the Capacity Dashboard (cumulative chart dot, over/under bar, or a row of the pay period table)
+  no longer opens Payroll Processing / the pay sheet. It shows a small popover next to the click (`capPPAsk`, `#cap-ppask`; Esc / click
+  outside / "Not now" closes; positions divide by the body zoom) asking to go to the **Pay Period Snapshot**; "View snapshot →"
+  (`capPPGo`) opens that person's snapshot on that pay period (`paySnapGo(sid,start,end)`) with `PSNAP.fromCap` set → a teal
+  "← Back to the Capacity Dashboard" bar at the top of the snapshot; back (`paySnapToCapacity`) restores the chart view (`CAPV.view`).
+  The snapshot's dashboard button now reads "← My/Their Capacity Dashboard". `showPage` clears `PSNAP.fromCap` when leaving the snapshot.
+  `prOpenSheetForPP` is no longer called from the dashboard (kept).
+- Nov 22 (later): "Hours by service type" card removed from the Capacity Dashboard detail (Sessions & clients tab = pie + sessions-by-
+  heading only; the `breakdown` const in capDrillHTML is now unused). Details tabs are highlighted: "Details · Pick a tab to see more"
+  header + a light-navy tab bar of four equal buttons, active = navy (`.cdx-dhead`, `.cdx-tabs`, `.cdx-tab`; 2×2 under 760px).
+- Nov 22 (later): **Year-to-date chart restyled to the approved mockup** (same builder in `capDrillHTML`, same hover/click): 1000×400,
+  legend on top (actual · goal pace · quarter goal vs actual · 📌 note), month names + light vertical month lines (no y-axis, no quarter
+  bands, no PP numbers), green/status-colour actual line (4px, per-period dots hidden until hovered), dashed goal pace, navy dots on
+  finished quarters' goals with "Q1 goal N" and a status dot "Actual N (x%)" (higher label up-left, lower down-right), "Year-end goal N",
+  "Now N · goal G" at the last closed pay period, shaded "on leave" bands from `_leaves`, and 📌 pins at graph-note dates
+  (`capPinsPaint`, layer `.cdx-pins`, svg data-padl/plotw/piny). maxY = max(annual, ytd) × 1.12.
+- Details tabs are now five: Sessions & clients · No-shows · Notes (note completion: signed after 24 hrs and avg days to sign vs practice,
+  `#cdx-nc`, filled by `capNsPane`) · How your goal is figured · Pay period table.
+- Nov 22 (later): Graph notes from the chart — "📌 Add a note to this graph" button in the chart's legend row and "📌 Add a note for this
+  pay period" in the pay-period popover (`capNoteJump(iso)` scrolls to the notes form, pre-fills the date, focuses the text; people who
+  can't write notes get a toast). Chart colour now follows the attainment score (same as the ring). Year-end label moves clear of the
+  Now dot. Preview build: Sample Therapist has a sample leave (PP 18–20, no hours) and three sample graph notes.
+- Nov 22 (later): Clicking a 📌 pin on the year-to-date chart opens the note in a popover next to the pin (`capPinOpen`, reuses
+  `#cap-ppask` and its close handlers; date, text, author, who sees it; "Remove note" for the author / Super Admins). Pins are keyed in
+  `CAPV.pins` by `capPinsPaint`; their click stops propagation so it doesn't open the pay-period popover.
+- Nov 22 (later): **No-shows and Notes tabs redesigned** (Michael: the sentence + tile layout was hard to read). Each tab = two cards
+  (`.cdx-kg`/`.cdx-kc`): No-shows → "No-show rate" (verdict chip `capVerdict` — Better than / About / Higher than average, lower is
+  better; big number + "N no-shows out of M appointments"; comparison bars You / site / practice via `capKBars`) and "When a client
+  no-shows" (one split bar charged 11111 teal / not charged 11112 orange with a practice-% marker, then two labelled rows: paid 1 FFS hour /
+  not paid). Notes → "Notes signed more than 24 hours after the session" and "Average time to sign a note", same card pattern.
+- Nov 22 (later): No-shows charged card now reads as the person's own data: "When your clients no-show" with a chip (About the same as the
+  practice / You charge more / less often), two labelled split bars — **You** (bold, with %) and **Practice** (lighter) — via
+  `capSplitRow`, and rows "N of your M no-shows were charged / not charged". First card titled "Your no-show rate".
+- Nov 22 (later): No-shows tab gets a full-width card **"Your clinical hours: in person vs virtual"** (`capDelCard`): one split bar +
+  hours and % in person / virtual / not marked. Each statement line's clinical credit is tallied by delivery (`capLineDel`): the Service
+  Code Workbook's `delivery` (now included in the staff-readable kv app_code_guide by `ppuPublishGuide`; `PPU_SEED` as fallback,
+  `capDelGuide` caches the map), else the code/description (GV… / "virtual" = virtual, G… / "in person" = in person), else "not marked".
+  Re-saving Payroll Settings republishes the guide with delivery.
+- Nov 22 (later): the in person vs virtual card moved to the **Sessions & clients** tab (under the pie card; `capSessPane` appends
+  `capDelCard(t)`); the No-shows tab is back to its two cards.

@@ -451,6 +451,25 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Capacity Dashboard graph notes (Nov 22 2026): {sid, by, byName, date, text, vis 'all'|'lead', at}.
+    // Write: the clinician on their own dashboard, their leaders (Capacity Dashboard view of that person) and admins.
+    // Read: the author and admins always; vis 'all' = everyone who sees that dashboard (incl. the clinician);
+    // vis 'lead' = leaders & admins only (never the clinician). Delete: the author or admins. No edits.
+    function capLead(sid) { return isAdmin() || pvFor('cap', 1, sid) || isOldSupervisor(); }
+    match /capNotes/{nid} {
+      // (written so the app's two queries are provable: leaders query sid == X; the clinician queries sid == me AND vis == 'all')
+      allow read: if isDomain() && (isAdmin()
+        || (resource.data.sid != myStaffId() && capLead(resource.data.sid))
+        || (resource.data.sid == myStaffId() && resource.data.vis == 'all'));
+      allow create: if isDomain() && request.resource.data.by == myStaffId()
+        && request.resource.data.keys().hasOnly(['sid','by','byName','date','text','vis','at'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 400
+        && request.resource.data.vis in ['all','lead']
+        && (request.resource.data.sid == myStaffId() ? request.resource.data.vis == 'all' : capLead(request.resource.data.sid));
+      allow update: if false;
+      allow delete: if isDomain() && (resource.data.by == myStaffId() || isAdmin());
+    }
+
     // Performance reviews (annual + 6-month check-in). The therapist and
     // their assigned reviewer read and write their own review; admins (HR)
     // manage all of them. Creation/deletion is HR's (window generation).
@@ -480,7 +499,8 @@ service cloud.firestore {
         : {'app_config': 'loc', 'app_events': 'cal', 'app_news': 'news', 'app_practice_alerts': 'pnot',
            'app_office_rooms': 'obs', 'app_office_cfg': 'obs', 'app_safety_doc': 'safety', 'app_perm_v2': 'perm',
            'app_rc_facmap': 'rc', 'app_code_guide': 'ppu', 'app_practice_stats': 'ppu', 'app_team_stats': 'ppu',
-           'app_recruit': 'rec', 'app_comp_checklist': 'npd', 'app_comp_data': 'comp'}.get(key, '');
+           'app_recruit': 'rec', 'app_comp_checklist': 'npd', 'app_comp_data': 'comp',
+           'app_groups': 'mtg', 'app_mtg_recurring': 'mtg'}.get(key, '');
     }
     match /kv/{key} {
       // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)

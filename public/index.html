@@ -848,6 +848,7 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
       <button class="nav-item" id="nav-intake-profile" data-page="intake-profile" onclick="showPage('intake-profile',this)"><span class="nav-icon">🗂</span>Clinical Profile for Intake</button>
       <button class="nav-item" id="nav-offices" data-page="offices" onclick="showPage('offices',this)"><span class="nav-icon">🚪</span>Office Bookings<span class="nav-badge nav-badge-red" id="offices-badge" style="display:none"></span></button>
       <button class="nav-item" id="nav-clin-policies" data-page="clin-policies" onclick="showPage('clin-policies',this)"><span class="nav-icon">📘</span>Handbook &amp; Manuals</button>
+      <button class="nav-item" id="nav-safety" data-page="safety" onclick="showPage('safety',this)"><span class="nav-icon">🚨</span>Emergency &amp; Safety</button>
     </div>
     <div class="nav-sec"><div class="nav-sec-label">Clinical Corner</div>
       <button class="nav-item" id="nav-capacity" data-page="capacity" onclick="showPage('capacity',this)"><span class="nav-icon">📈</span>Capacity Dashboard</button>
@@ -1115,7 +1116,7 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
         <!-- Populated from CONFIG.crisisContacts (Firestore) by renderCrisisNumbers() -->
         <div id="crisis-numbers-grid" style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
       </div>
-      <div style="background:#fff;border-radius:14px;border:1px solid #e5e5e5;overflow:hidden">
+      <div id="crisis-proto" style="background:#fff;border-radius:14px;border:1px solid #e5e5e5;overflow:hidden">
         <div style="background:#f9f8f7;padding:12px 18px;border-bottom:1px solid #e5e5e5"><div style="font-size:13px;font-weight:700">📋 Clinical Response Guide</div></div>
         <div style="padding:16px 20px;font-size:13px;color:#555;line-height:1.8">
           <strong>Imminent Safety Risk:</strong><br>
@@ -1129,6 +1130,9 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
     </div>
   </div>
 
+
+  <!-- EMERGENCY & SAFETY (Nov 22 2026): numbers + panic buttons + safety policy + crisis guide in one page -->
+  <div class="page" id="page-safety" style="overflow-y:auto;background:#f5f6f8"><div id="safety-page"></div></div>
 
   <!-- PLACEHOLDER PAGES -->
   <div class="page" id="page-home" style="overflow-y:auto;background:#e9edf4">
@@ -6534,9 +6538,12 @@ function renderMeetings(){
     mtgCss();
     const v=mtgWho(), cur=appPPCurrentIdx(), allowed=mtgAllowedPPs(), pp=ALL_PPS[cur];
     if(MTG_VIEW_PP===null||allowed.indexOf(MTG_VIEW_PP)<0) MTG_VIEW_PP=cur;
-    const open=mtgSelfOpen(), types=mtgTypesFor(v);
-    const E=MTG_EDIT||MTG_KEEP||{};
-    const selType=E.type&&types.some(function(t){ return t.label===E.type; })?E.type:'';
+    const open=mtgSelfOpen(), E=MTG_EDIT||MTG_KEEP||{};
+    // Two separate tabs (Nov 22): groups you led vs meetings & admin time
+    if(E.type){ const et=mtgTypeOf(E.type)||{}; MTG_TAB=et.isGroup?'grp':'mtg'; }
+    const typesAll=mtgTypesFor(v), types=typesAll.filter(function(t){ return MTG_TAB==='grp'?!!t.isGroup:!t.isGroup; });
+    let selType=E.type&&types.some(function(t){ return t.label===E.type; })?E.type:'';
+    if(!selType&&MTG_TAB==='grp'&&types.length===1) selType=types[0].label;
     const lo=ALL_PPS[allowed[0]]?mtgPPiso(ALL_PPS[allowed[0]].start):'', hi=pp?mtgPPiso(pp.end):'';
     const today=mtgPPiso(new Date()), dflt=E.date||(today>=lo&&today<=hi?today:hi);
     let h='<div class="me-hero"><div><h2>'+(pp?hesc(pp.label):'This pay period')+'</h2><div class="sub">'+(pp?hesc(pp.range)+' · ':'')+'enter your time before this pay period ends</div></div>'
@@ -6546,41 +6553,44 @@ function renderMeetings(){
     if(!open){
       h+='<div class="me-h">Log your time</div><div role="note" style="background:#eef2fa;border:1px solid #c9d3ea;border-radius:10px;padding:13px 15px;font-size:13.5px;line-height:1.55;color:#122B67;margin-top:8px"><b>Opens '+hesc(mtgSelfOpensLabel())+'.</b> Until then, payroll is entering meeting and admin time for you — there’s nothing you need to do. Starting that day you’ll log your own time here.</div>';
     } else {
-      h+='<div class="me-h">'+(MTG_EDIT?'✏️ Edit entry':'Log your time')+'</div><div class="muted" style="font-size:12.5px">Submitting as <b>'+hesc(v['Clinician']||'')+'</b>. You can log time for the current and previous pay period; for anything older, '+mtgHrContact()+'.</div>'
-        +'<div class="me-step">1 · What kind of time?</div><div class="me-list">'
-        +types.slice().sort(function(x,y){ return (x.order||9)-(y.order||9); }).map(function(t){ return '<button type="button" class="me-type'+(t.label===selType?' on':'')+'" data-type="'+hesc(t.label)+'" onclick="mtgPickType(this)">'
-          +'<span class="ic">'+(t.icon||'🕒')+'</span><span class="tx"><b>'+hesc(t.short||t.label)+'</b><span class="d">'+hesc(t.ex||t.desc||'')+'</span></span><span class="r">'+hesc(mtgRateTxt(t))+'</span><span class="ck">✓</span></button>'; }).join('')+'</div>'
-        +'<div id="me-group" style="display:'+((mtgTypeOf(selType)||{}).askGroup?'block':'none')+';margin-top:10px"><input id="mtg-group" class="me-in" style="width:440px;max-width:100%" value="'+hesc(E.group||'')+'" placeholder="Which group? (optional — e.g. DBT Skills, Tuesday)"></div>'
-        +'<div id="me-grp" class="me-grp" style="display:'+((mtgTypeOf(selType)||{}).isGroup?'block':'none')+'">'
-          +'<div class="me-grpnote">ℹ️ Valant can’t export group sessions, so log each group you run here. Payroll approves it before it’s paid.</div>'
-          +'<div class="me-row"><label style="flex:1;min-width:200px">Group name<input id="mtg-gname" class="me-in" maxlength="120" value="'+hesc(E.group||'')+'" placeholder="e.g. DBT Skills – Tuesday"></label>'
-          +'<label>Service code<select id="mtg-gcode" class="me-in" style="max-width:320px" onchange="mtgDurPreview()">'+mtgGroupCodeOpts(E.code||'')+'</select></label>'
-          +'<label>Attended<input id="mtg-ghc" class="me-in" type="number" min="0" max="60" inputmode="numeric" style="width:110px" value="'+hesc(E.headcount!=null&&E.headcount!==''?String(E.headcount):'')+'" placeholder="# attended" oninput="mtgDurPreview()"></label></div>'
-          +'<div class="me-grpnote" style="margin:8px 0 0">Count only clients <b>marked as attending</b> — don’t include no-shows or members who weren’t there. Groups are always billed as <b>1 hour</b>.</div></div>'
-        +'<div class="me-step">2 · When?</div>'
-        +(function(){ const yest=mtgPPiso(new Date(Date.now()-864e5)), inR=function(d){ return d>=lo&&d<=hi; };
-            const startOpts=(function(){ let o='<option value="">Start time…</option>', have=false; for(let m=7*60;m<=21*60;m+=15){ const v=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); if(v===E.start) have=true; o+='<option value="'+v+'"'+(v===E.start?' selected':'')+'>'+mtgClock(v)+'</option>'; }
-              if(E.start&&!have) o+='<option value="'+hesc(E.start)+'" selected>'+mtgClock(E.start)+'</option>'; return o; })();
-            const len0=E.start&&E.end?mtgMins(E.start,E.end):0, chips=[15,30,45,60,90,120,180];
-            const moreOpts='<option value="">Other…</option>'+(function(){ let o=''; for(let m=15;m<=480;m+=15){ if(chips.indexOf(m)<0) o+='<option value="'+m+'"'+(m===len0?' selected':'')+'>'+mtgLenTxt(m)+'</option>'; } return o; })();
-            return '<div class="me-when">'
-              +'<div class="me-wrow"><span class="me-wl">Day</span><div class="me-chips">'
-                +(inR(today)?'<button type="button" class="me-chip me-day" data-d="'+today+'" onclick="mtgSetDay(\''+today+'\')">Today</button>':'')
-                +(inR(yest)?'<button type="button" class="me-chip me-day" data-d="'+yest+'" onclick="mtgSetDay(\''+yest+'\')">Yesterday</button>':'')
-                +'<input type="date" id="mtg-date" class="me-in me-sm" min="'+lo+'" max="'+hi+'" value="'+hesc(dflt)+'" onchange="mtgDurPreview()" title="Another day"></div></div>'
-              +'<div class="me-wrow"><span class="me-wl">Started</span><select id="mtg-start" class="me-in me-sm" onchange="mtgDurPreview()">'+startOpts+'</select></div>'
-              +'<div class="me-wrow" id="me-grplen" style="display:'+((mtgTypeOf(selType)||{}).isGroup?'flex':'none')+'"><span class="me-wl">How long</span><span style="font-size:13px;font-weight:700;color:#122B67">1 hour — groups are always billed as one hour</span></div>'
-              +'<div class="me-wrow" id="me-lenrow" style="display:'+((mtgTypeOf(selType)||{}).isGroup?'none':'flex')+'"><span class="me-wl">How long</span><div class="me-chips">'+chips.map(function(m){ return '<button type="button" class="me-chip me-len" data-m="'+m+'" onclick="mtgSetLen('+m+')">'+mtgLenTxt(m)+'</button>'; }).join('')
-                +'<select id="mtg-more" class="me-in me-sm" onchange="if(this.value)mtgSetLen(+this.value)">'+moreOpts+'</select></div></div>'
-              +'<input type="hidden" id="mtg-len" value="'+(len0||'')+'"><input type="hidden" id="mtg-end" value="'+hesc(E.end||'')+'">'
-              +'</div>'; })()
-        +(function(){ const isG=(mtgTypeOf(selType)||{}).isGroup;
-          return '<div class="me-step">3 · <span id="me-notes-h">'+(isG?'Anything payroll should know about this group?':'Anything to add?')+'</span> <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></div>'
-          +'<input id="mtg-notes" class="me-in" style="width:100%" maxlength="500" value="'+hesc(E.notes||'')+'" placeholder="'+(isG?MTG_NOTES_PH.group:MTG_NOTES_PH.other)+'">'; })()
-        +'<div class="me-sum" id="mtg-dur">Pick the kind of time, then when it started and how long it was.</div>'
-        +'<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
-        +'<button class="btn btn-primary" onclick="mtgSubmit(false)">'+(MTG_EDIT?'Save changes':'Submit time')+'</button>'
-        +(MTG_EDIT?'<button class="btn btn-secondary" onclick="MTG_EDIT=null;renderMeetings()">Cancel</button>':'<button class="btn btn-secondary" onclick="mtgSubmit(true)">Submit &amp; add another</button>')
+      // Option C layout (Nov 22): fields on the left, a live "You're logging" card with Submit on the right — both tabs
+      const isG=MTG_TAB==='grp', st0=mtgTypeOf(selType)||{};
+      const startOpts=(function(){ let o='<option value="">Start time…</option>', have=false; for(let m=7*60;m<=21*60;m+=15){ const vv=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); if(vv===E.start) have=true; o+='<option value="'+vv+'"'+(vv===E.start?' selected':'')+'>'+mtgClock(vv)+'</option>'; }
+        if(E.start&&!have) o+='<option value="'+hesc(E.start)+'" selected>'+mtgClock(E.start)+'</option>'; return o; })();
+      const len0=E.start&&E.end?mtgMins(E.start,E.end):0, chips=[15,30,45,60,90,120,180];
+      const moreOpts='<option value="">Other…</option>'+(function(){ let o=''; for(let m=15;m<=480;m+=15){ if(chips.indexOf(m)<0) o+='<option value="'+m+'"'+(m===len0?' selected':'')+'>'+mtgLenTxt(m)+'</option>'; } return o; })();
+      const F=function(lab,inner,span,id,hide){ return '<div class="mf-f'+(span?' mf-span':'')+'"'+(id?' id="'+id+'"':'')+(hide?' style="display:none"':'')+'><span class="mf-l">'+lab+'</span>'+inner+'</div>'; };
+      const sortedTypes=types.slice().sort(function(x,y){ return (x.order||9)-(y.order||9); });
+      h+=mtgFormCss()+mtgTabsHtml()
+        +(MTG_EDIT?'<div class="mf-edit">✏️ Editing an entry — save your changes or cancel.</div>':'')
+        +(isG&&!types.length?'<div class="me-grpnote" style="margin-top:10px">Group sessions aren’t set up for your role — contact payroll.</div>':'')
+        // the kind of time: a hidden button for groups (one type), a dropdown for meetings
+        +(isG?'<div style="display:none">'+sortedTypes.map(function(t){ return '<button type="button" class="me-type'+(t.label===selType?' on':'')+'" data-type="'+hesc(t.label)+'"></button>'; }).join('')+'</div>':'')
+        +'<div class="mf-wrap"><div class="mf-grid">'
+        +(isG
+          ? F('Group',mtgGroupSelHtml('mtg-gsel','mtg-gname',st0.isGroup?(E.group||''):'',true),true)
+            +F('Date','<input type="date" id="mtg-date" class="me-in" min="'+lo+'" max="'+hi+'" value="'+hesc(dflt)+'" onchange="mtgDurPreview()">')
+            +F('Clients who attended','<div class="mf-step"><button type="button" onclick="mtgHcStep(-1)" aria-label="One fewer">−</button><input id="mtg-ghc" type="number" min="0" max="60" inputmode="numeric" value="'+hesc(E.headcount!=null&&E.headcount!==''?String(E.headcount):'')+'" placeholder="0" oninput="mtgDurPreview()"><button type="button" onclick="mtgHcStep(1)" aria-label="One more">+</button></div>')
+            +F('In person or virtual','<input type="hidden" id="mtg-gcode" value="'+hesc(/^GV/i.test(E.code||'')?'GV 90853':E.code?'G 90853':'')+'"><div class="mf-seg">'
+              +'<button type="button" class="me-gfmt'+(/^G 90853/i.test(E.code||'')?' on':'')+'" data-c="G 90853" onclick="mtgSetGCode(\'G 90853\')">In person</button>'
+              +'<button type="button" class="me-gfmt'+(/^GV/i.test(E.code||'')?' on':'')+'" data-c="GV 90853" onclick="mtgSetGCode(\'GV 90853\')">Virtual</button></div><span class="mf-h">Billed as 90853 · always 1 hour</span>',true)
+            +'<input type="hidden" id="mtg-start" value="'+hesc(E.start||'')+'"><input type="hidden" id="mtg-len" value="60"><input type="hidden" id="mtg-end" value="'+hesc(E.end||'')+'">'
+          : F('Kind of time','<select id="mtg-type" class="me-in" onchange="mtgPickTypeSel(this)"><option value="">Choose…</option>'+sortedTypes.map(function(t){ return '<option value="'+hesc(t.label)+'"'+(t.label===selType?' selected':'')+'>'+hesc((t.icon?t.icon+' ':'')+(t.short||t.label))+' — '+hesc(mtgRateTxt(t))+'</option>'; }).join('')+'</select>'
+              +'<span class="mf-h" id="mtg-type-d">'+hesc(st0.ex||st0.desc||'')+'</span>',true)
+            +'<div id="me-recm" class="mf-f mf-span" style="display:none"></div>'
+            +F('Which group? <span class="mf-o">(optional)</span>',mtgGroupSelHtml('mtg-groupsel','mtg-group',st0.askGroup?(E.group||''):'',false),true,'me-group',!st0.askGroup)
+            +F('Date','<input type="date" id="mtg-date" class="me-in" min="'+lo+'" max="'+hi+'" value="'+hesc(dflt)+'" onchange="mtgDurPreview()">')
+            +F('Start time','<select id="mtg-start" class="me-in" onchange="mtgDurPreview()">'+startOpts+'</select>')
+            +F('How long','<div class="mf-chips">'+chips.map(function(m){ return '<button type="button" class="me-chip me-len" data-m="'+m+'" onclick="mtgSetLen('+m+')">'+mtgLenTxt(m)+'</button>'; }).join('')
+              +'<select id="mtg-more" class="me-in me-sm" onchange="if(this.value)mtgSetLen(+this.value)">'+moreOpts+'</select></div>'
+              +'<input type="hidden" id="mtg-len" value="'+(len0||'')+'"><input type="hidden" id="mtg-end" value="'+hesc(E.end||'')+'">',true,'me-lenrow'))
+        +F((isG?'Note for payroll':'Note')+' <span class="mf-o">(optional)</span>','<input id="mtg-notes" class="me-in" maxlength="500" value="'+hesc(E.notes||'')+'" placeholder="'+(isG?MTG_NOTES_PH.group:MTG_NOTES_PH.other)+'">',true)
+        +'</div>'
+        +'<div class="mf-card"><div class="mf-ct">You’re logging</div><div id="mtg-dur"></div>'
+          +'<div class="mf-btns"><button class="btn btn-primary" onclick="mtgSubmit(false)">'+(MTG_EDIT?'Save changes':isG?'Submit group':'Submit time')+'</button>'
+          +(MTG_EDIT?'<button class="btn btn-secondary" onclick="MTG_EDIT=null;renderMeetings()">Cancel</button>':'<button class="btn btn-secondary" onclick="mtgSubmit(true)">Submit &amp; another</button>')+'</div>'
+          +'<div class="mf-h" style="margin-top:8px">'+(isG?'Valant can’t export groups, so log each one here. Count only clients marked as attending. Payroll approves it before it’s paid.':'Every entry is approved by payroll before it’s paid.')
+          +' Submitting as <b>'+hesc(v['Clinician']||'')+'</b> · current or previous pay period only (older: '+mtgHrContact()+').</div></div>'
         +'</div>';
     }
     h+='</div><div class="me-card" id="mtg-mine"><div class="muted">Loading your entries…</div></div>';
@@ -6589,15 +6599,186 @@ function renderMeetings(){
       +'<div class="muted" style="font-size:12.5px;margin-top:2px">Soon you’ll request reimbursement for approved trainings here. For now, send your receipt and approval to '+mtgHrContact()+' — approved reimbursements are paid through payroll.</div></div></div>';
     body.innerHTML=h;
     if(open) mtgDurPreview();
+    // groups + recurring meetings load once, then the form repaints with the pick-lists
+    if(open&&(GRPC.items===null||RECM.items===null)){ Promise.all([grpLoad(),recmLoad()]).then(function(){ try{ const pg=document.getElementById('page-meetings'); if(pg&&pg.classList.contains('active')) renderMeetings(); }catch(e){} }); }
+    else if(open){ try{ mtgRecmPaint(); }catch(e){} }
     if(open&&!MTG_GUIDE) mtgLoadGuide().then(function(){ const sel=document.getElementById('mtg-gcode'); if(sel){ const v=sel.value; sel.innerHTML=mtgGroupCodeOpts(v); } mtgDurPreview(); });
     mtgLoadMine();
   }catch(e){ console.error(e); body.innerHTML='<div class="me-card">⚠ Could not load this page — please refresh.</div>'; }
 }
-function mtgCurType(){ const b=document.querySelector('#meetings-body .me-type.on'); return b?b.getAttribute('data-type'):''; }
+// ══ GROUPS & RECURRING MEETINGS (Nov 22 2026) ══
+// Homebase Control Panel → 👪 Group control panel (kv/app_groups) and 🕒 Meeting & admin time settings (kv/app_mtg_recurring).
+// Meeting & Admin Time uses them as pick-lists: the "Log a group I led" tab picks from current groups (fills the code and
+// start time), group prep & admin time picks the group, and meetings pick a recurring meeting (fills the type's start time and
+// length). The chosen name is saved in the entry's `group` field (no new field on meeting records).
+// Who edits: Meeting & Admin Time = Manage (new permissions), else Admins.
+var GRPC={items:null}, RECM={items:null}, GRPF={st:'active',site:''};
+const GRP_DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function grpCanEdit(){ try{ return pvOn()?pvCan('mtg','manage'):isAdminView(); }catch(e){ return false; } }
+async function grpLoad(force){ if(GRPC.items&&!force) return GRPC.items; try{ const r=await window.storage.get('app_groups'); const o=r&&r.value?JSON.parse(r.value):null; GRPC.items=(o&&Array.isArray(o.items))?o.items:[]; }catch(e){ GRPC.items=GRPC.items||[]; } return GRPC.items; }
+async function recmLoad(force){ if(RECM.items&&!force) return RECM.items; try{ const r=await window.storage.get('app_mtg_recurring'); const o=r&&r.value?JSON.parse(r.value):null; RECM.items=(o&&Array.isArray(o.items))?o.items:[]; }catch(e){ RECM.items=RECM.items||[]; } return RECM.items; }
+async function grpSaveAll(){ try{ const me=homeMe(); const ok=await window.storage.set('app_groups',JSON.stringify({items:GRPC.items,updatedAt:new Date().toISOString(),updatedBy:(me&&me['Clinician'])||''})); return ok!==null; }catch(e){ return false; } }
+async function recmSaveAll(){ try{ const me=homeMe(); const ok=await window.storage.set('app_mtg_recurring',JSON.stringify({items:RECM.items,updatedAt:new Date().toISOString(),updatedBy:(me&&me['Clinician'])||''})); return ok!==null; }catch(e){ return false; } }
+// A group is "current" when Active and today is inside its start/end dates
+function grpIsCurrent(g,iso){ iso=iso||obIso(new Date()); return !!g&&g.status!=='paused'&&g.status!=='ended'&&(!g.startDate||g.startDate<=iso)&&(!g.endDate||g.endDate>=iso); }
+function grpStatus(g){ const t=obIso(new Date()); if(g.status==='paused') return ['Paused','off']; if(g.status==='ended'||(g.endDate&&g.endDate<t)) return ['Ended','off']; if(g.startDate&&g.startDate>t) return ['Starts '+usDate(g.startDate),'soon']; return ['Active','on']; }
+function grpWhen(g){ return (g.dow!=null&&g.dow!==''?GRP_DOW[+g.dow].slice(0,3)+' ':'')+(g.start?mtgClock(g.start):''); }
+function grpCurrent(){ return (GRPC.items||[]).filter(function(g){ return grpIsCurrent(g); }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); }); }
+// Recurring meetings someone can see: everyone, or their team
+function recmFor(type,v){ const team=v&&v['Team']; return (RECM.items||[]).filter(function(m){ return m.status!=='inactive'&&(!type||m.type===type)&&(!m.teams||!m.teams.length||(team&&m.teams.indexOf(team)>=0)); }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); }); }
+function grpCss(){ return '<style>.gp-st{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px}.gp-st.on{background:#dff4f6;color:#0f6f78}.gp-st.off{background:#eef0f3;color:#6b7280}.gp-st.soon{background:#fff4e6;color:#8a5208}'
+  +'.gp-tbl{width:100%;border-collapse:collapse;font-size:13px}.gp-tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;padding:8px 10px;background:#f9fafb}.gp-tbl td{padding:9px 10px;border-top:1px solid #f1f2f4;vertical-align:top}'
+  +'.gp-tbl tr.gp-r{cursor:pointer}.gp-tbl tr.gp-r:hover td{background:#f8fafc}.gp-sub{font-size:11.5px;color:#6b7280}.gp-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}.gp-chip{font:inherit;font-size:12.5px;font-weight:600;border:1px solid #d6dbe6;background:#fff;color:#374151;border-radius:999px;padding:4px 12px;cursor:pointer}.gp-chip.on{background:#122B67;border-color:#122B67;color:#fff}</style>'; }
+// ── Control Panel: 👪 Group control panel (list) ──
+async function hbmRenderGroups(el){
+  try{ el.innerHTML='<div class="hs-none">Loading…</div>'; await grpLoad(true); try{ await mtgLoadGuide(); }catch(e){} if(!document.getElementById('hbm-sec')) return;
+    const all=GRPC.items||[], st=function(g){ return grpStatus(g)[0]; };
+    const cnt={active:all.filter(function(g){ return grpStatus(g)[1]!=='off'; }).length, paused:all.filter(function(g){ return st(g)==='Paused'; }).length, ended:all.filter(function(g){ return st(g)==='Ended'; }).length};
+    const rows=all.filter(function(g){ const s=grpStatus(g); return (GRPF.st==='all'||(GRPF.st==='active'&&s[1]!=='off')||(GRPF.st==='paused'&&s[0]==='Paused')||(GRPF.st==='ended'&&s[0]==='Ended'))&&(!GRPF.site||g.site===GRPF.site); })
+      .sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+    const sites=locOpenCodes().filter(function(k){ return k!=='NCA'; });
+    const ldr=function(g){ return (g.leaders||[]).map(function(id){ const s=STAFF.find(function(x){ return x._id===id; }); return s?hesc(s['Clinician']||''):''; }).filter(Boolean).join('<br>')||'<span class="gp-sub">—</span>'; };
+    el.innerHTML=grpCss()+'<div class="hbm-head"><div><b>Group control panel</b><div class="hbm-sub">The groups running now. Current groups appear in <b>Meeting &amp; Admin Time → Log a group I led</b> (and for group prep &amp; admin time), so leaders pick instead of typing. Ended or paused groups drop off the list; their past entries stay.</div></div>'
+      +(grpCanEdit()?'<button class="btn btn-primary" onclick="grpEdit(null)">+ Add group</button>':'')+'</div>'
+      +'<div class="gp-chips">'+[['active','Active ('+cnt.active+')'],['paused','Paused ('+cnt.paused+')'],['ended','Ended ('+cnt.ended+')'],['all','All ('+all.length+')']].map(function(x){ return '<button class="gp-chip'+(GRPF.st===x[0]?' on':'')+'" onclick="GRPF.st=\''+x[0]+'\';hbmRefresh()">'+x[1]+'</button>'; }).join('')
+        +'<select onchange="GRPF.site=this.value;hbmRefresh()" style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-left:auto"><option value="">All sites</option>'+sites.map(function(k){ return '<option value="'+hesc(k)+'"'+(GRPF.site===k?' selected':'')+'>'+hesc(obSiteName(k))+'</option>'; }).join('')+'</select></div>'
+      +(rows.length?'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow-x:auto"><table class="gp-tbl"><thead><tr><th>Group</th><th>Leaders</th><th>When</th><th>Service code</th><th>Status</th></tr></thead><tbody>'
+        +rows.map(function(g){ const s=grpStatus(g); return '<tr class="gp-r" '+(grpCanEdit()?'onclick="grpEdit(\''+hesc(g.id)+'\')" title="Edit"':'')+'><td><b>'+hesc(g.name)+'</b><div class="gp-sub">'+(g.site?hesc(obSiteName(g.site)):'')+(g.format?' · '+hesc(g.format):'')+'</div></td><td>'+ldr(g)+'</td>'
+          +'<td>'+(hesc(grpWhen(g))||'<span class="gp-sub">—</span>')+'<div class="gp-sub">'+(g.startDate?'from '+usDate(g.startDate):'')+(g.endDate?(g.startDate?' · ':'')+'until '+usDate(g.endDate):'')+'</div></td><td>'+hesc(g.code||'—')+'</td><td><span class="gp-st '+s[1]+'">'+hesc(s[0])+'</span></td></tr>'; }).join('')
+        +'</tbody></table></div>':'<div class="hbm-empty">'+(all.length?'No groups match.':'No groups yet — add the groups that are running now.')+'</div>');
+  }catch(e){ console.error(e); el.innerHTML='<div class="hs-none">Couldn’t load groups.</div>'; }
+}
+function grpEdit(id){
+  try{ if(!grpCanEdit()) return; const g=id?Object.assign({},(GRPC.items||[]).find(function(x){ return x.id===id; })||{}):{status:'active',leaders:[],startDate:obIso(new Date())};
+    const sites=locOpenCodes().filter(function(k){ return k!=='NCA'; }), act=pv2Active?pv2Active():STAFF;
+    const sel=function(idA,opts,cur){ return '<select id="'+idA+'" style="'+HBM_F+'">'+opts.map(function(o){ return '<option value="'+hesc(o[0])+'"'+(String(o[0])===String(cur==null?'':cur)?' selected':'')+'>'+hesc(o[1])+'</option>'; }).join('')+'</select>'; };
+    const times=[['','—']]; for(let m=7*60;m<=21*60;m+=15){ const v=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); times.push([v,mtgClock(v)]); }
+    const ldOpts=act.map(function(s){ return '<label style="display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;padding:2px 0"><input type="checkbox" class="gp-ld" value="'+hesc(s._id)+'"'+((g.leaders||[]).indexOf(s._id)>=0?' checked':'')+'>'+hesc(s['Clinician']||'')+'</label>'; }).join('');
+    hbmModal(id?'Edit group':'Add a group','<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      +hbmL('Group name *','<input id="gp-name" style="'+HBM_F+'" maxlength="120" value="'+hesc(g.name||'')+'" placeholder="e.g. DBT Skills – Tuesday">',true)
+      +hbmL('Status',sel('gp-st',[['active','Active'],['paused','Paused'],['ended','Ended']],g.status||'active'))
+      +hbmL('Site',sel('gp-site',[['','—']].concat(sites.map(function(k){ return [k,obSiteName(k)]; })),g.site||''))
+      +hbmL('In person or virtual <span style="font-weight:400;color:#9ca3af">(sets 90853 / virtual 90853)</span>',sel('gp-fmt',[['','— leader picks each time —'],['In person','In person · G 90853'],['Virtual','Virtual · GV 90853']],g.format==='Hybrid'?'':(g.format||'')))
+      +hbmL('Usual day',sel('gp-dow',[['','—']].concat(GRP_DOW.map(function(d,i){ return [String(i),d]; })),g.dow==null?'':String(g.dow)))
+      +hbmL('Usual start time',sel('gp-start',times,g.start||''))
+      +hbmL('Starts','<input id="gp-sd" type="date" style="'+HBM_F+'" value="'+hesc(g.startDate||'')+'">')
+      +hbmL('Ends <span style="font-weight:400;color:#9ca3af">(blank = ongoing)</span>','<input id="gp-ed" type="date" style="'+HBM_F+'" value="'+hesc(g.endDate||'')+'">')
+      +hbmL('Leaders &amp; co-leaders','<input oninput="var q=this.value.toLowerCase();document.querySelectorAll(\'#gp-lds label\').forEach(function(l){l.style.display=!q||l.textContent.toLowerCase().indexOf(q)>=0||l.querySelector(\'input\').checked?\'\':\'none\';})" placeholder="Search staff…" style="'+HBM_F+'"><div id="gp-lds" style="max-height:150px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;margin-top:4px">'+ldOpts+'</div>',true)
+      +hbmL('Notes','<input id="gp-notes" style="'+HBM_F+'" maxlength="300" value="'+hesc(g.notes||'')+'" placeholder="For payroll / leadership (optional)">',true)
+      +'</div>'+(id?'<div style="margin-top:10px"><button class="btn btn-secondary" style="color:#b91c1c" onclick="grpDelete(\''+hesc(id)+'\')">Delete group</button> <span class="muted" style="font-size:11.5px">Prefer “Ended” — it keeps the group’s history readable.</span></div>':''),
+      'grpSave('+(id?'\''+hesc(id)+'\'':'null')+')',id?'Save':'Add group');
+  }catch(e){ console.error(e); }
+}
+async function grpSave(id){
+  try{ const v=function(x){ const el=document.getElementById(x); return el?String(el.value||'').trim():''; };
+    const name=v('gp-name'); if(!name){ showToast('⚠ Give the group a name'); return; }
+    const sd=v('gp-sd'), ed=v('gp-ed'); if(sd&&ed&&ed<sd){ showToast('⚠ The group ends before it starts'); return; }
+    const leaders=[].slice.call(document.querySelectorAll('.gp-ld:checked')).map(function(x){ return x.value; });
+    const rec={id:id||('g_'+Date.now().toString(36)),name:name.slice(0,120),code:v('gp-fmt')==='Virtual'?'GV 90853':v('gp-fmt')==='In person'?'G 90853':'',status:v('gp-st')||'active',site:v('gp-site'),format:v('gp-fmt'),dow:v('gp-dow')===''?'':+v('gp-dow'),start:v('gp-start'),startDate:sd,endDate:ed,leaders:leaders,notes:v('gp-notes').slice(0,300)};
+    if((GRPC.items||[]).some(function(x){ return x.id!==rec.id&&String(x.name).trim().toLowerCase()===name.toLowerCase()&&grpIsCurrent(x); })){ showToast('⚠ A current group already has that name'); return; }
+    const prev=(GRPC.items||[]).slice(); GRPC.items=(GRPC.items||[]).filter(function(x){ return x.id!==rec.id; }).concat(rec);
+    if(!(await grpSaveAll())){ GRPC.items=prev; showToast('⚠ Could not save — check your access'); return; }
+    hbmClose(); showToast('✓ Group saved'); hbmRefresh();
+  }catch(e){ console.error(e); showToast('⚠ Could not save the group'); }
+}
+async function grpDelete(id){ try{ if(!confirm('Delete this group? Past entries keep their group name. (Setting it to Ended is usually better.)')) return; const prev=(GRPC.items||[]).slice(); GRPC.items=prev.filter(function(x){ return x.id!==id; });
+  if(!(await grpSaveAll())){ GRPC.items=prev; showToast('⚠ Could not delete'); return; } hbmClose(); hbmRefresh(); }catch(e){ console.error(e); } }
+// ── Control Panel: 🕒 Meeting & admin time settings (recurring meetings) ──
+async function hbmRenderMtgSet(el){
+  try{ el.innerHTML='<div class="hs-none">Loading…</div>'; await recmLoad(true); if(!document.getElementById('hbm-sec')) return;
+    const all=(RECM.items||[]).slice().sort(function(a,b){ return (a.status==='inactive'?1:0)-(b.status==='inactive'?1:0)||String(a.name).localeCompare(String(b.name)); });
+    const types=(CONFIG.meetingTypes||[]).filter(function(t){ return !t.isGroup; });
+    el.innerHTML=grpCss()+'<div class="hbm-head"><div><b>Meeting &amp; admin time settings</b><div class="hbm-sub">Recurring meetings people log time for. Each one belongs to a kind of time (so the pay rate is automatic) and shows as a pick-list in <b>Meeting &amp; Admin Time → Meetings &amp; admin time</b> for the teams you choose. Picking one fills in its usual start time and length.</div></div>'
+      +(grpCanEdit()?'<button class="btn btn-primary" onclick="recmEdit(null)">+ Add recurring meeting</button>':'')+'</div>'
+      +(all.length?'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow-x:auto;margin-top:10px"><table class="gp-tbl"><thead><tr><th>Meeting</th><th>Kind of time (pay)</th><th>Usually</th><th>Who sees it</th><th>Status</th></tr></thead><tbody>'
+        +all.map(function(m){ const t=types.find(function(x){ return x.label===m.type; })||{}; return '<tr class="gp-r" '+(grpCanEdit()?'onclick="recmEdit(\''+hesc(m.id)+'\')" title="Edit"':'')+'><td><b>'+hesc(m.name)+'</b>'+(m.sched?'<div class="gp-sub">'+hesc(m.sched)+'</div>':'')+'</td>'
+          +'<td>'+hesc(t.short||m.type||'—')+'<div class="gp-sub">'+hesc(t.label?mtgRateTxt(t):'')+'</div></td><td>'+(m.start?mtgClock(m.start):'—')+(m.mins?' · '+mtgLenTxt(+m.mins):'')+'</td>'
+          +'<td>'+(m.teams&&m.teams.length?m.teams.map(function(k){ return hesc(teamLabel(k)); }).join(', '):'Everyone')+'</td><td><span class="gp-st '+(m.status==='inactive'?'off':'on')+'">'+(m.status==='inactive'?'Inactive':'Active')+'</span></td></tr>'; }).join('')
+        +'</tbody></table></div>':'<div class="hbm-empty" style="margin-top:10px">No recurring meetings yet.</div>');
+  }catch(e){ console.error(e); el.innerHTML='<div class="hs-none">Couldn’t load meeting settings.</div>'; }
+}
+function recmEdit(id){
+  try{ if(!grpCanEdit()) return; const m=id?Object.assign({},(RECM.items||[]).find(function(x){ return x.id===id; })||{}):{status:'active',teams:[]};
+    const types=(CONFIG.meetingTypes||[]).filter(function(t){ return !t.isGroup; }), teams=locOpenCodes();
+    const times=[['','—']]; for(let x=7*60;x<=21*60;x+=15){ const v=String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0'); times.push([v,mtgClock(v)]); }
+    const lens=[['','—']]; [15,30,45,60,90,120,180,240].forEach(function(n){ lens.push([String(n),mtgLenTxt(n)]); });
+    const sel=function(idA,opts,cur){ return '<select id="'+idA+'" style="'+HBM_F+'">'+opts.map(function(o){ return '<option value="'+hesc(o[0])+'"'+(String(o[0])===String(cur==null?'':cur)?' selected':'')+'>'+hesc(o[1])+'</option>'; }).join('')+'</select>'; };
+    hbmModal(id?'Edit recurring meeting':'Add a recurring meeting','<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      +hbmL('Meeting name *','<input id="rm-name" style="'+HBM_F+'" maxlength="120" value="'+hesc(m.name||'')+'" placeholder="e.g. Northampton Clinical Rounds">',true)
+      +hbmL('Kind of time (sets the pay rate) *',sel('rm-type',[['','Choose…']].concat(types.map(function(t){ return [t.label,(t.short||t.label)+' — '+mtgRateTxt(t)]; })),m.type||''),true)
+      +hbmL('When it happens <span style="font-weight:400;color:#9ca3af">(shown to staff)</span>','<input id="rm-sched" style="'+HBM_F+'" maxlength="80" value="'+hesc(m.sched||'')+'" placeholder="e.g. 2nd Tuesday of the month">',true)
+      +hbmL('Usual start time',sel('rm-start',times,m.start||''))+hbmL('Usual length',sel('rm-mins',lens,m.mins?String(m.mins):''))
+      +hbmL('Status',sel('rm-st',[['active','Active'],['inactive','Inactive (hidden from the list)']],m.status||'active'))
+      +hbmL('Who sees it <span style="font-weight:400;color:#9ca3af">(none ticked = everyone)</span>','<div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:4px">'+teams.map(function(k){ return '<label style="display:flex;gap:5px;align-items:center;font-weight:400;font-size:12.5px"><input type="checkbox" class="rm-tm" value="'+hesc(k)+'"'+((m.teams||[]).indexOf(k)>=0?' checked':'')+'>'+hesc(teamLabel(k))+'</label>'; }).join('')+'</div>',true)
+      +'</div>'+(id?'<div style="margin-top:10px"><button class="btn btn-secondary" style="color:#b91c1c" onclick="recmDelete(\''+hesc(id)+'\')">Delete</button></div>':''),
+      'recmSave('+(id?'\''+hesc(id)+'\'':'null')+')',id?'Save':'Add meeting');
+  }catch(e){ console.error(e); }
+}
+async function recmSave(id){
+  try{ const v=function(x){ const el=document.getElementById(x); return el?String(el.value||'').trim():''; };
+    const name=v('rm-name'), type=v('rm-type'); if(!name){ showToast('⚠ Give the meeting a name'); return; } if(!type){ showToast('⚠ Choose the kind of time'); return; }
+    const rec={id:id||('m_'+Date.now().toString(36)),name:name.slice(0,120),type:type,sched:v('rm-sched').slice(0,80),start:v('rm-start'),mins:v('rm-mins')?+v('rm-mins'):'',status:v('rm-st')||'active',teams:[].slice.call(document.querySelectorAll('.rm-tm:checked')).map(function(x){ return x.value; })};
+    const prev=(RECM.items||[]).slice(); RECM.items=prev.filter(function(x){ return x.id!==rec.id; }).concat(rec);
+    if(!(await recmSaveAll())){ RECM.items=prev; showToast('⚠ Could not save — check your access'); return; }
+    hbmClose(); showToast('✓ Meeting saved'); hbmRefresh();
+  }catch(e){ console.error(e); showToast('⚠ Could not save'); }
+}
+async function recmDelete(id){ try{ if(!confirm('Delete this recurring meeting? Past entries keep its name.')) return; const prev=(RECM.items||[]).slice(); RECM.items=prev.filter(function(x){ return x.id!==id; });
+  if(!(await recmSaveAll())){ RECM.items=prev; showToast('⚠ Could not delete'); return; } hbmClose(); hbmRefresh(); }catch(e){ console.error(e); } }
+// ── Meeting & Admin Time form helpers ──
+var MTG_TAB='mtg';
+function mtgTabsHtml(){ return '<div class="hb-tabs" style="margin-bottom:12px">'+[['grp','👪 Log a group I led'],['mtg','🕒 Meetings & admin time']].map(function(x){ return '<button class="hb-tab'+(MTG_TAB===x[0]?' on':'')+'" onclick="MTG_TAB=\''+x[0]+'\';MTG_EDIT=null;MTG_KEEP=null;renderMeetings()">'+x[1]+'</button>'; }).join('')+'</div>'; }
+// pick-list of current groups (value = group name); "Other" reveals the free-text box
+function mtgGroupSelHtml(selId,txtId,cur,onPick){
+  const list=grpCurrent(), inList=list.some(function(g){ return g.name===cur; }), other=!!cur&&!inList;
+  return '<select id="'+selId+'" class="me-in" style="min-width:240px;max-width:100%" onchange="mtgGroupPicked(\''+selId+'\',\''+txtId+'\','+(onPick?'true':'false')+')">'
+    +'<option value="">'+(list.length?'Choose the group…':'No current groups — choose Other')+'</option>'+list.map(function(g){ return '<option value="'+hesc(g.id)+'"'+(g.name===cur?' selected':'')+'>'+hesc(g.name)+(grpWhen(g)?' · '+hesc(grpWhen(g)):'')+'</option>'; }).join('')
+    +'<option value="__other"'+(other?' selected':'')+'>Other (not listed)…</option></select>'
+    +'<input id="'+txtId+'" class="me-in" maxlength="120" style="margin-top:6px;display:'+(other?'block':'none')+';width:100%" value="'+hesc(other?cur:'')+'" placeholder="Group name">';
+}
+function mtgFormCss(){ return '<style>.mf-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:20px;align-items:start;margin-top:6px}@media(max-width:860px){.mf-wrap{grid-template-columns:1fr}}'
+  +'.mf-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}.mf-span{grid-column:1/-1}.mf-f{display:flex;flex-direction:column;gap:5px;min-width:0}.mf-l{font-size:12px;font-weight:700;color:#334155}.mf-o{font-weight:400;color:#9ca3af}'
+  +'.mf-f .me-in{width:100%;max-width:none;font-size:14px;padding:9px 11px}.mf-h{font-size:12px;color:#6b7280;line-height:1.45}.mf-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.mf-chips .me-in{width:auto}'
+  +'.mf-seg{display:inline-flex;border:1px solid #d4dbe6;border-radius:9px;overflow:hidden;align-self:flex-start}.mf-seg button{font:inherit;font-size:13.5px;font-weight:700;color:#122B67;background:#fff;border:0;padding:9px 18px;cursor:pointer}.mf-seg button+button{border-left:1px solid #d4dbe6}.mf-seg button.on{background:#122B67;color:#fff}'
+  +'.mf-step{display:inline-flex;align-items:center;border:1px solid #d4dbe6;border-radius:9px;overflow:hidden;align-self:flex-start}.mf-step button{font:inherit;font-size:16px;font-weight:700;border:0;background:#f3f5f9;color:#122B67;width:38px;height:40px;cursor:pointer}.mf-step input{border:0;width:58px;text-align:center;font:inherit;font-size:15px;font-weight:700;-moz-appearance:textfield}.mf-step input::-webkit-inner-spin-button{-webkit-appearance:none}'
+  +'.mf-card{border:1px solid #e2e6ee;border-radius:12px;padding:14px 16px;background:#fbfcfe;position:sticky;top:10px}.mf-ct{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8f9e;margin-bottom:6px}'
+  +'.mf-ln{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-top:1px solid #eef1f5}.mf-ln span{color:#6b7280}.mf-ln b{color:#122B67;text-align:right}.mf-ln.todo b{color:#b45309;font-weight:600}.mf-tot b{font-size:15px}'
+  +'.mf-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.mf-edit{background:#fff4e6;border:1px solid #F2A54B;color:#7c2d12;border-radius:10px;padding:8px 12px;font-size:13px;margin:8px 0}</style>'; }
+function mtgHcStep(d){ try{ const el=document.getElementById('mtg-ghc'); if(!el) return; el.value=String(Math.max(0,Math.min(60,(parseInt(el.value,10)||0)+d))); mtgDurPreview(); }catch(e){} }
+function mtgSumCard(rows){ return rows.map(function(r){ return '<div class="mf-ln'+(r[2]?' '+r[2]:'')+'"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>'; }).join(''); }
+// Meetings tab: kind of time is a dropdown (Nov 22)
+function mtgPickTypeSel(sel){ try{ const t=mtgTypeOf(sel.value)||{}; const d=document.getElementById('mtg-type-d'); if(d) d.textContent=t.ex||t.desc||'';
+    const g=document.getElementById('me-group'); if(g) g.style.display=t.askGroup?'':'none'; try{ mtgRecmPaint(); }catch(e){} mtgDurPreview(); }catch(e){ console.error(e); } }
+function mtgSetGCode(c){ try{ const el=document.getElementById('mtg-gcode'); if(el) el.value=c; document.querySelectorAll('#meetings-body .me-gfmt').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-c')===c); }); mtgDurPreview(); }catch(e){} }
+function grpCodeOf(g){ if(!g) return ''; if(/^GV/i.test(g.code||'')||g.format==='Virtual') return 'GV 90853'; if(/^G /i.test(g.code||'')||g.format==='In person') return 'G 90853'; return ''; }
+function mtgGroupPicked(selId,txtId,fill){
+  try{ const s=document.getElementById(selId), t=document.getElementById(txtId); if(!s||!t) return; const id=s.value;
+    if(id==='__other'){ t.style.display='block'; t.value=''; t.focus(); return; }
+    t.style.display='none'; const g=(GRPC.items||[]).find(function(x){ return x.id===id; }); t.value=g?g.name:'';
+    if(fill&&g){ const gc=grpCodeOf(g); if(gc) mtgSetGCode(gc); const st=document.getElementById('mtg-start'); if(st&&st.type==='hidden') st.value=g.start||''; }
+    mtgDurPreview(); }catch(e){ console.error(e); }
+}
+// recurring meeting pick-list for the chosen kind of time
+function mtgRecmPaint(){
+  try{ const host=document.getElementById('me-recm'); if(!host) return; const type=mtgCurType(), v=mtgWho(), list=recmFor(type,v);
+    if(!type||!list.length){ host.style.display='none'; host.innerHTML=''; return; }
+    const cur=(MTG_EDIT||MTG_KEEP||{}).group||'', inList=list.some(function(m){ return m.name===cur; });
+    host.style.display='block';
+    host.innerHTML='<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#334155">Which meeting?<select id="mtg-recm" class="me-in" style="max-width:440px" onchange="mtgRecmPicked()"><option value="">Choose the meeting… (optional)</option>'
+      +list.map(function(m){ return '<option value="'+hesc(m.id)+'"'+(m.name===cur?' selected':'')+'>'+hesc(m.name)+(m.sched?' — '+hesc(m.sched):'')+'</option>'; }).join('')+'<option value="__other"'+(cur&&!inList?' selected':'')+'>Something else</option></select></label>';
+  }catch(e){ console.error(e); }
+}
+function mtgRecmPicked(){
+  try{ const s=document.getElementById('mtg-recm'); const m=s&&(RECM.items||[]).find(function(x){ return x.id===s.value; }); if(!m) return;
+    const st=document.getElementById('mtg-start'); if(st&&m.start){ if(![].some.call(st.options,function(o){ return o.value===m.start; })) st.insertAdjacentHTML('beforeend','<option value="'+hesc(m.start)+'">'+mtgClock(m.start)+'</option>'); st.value=m.start; }
+    if(m.mins) mtgSetLen(+m.mins); else mtgDurPreview(); }catch(e){ console.error(e); }
+}
+function mtgRecmName(){ try{ const s=document.getElementById('mtg-recm'); if(!s||!s.value||s.value==='__other') return ''; const m=(RECM.items||[]).find(function(x){ return x.id===s.value; }); return m?m.name:''; }catch(e){ return ''; } }
+function mtgCurType(){ const sl=document.getElementById('mtg-type'); if(sl) return sl.value||''; const b=document.querySelector('#meetings-body .me-type.on'); return b?b.getAttribute('data-type'):''; }
 function mtgPickType(btn){
   try{ document.querySelectorAll('#meetings-body .me-type').forEach(function(x){ x.classList.toggle('on',x===btn); });
     const t=mtgTypeOf(btn.getAttribute('data-type'))||{}; const g=document.getElementById('me-group'); if(g) g.style.display=t.askGroup?'block':'none'; const gg=document.getElementById('me-grp'); if(gg) gg.style.display=t.isGroup?'block':'none'; const nh=document.getElementById('me-notes-h'), ni=document.getElementById('mtg-notes'); if(nh) nh.textContent=t.isGroup?'Anything payroll should know about this group?':'Anything to add?'; if(ni) ni.placeholder=t.isGroup?MTG_NOTES_PH.group:MTG_NOTES_PH.other;
-    const lr=document.getElementById('me-lenrow'), gl=document.getElementById('me-grplen'); if(lr) lr.style.display=t.isGroup?'none':'flex'; if(gl) gl.style.display=t.isGroup?'flex':'none'; mtgDurPreview(); }catch(e){}
+    const lr=document.getElementById('me-lenrow'), gl=document.getElementById('me-grplen'); if(lr) lr.style.display=t.isGroup?'none':'flex'; if(gl) gl.style.display=t.isGroup?'flex':'none'; try{ mtgRecmPaint(); }catch(e){} mtgDurPreview(); }catch(e){}
 }
 // Group service codes for the staff form — from the published code guide (app_code_guide), else the defaults
 var MTG_GUIDE=null;
@@ -6612,7 +6793,7 @@ function mtgGroupCodes(){
 }
 function mtgGroupCodeOpts(sel){ return '<option value="">Choose the code…</option>'+mtgGroupCodes().map(function(r){ return '<option value="'+hesc(r.id)+'"'+(String(r.id)===String(sel)?' selected':'')+'>'+hesc(r.id)+(r.desc?' — '+hesc(String(r.desc).slice(0,52)):'')+'</option>'; }).join(''); }
 function mtgIsHeadCode(code){ return mtgGroupSettings().head.indexOf(String(code||'').replace(/\s+/g,' ').trim().toUpperCase())>=0; }
-function mtgClock(v){ try{ const p=String(v).split(':'); let h=+p[0]; const ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+p[1]+' '+ap; }catch(e){ return v; } }
+function mtgClock(v){ if(!v) return ''; try{ const p=String(v).split(':'); let h=+p[0]; const ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+p[1]+' '+ap; }catch(e){ return v; } }
 function mtgLenTxt(m){ const h=Math.floor(m/60), r=m%60; if(!h) return m+' min'; if(!r) return h+(h===1?' hr':' hrs'); if(r===30) return h+'.5 hrs'; return h+' hr '+r+' min'; }
 function mtgSetDay(d){ try{ const el=document.getElementById('mtg-date'); if(el){ el.value=d; mtgDurPreview(); } }catch(e){} }
 function mtgSetLen(m){
@@ -6620,39 +6801,51 @@ function mtgSetLen(m){
 }
 function mtgDurPreview(){
   try{ const el=document.getElementById('mtg-dur'); if(!el) return;
-    const type=mtgCurType(), d=(document.getElementById('mtg-date')||{}).value, st=(document.getElementById('mtg-start')||{}).value, len=(mtgTypeOf(type)||{}).isGroup?60:+((document.getElementById('mtg-len')||{}).value||0);
+    const type=mtgCurType(), t=mtgTypeOf(type)||{}, d=(document.getElementById('mtg-date')||{}).value, st=(document.getElementById('mtg-start')||{}).value, len=t.isGroup?60:+((document.getElementById('mtg-len')||{}).value||0);
     const en=document.getElementById('mtg-end');
-    let end=''; if(st&&len){ const p=st.split(':'); let t=((+p[0])*60+(+p[1])+len)%1440; end=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); }
+    let end=''; if(st&&len){ const p=st.split(':'); let x=((+p[0])*60+(+p[1])+len)%1440; end=String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0'); }
     if(en) en.value=end;
     document.querySelectorAll('#meetings-body .me-len').forEach(function(c){ c.classList.toggle('on',+c.getAttribute('data-m')===len); });
-    document.querySelectorAll('#meetings-body .me-day').forEach(function(c){ c.classList.toggle('on',c.getAttribute('data-d')===d); });
     const mo=document.getElementById('mtg-more'); if(mo) mo.classList.toggle('on',!!mo.value);
-    if(!type){ el.textContent='Pick the kind of time, then when it started and how long it was.'; return; }
-    if(!d||!st||!len){ el.textContent=!st?'Now pick when it started…':!len?'…and how long it was.':'Pick the day.'; return; }
-    const t=mtgTypeOf(type)||{}, i=mtgPPfor(d), pp=ALL_PPS[i];
-    if(t.isGroup){ const code=(document.getElementById('mtg-gcode')||{}).value||'', hc=parseInt((document.getElementById('mtg-ghc')||{}).value,10)||0, GS=mtgGroupSettings();
-      el.innerHTML='<b>'+hesc(((document.getElementById('mtg-gname')||{}).value||'').trim()||'Group session')+'</b>'+(code?' · '+hesc(code):'')+' · '+hesc(usDate(d))+' · <b>'+mtgClock(st)+' – '+mtgClock(end)+'</b>'+(pp?' · '+hesc(pp.label):'')
-        +(!code?' · <span style="color:#b45309">pick the service code</span>':mtgIsHeadCode(code)?(hc?(mtgNoMoney()?' · <b>'+hc+' attended</b>':' · <b>'+hc+' × $'+GS.rate+' = $'+(hc*GS.rate).toFixed(2)+'</b> ('+hc+' attended)'):' · <span style="color:#b45309">add how many attended</span>'):' · paid by the service code rules')+' · needs payroll approval';
-      return; }
-    el.innerHTML='<b>'+hesc(t.short||type)+'</b> · '+hesc(usDate(d))+' · <b>'+mtgClock(st)+' – '+mtgClock(end)+'</b> ('+mtgHrs(len)+' hrs)'+(pp?' · '+hesc(pp.label):'')
-      +(t.rate===25?(mtgNoMoney()?'':' · <b>$'+(Math.round(len*2500/60)/100).toFixed(2)+'</b>'):t.rate==='FFS'?' · paid at your FFS rate once approved':t.rate==='interim'?' · paid at 1.25× your FFS rate':'');
-  }catch(e){}
+    const i=d?mtgPPfor(d):-1, pp=ALL_PPS[i], day=d?(function(){ const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{weekday:'short'})+' '+usDate(d); })():'';
+    const todo=function(lab,msg){ return [lab,msg,'todo']; }, rows=[];
+    if(t.isGroup){ const code=(document.getElementById('mtg-gcode')||{}).value||'', hc=parseInt((document.getElementById('mtg-ghc')||{}).value,10)||0, GS=mtgGroupSettings(), nm=((document.getElementById('mtg-gname')||{}).value||'').trim();
+      rows.push(nm?['Group',hesc(nm)]:todo('Group','choose the group'));
+      rows.push(d?['Date',hesc(day)]:todo('Date','pick the date'));
+      rows.push(code?['Code','90853 · '+(/^GV/.test(code)?'virtual':'in person')]:todo('Code','in person or virtual?'));
+      rows.push(hc?['Attended',String(hc)]:todo('Attended','how many attended?'));
+      if(code&&hc&&mtgIsHeadCode(code)&&!mtgNoMoney()) rows.push(['Pay','$'+(hc*GS.rate).toFixed(2)+' <span style="font-weight:400;color:#6b7280">('+hc+' × $'+GS.rate+')</span>','mf-tot']);
+      if(pp) rows.push(['Pay period',hesc(pp.label.replace('Pay Period ',''))]);
+      el.innerHTML=mtgSumCard(rows); return; }
+    rows.push(type?['Kind of time',hesc(t.short||type)]:todo('Kind of time','choose what it was'));
+    const rn=(function(){ try{ return mtgRecmName(); }catch(e){ return ''; } })(); if(rn) rows.push(['Meeting',hesc(rn)]);
+    rows.push(d?['Date',hesc(day)]:todo('Date','pick the day'));
+    rows.push(st?['Time',mtgClock(st)+(end?' – '+mtgClock(end):'')]:todo('Time','when did it start?'));
+    rows.push(len?['Length',mtgLenTxt(len)]:todo('Length','how long was it?'));
+    if(type&&len){ if(t.rate===25){ if(!mtgNoMoney()) rows.push(['Pay','$'+(Math.round(len*2500/60)/100).toFixed(2)+' <span style="font-weight:400;color:#6b7280">at $25/hr</span>','mf-tot']); }
+      else if(t.rate==='FFS') rows.push(['Pay','your FFS rate, once approved']); else if(t.rate==='interim') rows.push(['Pay','1.25× your FFS rate']); }
+    if(pp) rows.push(['Pay period',hesc(pp.label.replace('Pay Period ',''))]);
+    el.innerHTML=mtgSumCard(rows);
+  }catch(e){ console.error(e); }
 }
 async function mtgSubmit(again){
   try{
     if(!mtgSelfOpen()){ showToast('Meeting & admin time entry opens '+mtgSelfOpensLabel()); return; }
     const v=mtgWho(); if(!v){ showToast('No staff record is linked to your login — contact HR'); return; }
     const type=mtgCurType(); if(!type){ showToast('Choose what it was first'); return; }
-    const date=(document.getElementById('mtg-date')||{}).value, st=(document.getElementById('mtg-start')||{}).value, en=(document.getElementById('mtg-end')||{}).value;
-    if(!date||!st||!en){ showToast(!date?'Pick the day':!st?'Pick when it started':'Pick how long it was'); return; }
+    const mt0=mtgTypeOf(type)||{};
+    const date=(document.getElementById('mtg-date')||{}).value; let st=(document.getElementById('mtg-start')||{}).value||'', en=(document.getElementById('mtg-end')||{}).value||'';
+    if(mt0.isGroup){ if(!date){ showToast('Pick the date of the group'); return; } if(st){ const p=st.split(':'), t2=((+p[0])*60+(+p[1])+60)%1440; en=String(Math.floor(t2/60)).padStart(2,'0')+':'+String(t2%60).padStart(2,'0'); } else en=''; }   // groups: date only (time = the group's usual time, if set)
+    else if(!date||!st||!en){ showToast(!date?'Pick the day':!st?'Pick when it started':'Pick how long it was'); return; }
     const ppIdx=mtgPPfor(date);
     if(mtgAllowedPPs().indexOf(ppIdx)<0){ showToast('⚠ You can log time for the current or previous pay period only. For earlier time, please contact HR.'); return; }
-    const mins=mtgMins(st,en); if(mins<=0||mins>16*60){ showToast('Check the start and end times'); return; }
+    const mins=mt0.isGroup?60:mtgMins(st,en); if(mins<=0||mins>16*60){ showToast('Check the start and end times'); return; }
     const mt=mtgTypeOf(type)||{};
     if(mt.role){ try{ if(staffRolesOf(v).indexOf(mt.role)<0){ showToast('⚠ '+type+' is only for '+mt.role+'s'); return; } }catch(e){} }
     let grp=mt.askGroup?((document.getElementById('mtg-group')||{}).value||'').trim().slice(0,120):'', gcode='', ghc='';
+    if(!mt.isGroup){ const rn=mtgRecmName(); if(rn) grp=rn.slice(0,120); }   // recurring meeting picked (Nov 22) → saved as the entry's name
     if(mt.isGroup){ grp=((document.getElementById('mtg-gname')||{}).value||'').trim().slice(0,120); gcode=(document.getElementById('mtg-gcode')||{}).value||''; ghc=parseInt((document.getElementById('mtg-ghc')||{}).value,10);
-      if(!grp){ showToast('Add the group’s name'); return; } if(!gcode){ showToast('Pick the group’s service code'); return; }
+      if(!grp){ showToast('Add the group’s name'); return; } if(!gcode){ showToast('Choose in person or virtual'); return; }
       if(isNaN(ghc)||ghc<0){ if(mtgIsHeadCode(gcode)){ showToast('Add how many clients were marked as attending'); return; } ghc=''; } }
     const notes=((document.getElementById('mtg-notes')||{}).value||'').trim().slice(0,500);
     const rec={sid:v._id, name:v['Clinician']||'', type:type, date:date, start:st, end:en, mins:mins, pp:ppIdx, group:grp, approved:false,   // every staff entry is approved by payroll before it's paid
@@ -8739,7 +8932,8 @@ function capEfStatusHtml(p){
   const ci=staffLeaveCurrentIdx(p), openLeave=ci>=0&&normStatus(p['Employee Status'])==='On Leave'?p._leaves[ci]:null;
   return '<div id="ef-leave-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">🗓 Leave dates — no clinical hours are expected while on leave'
       +'<span style="font-weight:500;color:#6b7280"> · all leaves: <a href="#" onclick="event.preventDefault();leaveDlgOpen(\''+p._id+'\')" style="color:#18A9B6">Leave of absence…</a></span></div>'
-      +f('ef-leavestart','First day of leave *',openLeave?openLeave.start:today)+f('ef-leaveend','Last day of leave',openLeave?openLeave.end:'','Leave blank if not known yet — status goes back automatically after the last day')+'</div>'
+      +f('ef-leavestart','First day of leave *',openLeave?openLeave.start:today)+f('ef-leaveend','Last day of leave',openLeave?openLeave.end:'','Leave blank if not known yet — status goes back automatically after the last day')
+      +'<div style="display:flex;flex-direction:column;gap:3px;min-width:240px;flex:1"><span style="font-size:11px;font-weight:700;color:#6b7280">Note (optional)</span><input type="text" id="ef-leavenote" maxlength="200" value="'+hesc(openLeave&&openLeave.note||'')+'" placeholder="e.g. Approved leave of absence"><span style="font-size:10.5px;color:#9ca3af">Shown on their Capacity Dashboard — keep it general, no medical details</span></div></div>'
     +'<div id="ef-return-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">↩ Back from leave — the capacity clock restarts on this date</div>'
       +f('ef-leaveret','First day back at work *',today)+'</div>'
     +'<div id="ef-off-blk" style="'+box+'"><div style="width:100%;font-size:12px;font-weight:700;color:#334155">🚪 Offboarding — the capacity goal runs through the term date, then stops</div>'
@@ -8771,12 +8965,13 @@ function capEfHistHtml(p){
 }
 function capEfWhen(grid){ const r=(grid||document).querySelector('input[name=ef-capwhen]:checked'); return r?r.value:''; }
 // Goal effect of the pending change (copy of the record; nothing saved).
-function capEfEffect(p,nw,when,dateISO){
+function capEfEffect(p,nw,when,dateISO,newTier){
   try{
     const from=when==='hire'?capISO(capDateOf(capRampStartRaw(p))):when==='pp'?capISO(capPPStartFor()):dateISO; if(!from) return '';
     const rc=capRampCheck(p,from); if(rc.kind==='inside') return '<span style="color:#b91c1c">'+capRampMsg(rc).replace('⚠ ','')+'</span>';
     const c=JSON.parse(JSON.stringify(p)); c._id='__efprev'; delete CAP_GOAL_CACHE['__efprev'];
     if(rc.kind==='start') capSetStartingCapacity(c,nw); else capRecordCapacityChange(c,parseFloat(p['Weekly Capacity'])||0,nw,from);
+    try{ const ow=parseFloat(p['Weekly Capacity'])||0; if(rc.kind!=='start'&&newTier!=null&&capTierRamps(String(p['Capacity Tier']||''),newTier,ow,nw)){ const e=c._capHist.find(function(h){ return h.from===from; }); if(e) e.ramp={old:ow,days:CAP_TIER_RAMP_DAYS}; } }catch(e){}
     const today=capDateOf(new Date()), ye=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+CAP_YEAR_WEEKS*7);
     const f=function(x){ return Math.round(x); };
     const a0=capGoalTo(p,today), a1=capGoalTo(c,today), y0=capGoalTo(p,ye); delete CAP_GOAL_CACHE['__efprev']; const y1=capGoalTo(c,ye); delete CAP_GOAL_CACHE['__efprev'];
@@ -8811,7 +9006,7 @@ function capEfCollect(grid,p){
   const ow=parseFloat(p['Weekly Capacity'])||0, nwRaw=ew?String(ew.value).trim():'', nw=parseFloat(nwRaw);
   const r={os:os,ns:ns,ow:ow,nw:nw};
   if(ns==='On Leave'){
-    r.leaveStart=v('ef-leavestart'); r.leaveEnd=v('ef-leaveend'); r.leaveEdit=os==='On Leave';
+    r.leaveStart=v('ef-leavestart'); r.leaveEnd=v('ef-leaveend'); r.leaveNote=v('ef-leavenote'); r.leaveEdit=os==='On Leave';
     if(!r.leaveStart){ showToast('⚠ Enter the first day of leave'); return false; }
     if(r.leaveEnd&&r.leaveEnd<r.leaveStart){ showToast('⚠ The leave ends before it starts'); return false; }
   }
@@ -8847,14 +9042,15 @@ function capEfCollect(grid,p){
 function capEfApply(p,r){
   if(r.leaveStart){
     const L=(Array.isArray(p._leaves)?p._leaves:[]).slice(), ci=r.leaveEdit?staffLeaveCurrentIdx(p):-1;
-    if(ci>=0) L[ci]={start:r.leaveStart,end:r.leaveEnd||''};
-    else { const keep=L.filter(function(l){ return !(l.start&&!l.end); }); keep.push({start:r.leaveStart,end:r.leaveEnd||''}); L.length=0; keep.forEach(function(x){ L.push(x); }); }
+    const nl={start:r.leaveStart,end:r.leaveEnd||''}; if(r.leaveNote) nl.note=String(r.leaveNote).slice(0,200);
+    if(ci>=0) L[ci]=nl;
+    else { const keep=L.filter(function(l){ return !(l.start&&!l.end); }); keep.push(nl); L.length=0; keep.forEach(function(x){ L.push(x); }); }
     p._leaves=L;
   }
   if(r.ret){
     const d=capDateOf(r.ret), last=capISO(new Date(d.getFullYear(),d.getMonth(),d.getDate()-1));
     let done=false;
-    p._leaves=(Array.isArray(p._leaves)?p._leaves:[]).map(function(l){ if(!done&&l.start&&(!l.end||l.end>=last)&&l.start<=last){ done=true; return {start:l.start,end:last}; } return l; });
+    p._leaves=(Array.isArray(p._leaves)?p._leaves:[]).map(function(l){ if(!done&&l.start&&(!l.end||l.end>=last)&&l.start<=last){ done=true; return Object.assign({},l,{end:last}); } return l; });
   }
   if(r.term){ p['Term Date']=r.term; p['Notice Date']=r.notice||p['Notice Date']||''; }
   if(r.hireNorm) p['Date of Hire']=r.hireNorm;
@@ -10350,21 +10546,29 @@ function capPPStartFor(d){
 function capTimeline(s){
   const cur=parseFloat(s&&s['Weekly Capacity'])||0;
   let hist=[];
-  try{ hist=(Array.isArray(s._capHist)?s._capHist:[]).map(function(h){ return {from:capDateOf(h.from),weekly:parseFloat(h.weekly)}; })
+  try{ hist=(Array.isArray(s._capHist)?s._capHist:[]).map(function(h){ return {from:capDateOf(h.from),weekly:parseFloat(h.weekly),tier:h.tier||'',tierOld:h.tierOld||'',note:h.note||'',ramp:h.ramp||null}; })
     .filter(function(h){ return !isNaN(h.weekly); }).sort(function(a,b){ return (a.from?a.from.getTime():-Infinity)-(b.from?b.from.getTime():-Infinity); }); }catch(e){ hist=[]; }
   // the newest entry always matches the profile's current Weekly Capacity
   // (the profile's Weekly Capacity is always the newest entry — the latest change, even if it starts later)
   if(hist.length && hist[hist.length-1].weekly!==cur) hist[hist.length-1].weekly=cur;
   let leaves=[];
-  try{ leaves=(Array.isArray(s._leaves)?s._leaves:[]).map(function(l){ return {start:capDateOf(l.start),end:capDateOf(l.end)}; }).filter(function(l){ return l.start; }); }catch(e){ leaves=[]; }
+  try{ leaves=(Array.isArray(s._leaves)?s._leaves:[]).map(function(l){ return {start:capDateOf(l.start),end:capDateOf(l.end),note:l.note||''}; }).filter(function(l){ return l.start; }); }catch(e){ leaves=[]; }
   return {cur:cur,hist:hist,leaves:leaves,hire:capHireDate(s),term:capDateOf(s&&s['Term Date']),notice:capDateOf(s&&s['Notice Date'])};
 }
 function capWeeklyAt(tl,d){
   if(!tl.hist.length) return tl.cur;
-  let w=tl.hist[0].weekly;
-  for(let i=0;i<tl.hist.length;i++){ const h=tl.hist[i]; if(!h.from||h.from<=d) w=h.weekly; }
+  let w=tl.hist[0].weekly, hh=null;
+  for(let i=0;i<tl.hist.length;i++){ const h=tl.hist[i]; if(!h.from||h.from<=d){ w=h.weekly; hh=h; } }
+  // Part-time → full-time tier change (Nov 22): 60-day ramp from the old hours — days 1–30 halfway, 31–60 three-quarters, then full
+  try{ if(hh&&hh.ramp&&hh.from&&w>(+hh.ramp.old||0)){ const day=Math.round((d-hh.from)/CAP_DAY_MS); const old=+hh.ramp.old||0;
+      if(day>=0&&day<CAP_TIER_RAMP_DAYS) return old+(w-old)*(day<30?0.5:0.75); } }catch(e){}
   return w;
 }
+const CAP_TIER_RAMP_DAYS=60;
+function capTierIsFull(t){ return t==='FULL'||t==='SAL'; }
+function capTierIsPart(t){ return t==='PART'||t==='FRAC'; }
+// Ramp applies when the tier goes from part-time (Part Time / Fractional) to full-time (Full Time / Salary) and hours go up
+function capTierRamps(oldT,newT,oldW,newW){ return capTierIsPart(oldT)&&capTierIsFull(newT)&&newW>oldW; }
 function capOnLeaveAt(tl,d){ return tl.leaves.some(function(l){ return d>=l.start && (!l.end||d<=l.end); }); }
 function capDayGoal(tl,d){
   if(tl.hire && d<tl.hire) return 0;
@@ -10441,10 +10645,30 @@ function capAdjustNotes(s){
   if(capUsesRamp(s)) out.push('New-hire ramp from '+capUS(tl.hire)+(String(s['First Office Date']||'').trim()?' (First Client Day)':' (hire date — no First Client Day entered)')+': 25% of normal pace for days 1–30, 50% for 31–60, 75% for 61–90, then 100%. No goal before that date.');
   if(tl.hist.length>1) out.push('Weekly Capacity: '+tl.hist.map(function(h,i){ return h.weekly+' hrs/wk'+(i===0?(h.from?' from '+capUS(h.from):' to start'):' from '+capUS(h.from)); }).join(' → ')+' — each part of the year is measured at the capacity in effect then.');
   try{ tl.hist.forEach(function(h){ if(h.from&&capRampCheck(s,capISO(h.from)).kind==='inside') out.push('⚠ The capacity change on '+capUS(h.from)+' falls inside the new-hire ramp — remove it (or move it to '+capUS(capRampEnd(tl.hire))+' or later) so the ramp is measured correctly.'); }); }catch(e){}
-  tl.leaves.forEach(function(l){ out.push('Leave '+capUS(l.start)+(l.end?' – '+capUS(l.end):' – (still on leave)')+': no hours expected.'); });
+  try{ tl.hist.forEach(function(h,i){ if(i===0||!h.from||!(h.tier||h.note||h.ramp)) return;
+      let t='Capacity change on '+capUS(h.from)+': '+tl.hist[i-1].weekly+' → '+h.weekly+' hrs/wk';
+      if(h.tier) t+=' · tier change '+(capTierLabel(h.tierOld)||'not set')+' → '+(capTierLabel(h.tier)||'not set');
+      if(h.ramp){ const a=new Date(h.from.getFullYear(),h.from.getMonth(),h.from.getDate()+30), b=new Date(h.from.getFullYear(),h.from.getMonth(),h.from.getDate()+60), o=+h.ramp.old||0, r1=function(v){ return Math.round(v*10)/10; };
+        t+=' · 60-day ramp to a full caseload: '+r1(o+(h.weekly-o)*0.5)+' hrs/wk to '+capUS(new Date(a.getTime()-CAP_DAY_MS))+', '+r1(o+(h.weekly-o)*0.75)+' to '+capUS(new Date(b.getTime()-CAP_DAY_MS))+', then '+h.weekly; }
+      if(h.note) t+=' — “'+hesc(h.note)+'”';
+      out.push(t+'.'); }); }catch(e){}
+  tl.leaves.forEach(function(l){ out.push(capLeaveNoteText(s,tl,l)); });
   if(tl.term) out.push('Offboarding'+(tl.notice?' (notice given '+capUS(tl.notice)+')':'')+': goal runs through the term date, '+capUS(tl.term)+', then stops.');
   if(normStatus(s['Employee Status'])==='On Leave' && !tl.leaves.some(function(l){ return !l.end||l.end>=today; })) out.push('⚠ Status is On Leave but no leave dates are entered — hours are still expected until HR adds them.');
   return out;
+}
+// Leave explained on the dashboard (Nov 22): dates, how long, what it did to the goal (flat during the leave, year goal lower by
+// the hours that would have been expected), and the leave's note if one was entered.
+function capLeaveNoteText(s,tl,l){
+  try{ const ys=CAP_YEAR_START, ye=new Date(ys.getFullYear(),ys.getMonth(),ys.getDate()+CAP_YEAR_WEEKS*7-1), today=capDateOf(new Date());
+    const a=l.start<ys?ys:l.start, z0=l.end||today, z=z0>ye?ye:z0; let hrs=0, days=0;
+    if(a<=z){ const tl2=Object.assign({},tl,{leaves:[]});
+      for(let d=new Date(a);d<=z;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1)){ days++; hrs+=capDayGoal(tl2,d); } }
+    const all=Math.round(((l.end||today)-l.start)/CAP_DAY_MS)+1, wk=all>=14?' ('+Math.round(all/7)+' weeks)':' ('+all+' day'+(all===1?'':'s')+')';
+    let t='Leave of absence '+capUS(l.start)+(l.end?' – '+capUS(l.end):' – ongoing (no return date yet)')+wk+': no clinical hours are expected on leave days, so the goal line stays flat'
+      +(l.end?' during the leave':' while the leave continues')+(hrs>=0.5?' and this year’s goal is '+Math.round(hrs)+' hrs lower than it would have been'+(l.end?'':' so far'):'')+'.';
+    if(l.note) t+=' Note: “'+hesc(l.note)+'”';
+    return t; }catch(e){ return 'Leave '+capUS(l.start)+(l.end?' – '+capUS(l.end):'')+': no hours expected.'; }
 }
 // Quarter-END dates for the capacity year (cumulative work-weeks from year start).
 function capQuarterEndDates(){
@@ -11207,8 +11431,8 @@ async function capLoadPersistedHours(){
       }
     }
   } catch(e){}
-  // No valid same-version copy → seed storage from the embedded data.
-  capPersistHours();
+  // Nov 22: no longer seeds storage with the empty built-in copy — a failed or denied read (network blip,
+  // permissions) must never overwrite everyone's real hours with nothing.
 }
 
 // Group hours live in a separate store (GROUP_HOURS_DATA), credited at the
@@ -11239,7 +11463,7 @@ async function capLoadPersistedGroupHours(){
       }
     }
   } catch(e){}
-  capPersistGroupHours();
+  // (no empty seeding — see capLoadPersistedHours)
 }
 
 function capExportBackup(){
@@ -11460,8 +11684,6 @@ function renderCapacity(){
             <button onclick="capViewProfile('${s._id}')" title="Open this person's full record"
               style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:9px 16px;border-radius:24px;border:none;background:var(--navy);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(17,24,39,.25)">👤 View Profile</button>
           </div>
-          ${capAdjustBannerHtml(s)}
-          ${pvA('cap','manage',s&&s._id)?capAdjustAdminHtml(s):''}
           <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">
             ${capDrillHTML(s,c)}
           </div>
@@ -11598,14 +11820,15 @@ function capPeriodAdminHtml(){
     const st=capParseDate(iso), en=new Date(st.getTime()+13*86400000), f=function(d){ return (d.getMonth()+1)+'/'+d.getDate(); };
     if(!appPPInMenu({start:st})) return '';
     const S=capPeriodStats(i);
-    return '<tr style="border-top:1px solid #f1f2f4'+(S.people?'':';color:#aaa')+'"><td style="padding:8px 12px;font-weight:700">PP '+(i+1)+'</td><td style="padding:8px 12px">'+f(st)+'–'+f(en)+'</td>'
+    const prov=!!(data.prov&&data.prov[i]);
+    return '<tr style="border-top:1px solid #f1f2f4'+(S.people?'':';color:#aaa')+'"><td style="padding:8px 12px;font-weight:700">PP '+(i+1)+(prov?' <span style="font-size:9px;font-weight:700;color:#92610f;background:#fef3c7;border-radius:8px;padding:1px 6px">NOT CLOSED YET</span>':'')+'</td><td style="padding:8px 12px">'+f(st)+'–'+f(en)+'</td>'
       +'<td style="padding:8px 12px;text-align:right">'+(S.people||'—')+'</td><td style="padding:8px 12px;text-align:right">'+(S.people?S.ind:'—')+'</td><td style="padding:8px 12px;text-align:right">'+(S.people?S.grp:'—')+'</td>'
       +'<td style="padding:6px 12px;text-align:right">'+(S.people?'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;color:#b91c1c" onclick="capDeletePeriod('+i+')">Delete period…</button>':'<span style="font-size:11.5px">no data</span>')+'</td></tr>';
   }).join('');
   return '<div style="max-width:1000px;width:100%;margin:18px auto 30px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">'
     +'<button onclick="CAP_PERIODS_OPEN=!CAP_PERIODS_OPEN;renderCapacity()" aria-expanded="'+CAP_PERIODS_OPEN+'" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border:0;background:#fff;font:inherit;font-weight:800;font-size:13px;cursor:pointer;color:#111827">'
     +'<span>🗓 Pay periods — delete a period and start over <span style="font-weight:600;color:#9ca3af;font-size:11.5px">Super Admin</span></span><span>'+(CAP_PERIODS_OPEN?'▾':'▸')+'</span></button>'
-    +(CAP_PERIODS_OPEN?'<div style="padding:0 16px 8px;font-size:12px;color:#6b7280">Deleting a pay period erases every clinician’s individual and group hours for it (and the Payroll Processing breakdown), so it can be re-entered or re-imported. This cannot be undone.</div>'
+    +(CAP_PERIODS_OPEN?'<div style="padding:0 16px 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:#6b7280"><span style="flex:1;min-width:240px">Uploaded pay periods fill the dashboards right away (marked “Not closed yet”); closing a period makes its hours final.</span><button class="btn btn-secondary" style="font-size:12px" onclick="capSyncOpenPeriods(true)">↻ Update from uploaded pay periods</button></div><div style="padding:0 16px 8px;font-size:12px;color:#6b7280">Deleting a pay period erases every clinician’s individual and group hours for it (and the Payroll Processing breakdown), so it can be re-entered or re-imported. This cannot be undone.</div>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f9fafb;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">'
       +'<th style="padding:8px 12px;text-align:left">Period</th><th style="padding:8px 12px;text-align:left">Dates</th><th style="padding:8px 12px;text-align:right">Clinicians with hours</th><th style="padding:8px 12px;text-align:right">Individual hrs</th><th style="padding:8px 12px;text-align:right">Group hrs (raw)</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')
     +'</div>';
@@ -12089,7 +12312,7 @@ function rtDelete(kind,from){
 function renderAdmin(){
   const outer=document.getElementById('admin-body'); if(!outer) return;
   const sec=hbmShell(outer); if(!sec) return;
-  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
+  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='groups'){ hbmRenderGroups(sec); return; } if(HBM.sec==='mtgset'){ hbmRenderMtgSet(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
   renderAdminRoles(sec);
 }
 function renderAdminRoles(body){
@@ -12214,7 +12437,7 @@ function capChartClick(evt, uid, sid){
   const sx=(evt.clientX-r.left)/r.width*vb.width, sy=(evt.clientY-r.top)/r.height*vb.height;
   let best=null, bestd=1e9;
   svg.querySelectorAll('.'+uid+'-pt[data-pp]').forEach(p=>{ const d=Math.hypot(+p.getAttribute('data-x')-sx,+p.getAttribute('data-y')-sy); if(d<bestd){bestd=d;best=p;} });
-  if(best && bestd<28 && typeof prOpenSheetForPP==='function') prOpenSheetForPP(sid, +best.getAttribute('data-pp'));
+  if(best && bestd<28) capPPAsk(evt, sid, +best.getAttribute('data-pp'));
 }
 function capChartHide(uid){
   const tip=document.getElementById(uid+'-tip'); if(tip) tip.style.display='none';
@@ -12262,7 +12485,7 @@ function capAdjustAdminHtml(s){
     const b=function(lbl,fn){ return '<button onclick="'+fn+'" style="font:inherit;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;border:1px solid #d4ddd7;background:#fff;cursor:pointer;color:#122B67">'+lbl+'</button>'; };
     const x=function(fn){ return ' <button onclick="'+fn+'" title="Remove" style="font:inherit;font-size:13px;border:0;background:none;color:#b91c1c;cursor:pointer;padding:0 4px">×</button>'; };
     const row=function(label,body){ return '<div style="display:flex;gap:12px;padding:8px 0;border-top:1px solid #f1f2f4;align-items:flex-start;flex-wrap:wrap"><div style="width:150px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;padding-top:3px">'+label+'</div><div style="flex:1;min-width:220px;font-size:12.5px;color:#1f2937;line-height:1.8">'+body+'</div></div>'; };
-    const hist=tl.hist.length?tl.hist.map(function(h,i){ return '<div>'+h.weekly+' hrs/wk '+(h.from?'from '+capUS(h.from):'(before first change)')+(i>0?x("capAdjDelChange('"+id+"',"+i+")"):'')+'</div>'; }).join('')
+    const hist=tl.hist.length?tl.hist.map(function(h,i){ return '<div>'+h.weekly+' hrs/wk '+(h.from?'from '+capUS(h.from):'(before first change)')+capHistExtra(h)+(i>0?x("capAdjDelChange('"+id+"',"+i+")"):'')+'</div>'; }).join('')
       :'<div>'+tl.cur+' hrs/wk all year <span style="color:#9ca3af">(no changes recorded)</span></div>';
     const lv=tl.leaves.length?(s._leaves||[]).map(function(l,i){ const st=capDateOf(l.start), en=capDateOf(l.end);
       return '<div>'+capUS(st)+' – '+(en?capUS(en):'<b>still on leave</b>')+' '+b(en?'Change return…':'Set return…',"capAdjSetReturn('"+id+"',"+i+")")+x("capAdjDelLeave('"+id+"',"+i+")")+'</div>'; }).join('')
@@ -12282,6 +12505,10 @@ function capAskDate(msg,def){
 }
 async function capAdjSave(s){ try{ await persistStaff(); }catch(e){} renderCapacity(); showToast('✅ Capacity goal updated'); }
 // Record a Weekly Capacity change effective `from` (ISO). Keeps the old value for earlier days.
+// Tier change / ramp / note shown beside a capacity change in the lists
+function capHistExtra(h){ try{ let t=''; if(h.tier) t+=' <span style="font-size:10.5px;font-weight:700;color:#0b4f56;background:#e8f7f8;border-radius:8px;padding:1px 6px">Tier: '+hesc(capTierLabel(h.tierOld)||'—')+' → '+hesc(capTierLabel(h.tier)||'—')+'</span>';
+  if(h.ramp) t+=' <span style="font-size:10.5px;font-weight:700;color:#92610f;background:#fef3c7;border-radius:8px;padding:1px 6px">60-day ramp</span>';
+  if(h.note) t+=' <span style="font-size:11.5px;color:#6b7280">“'+hesc(h.note)+'”</span>'; return t; }catch(e){ return ''; } }
 function capRecordCapacityChange(s,oldW,newW,from){
   const hist=Array.isArray(s._capHist)?s._capHist.slice():[];
   if(!hist.length) hist.push({from:'',weekly:oldW});
@@ -12353,11 +12580,15 @@ function capDlgBody(s){
   const hire=capDateOf(capRampStartRaw(s)), pp=capPPStartFor(), cur=parseFloat(s['Weekly Capacity'])||0;
   const opt=function(v,label,sub,checked){ return '<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;margin:4px 0"><input type="radio" name="capdlg-when" value="'+v+'"'+(checked?' checked':'')+' onchange="capDlgSync()" style="margin-top:3px"><span><b>'+label+'</b>'+(sub?'<br><span style="color:#64748b;font-size:12px">'+sub+'</span>':'')+'</span></label>'; };
   const tl=capTimeline(s);
-  const hist=tl.hist.length>1?'<div style="font-size:12.5px;margin-top:4px">'+tl.hist.map(function(h,i){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid #f1f2f4"><span><b>'+h.weekly+'</b> hrs/wk '+(i===0?(h.from?'from '+capUS(h.from):'to start'):'from '+capUS(h.from))+'</span>'+(i>0?'<button class="me-x" style="color:#b91c1c" onclick="capDlgDel('+i+')">Remove</button>':'')+'</div>'; }).join('')+'</div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">'+cur+' hrs/wk — no changes recorded.</div>';
+  const hist=tl.hist.length>1?'<div style="font-size:12.5px;margin-top:4px">'+tl.hist.map(function(h,i){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid #f1f2f4"><span><b>'+h.weekly+'</b> hrs/wk '+(i===0?(h.from?'from '+capUS(h.from):'to start'):'from '+capUS(h.from))+capHistExtra(h)+'</span>'+(i>0?'<button class="me-x" style="color:#b91c1c" onclick="capDlgDel('+i+')">Remove</button>':'')+'</div>'; }).join('')+'</div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">'+cur+' hrs/wk — no changes recorded.</div>';
   return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="capdlg-h" style="margin:0;font-size:17px;color:#122B67">📈 Change capacity — '+hesc(s['Clinician']||'')+'</h3><button class="pr-x" onclick="capDlgClose()" aria-label="Close" style="font-size:20px;background:none;border:0;cursor:pointer">×</button></div>'
     +'<div style="font-size:12.5px;color:#475569;margin-top:4px">Currently <b>'+cur+' hrs/wk</b>'+(hire?' · hired '+capUS(hire):'')+(hire&&capUsesRamp(s)?' · new-hire ramp '+capUS(hire)+' – '+capUS(new Date(capRampEnd(hire).getTime()-CAP_DAY_MS)):'')+'</div>'
     +(CAPDLG.hire?'<div style="font-size:12.5px;background:#fff8ee;border:1px solid #F2A54B;border-radius:8px;padding:7px 10px;margin-top:8px">Using the new hire date from the edit form (<b>'+capUS(capDateOf(CAPDLG.hire))+'</b>). It’s saved along with this change.</div>':'')
     +'<div style="display:flex;gap:12px;align-items:flex-end;margin-top:14px"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">New Weekly Capacity (hrs/week)<input id="capdlg-w" type="number" min="0" step="0.5" value="'+cur+'" oninput="capDlgSync()" style="font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px;width:150px"></label><span id="capdlg-bw" class="muted" style="font-size:12px;padding-bottom:9px"></span></div>'
+    +(function(){ const ct=String(s['Capacity Tier']||''); return '<div style="display:flex;gap:12px;align-items:flex-end;margin-top:12px;flex-wrap:wrap"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">Capacity tier <span style="font-weight:500;color:#6b7280">now: '+hesc(capTierLabel(ct)||'not set')+'</span>'
+        +'<select id="capdlg-tier" onchange="capDlgSync()" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d4ddd7;border-radius:8px">'+(CONFIG.capacityOpts||[]).map(function(o){ return '<option value="'+hesc(o)+'"'+(o===ct?' selected':'')+'>'+(o?hesc(capTierLabel(o))+(o===ct?' (no tier change)':''):'— not set —')+'</option>'; }).join('')+'</select></label>'
+        +'<span id="capdlg-tiermsg" style="font-size:12px;color:#0b4f56;font-weight:700;padding-bottom:7px"></span></div>'; })()
+    +'<label style="display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:12px;font-weight:700;color:#334155">Note <span style="font-weight:500;color:#6b7280">shown on their Capacity Dashboard — the clinician, their leaders and admins see it</span><textarea id="capdlg-note" rows="2" maxlength="400" placeholder="e.g. Moving to full time after the fall caseload review" style="font:inherit;font-size:13px;padding:7px 9px;border:1px solid #d4ddd7;border-radius:8px;resize:vertical"></textarea></label>'
     +'<div style="margin-top:12px;font-size:12px;font-weight:700;color:#334155">When does it start? *</div>'
     +(hire?opt('hire','From the start ('+capUS(hire)+')','Their starting capacity — the whole goal is recalculated; the new-hire ramp still applies.',false):'')
     +opt('pp','From this pay period ('+capUS(pp)+')','Earlier days keep the old capacity.',false)
@@ -12370,7 +12601,9 @@ function capDlgRead(){
   const s0=capAdjStaff(CAPDLG.id); if(!s0) return null; const s=capDlgView(s0);
   const w=parseFloat((document.getElementById('capdlg-w')||{}).value), r=document.querySelector('input[name=capdlg-when]:checked'), when=r?r.value:'';
   const from=when==='hire'?capISO(capDateOf(capRampStartRaw(s))):when==='pp'?capISO(capPPStartFor()):when==='date'?((document.getElementById('capdlg-d')||{}).value||''):'';
-  return {s:s,s0:s0,w:w,when:when,from:from};
+  const tier=(document.getElementById('capdlg-tier')||{}).value, oldT=String(s['Capacity Tier']||'');
+  const note=String((document.getElementById('capdlg-note')||{}).value||'').trim();
+  return {s:s,s0:s0,w:w,when:when,from:from,tier:tier==null?oldT:tier,oldT:oldT,note:note,tierChg:tier!=null&&tier!==oldT};
 }
 function capDlgSync(){
   try{
@@ -12382,8 +12615,11 @@ function capDlgSync(){
     else if(!x.from){ msg='Pick the start date.'; }
     else { const rc=capRampCheck(x.s,x.from);
       if(rc.kind==='inside'){ msg=capRampMsg(rc).replace('⚠ ',''); bad=true; }
-      else { const cur=parseFloat(x.s['Weekly Capacity'])||0; msg=capEfEffect(x.s,x.w,x.when,x.from)||''; ok=(x.w!==cur)||x.when==='hire'||(capTimeline(x.s).hist.length>1);
-        if(!msg) msg='Ready to save.'; } }
+      else { const cur=parseFloat(x.s['Weekly Capacity'])||0; msg=capEfEffect(x.s,x.w,x.when,x.from,x.tier)||''; ok=(x.w!==cur)||x.when==='hire'||(capTimeline(x.s).hist.length>1)||x.tierChg;
+        if(!msg) msg='Ready to save.';
+        if(x.when!=='hire'&&capTierRamps(x.oldT,x.tier,cur,x.w)){ const f=capDateOf(x.from), a=new Date(f.getFullYear(),f.getMonth(),f.getDate()+30), b=new Date(f.getFullYear(),f.getMonth(),f.getDate()+60), r1=function(v){ return Math.round(v*10)/10; };
+          msg+='<div style="margin-top:6px"><b>60-day ramp (part time → full time):</b> '+r1(cur+(x.w-cur)*0.5)+' hrs/wk from '+capUS(f)+', '+r1(cur+(x.w-cur)*0.75)+' hrs/wk from '+capUS(a)+', full '+x.w+' hrs/wk from '+capUS(b)+'.</div>'; } } }
+    try{ const tm=document.getElementById('capdlg-tiermsg'); if(tm) tm.textContent=x.tierChg?'✓ Tier change: '+(capTierLabel(x.oldT)||'not set')+' → '+(capTierLabel(x.tier)||'not set'):''; }catch(e){}
     if(eff){ eff.innerHTML=msg; eff.style.display=msg?'block':'none'; eff.style.background=bad?'#fef2f2':'#eff6ff'; eff.style.color=bad?'#b91c1c':'#1e3a8a'; }
     if(btn) btn.disabled=!ok;
   }catch(e){ console.error(e); }
@@ -12398,7 +12634,15 @@ async function capDlgSave(){
       if(bad&&rc.kind!=='start'){ showToast('⚠ With the new hire date, the capacity change on '+capUS(capDateOf(bad.from))+' would fall inside the new-hire ramp. Remove it first.'); return; }
       S['Date of Hire']=CAPDLG.hire;
     }
-    if(rc.kind==='start') capSetStartingCapacity(S,x.w); else capRecordCapacityChange(S,parseFloat(S['Weekly Capacity'])||0,x.w,x.from);
+    const oldW=parseFloat(S['Weekly Capacity'])||0;
+    if(rc.kind==='start') capSetStartingCapacity(S,x.w); else capRecordCapacityChange(S,oldW,x.w,x.from);
+    // tier change / note / part→full ramp ride on the timeline entry for this date (Nov 22)
+    try{ if(rc.kind!=='start'){ const e=(S._capHist||[]).find(function(h){ return h.from===x.from; });
+        if(e){ const me=homeMe(); if(x.tierChg){ e.tierOld=x.oldT; e.tier=x.tier; } else { delete e.tierOld; delete e.tier; }
+          if(x.note) e.note=x.note; else delete e.note;
+          if(capTierRamps(x.oldT,x.tier,oldW,x.w)) e.ramp={old:oldW,days:CAP_TIER_RAMP_DAYS}; else delete e.ramp;
+          e.by=(me&&me['Clinician'])||''; e.at=new Date().toISOString(); } } }catch(e){ console.error(e); }
+    if(x.tierChg) S['Capacity Tier']=x.tier;
     delete CAP_GOAL_CACHE[S._id];
     try{ await persistStaff(); }catch(e){}
     capDlgClose(); capEfSyncAfterDlg(S); capRefreshViews(S._id); showToast('✅ Capacity changed — goal recalculated');
@@ -12519,7 +12763,7 @@ function staffLeaveSyncStatus(s){ try{ const st=normStatus(s['Employee Status'])
 var LVDLG={id:null,rows:[]};
 function leaveDlgOpen(id,addNew){
   try{ const s=capAdjStaff(id)||STAFF.find(function(x){ return x._id===id; }); if(!s) return; LVDLG.id=id;
-    LVDLG.rows=(Array.isArray(s._leaves)?s._leaves:[]).map(function(l){ return {start:l.start||'',end:l.end||''}; });
+    LVDLG.rows=(Array.isArray(s._leaves)?s._leaves:[]).map(function(l){ return {start:l.start||'',end:l.end||'',note:l.note||''}; });
     if(addNew||!LVDLG.rows.length) LVDLG.rows.push({start:staffTodayISO(),end:'',isNew:1});
     let ov=document.getElementById('lvdlg'); if(ov) ov.remove();
     ov=document.createElement('div'); ov.id='lvdlg';
@@ -12541,7 +12785,9 @@ function leaveDlgPaint(){
     +(LVDLG.rows.length?LVDLG.rows.map(function(r,i){ return '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:10px 12px;border:1px solid #e5e9f0;border-radius:10px;margin-bottom:8px;background:#f8fafc">'
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#6b7280">First day of leave *'+inp(i,'start',r.start)+'</label>'
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#6b7280">Last day of leave'+inp(i,'end',r.end)+'</label>'
-      +'<button onclick="leaveDlgDel('+i+')" style="font:inherit;font-size:12px;border:0;background:none;color:#b91c1c;cursor:pointer;margin-left:auto;padding:6px">Remove</button></div>'; }).join('')
+      +'<button onclick="leaveDlgDel('+i+')" style="font:inherit;font-size:12px;border:0;background:none;color:#b91c1c;cursor:pointer;margin-left:auto;padding:6px">Remove</button>'
+      +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#6b7280;width:100%">Note (optional) — shown on their Capacity Dashboard; keep it general, no medical details'
+      +'<input type="text" maxlength="200" data-lv="'+i+':note" value="'+hesc(r.note||'')+'" placeholder="e.g. Approved leave of absence" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d4ddd7;border-radius:8px"></label></div>'; }).join('')
       :'<div style="font-size:12.5px;color:#9ca3af;padding:8px 0">No leave recorded.</div>')
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="btn btn-secondary" onclick="leaveDlgAdd()">+ Add another leave</button><span style="flex:1"></span>'
     +'<button class="btn btn-secondary" onclick="leaveDlgClose()">Cancel</button><button class="btn btn-primary" onclick="leaveDlgSave()">Save leave dates</button></div>';
@@ -12552,7 +12798,7 @@ async function leaveDlgSave(){
     for(const r of rows){ if(!r.start){ showToast('⚠ Every leave needs a first day'); return; } if(r.end&&r.end<r.start){ showToast('⚠ A leave ends before it starts'); return; } }
     const srt=rows.slice().sort(function(a,b){ return a.start.localeCompare(b.start); });
     for(let i=1;i<srt.length;i++){ if(!srt[i-1].end||srt[i-1].end>=srt[i].start){ showToast('⚠ Two leaves overlap — end the earlier one first'); return; } }
-    s._leaves=srt.map(function(r){ return {start:r.start,end:r.end||''}; });
+    s._leaves=srt.map(function(r){ const o={start:r.start,end:r.end||''}; const n=String(r.note||'').trim(); if(n) o.note=n.slice(0,200); return o; });
     staffLeaveSyncStatus(s);
     try{ await persistStaff(); }catch(e){}
     leaveDlgClose(); showToast('✅ Leave dates saved — status: '+effectiveStatus(s));
@@ -12641,12 +12887,272 @@ function capPeriodRows(s, c){
       idx:i, quarter:pq, label:'PP '+(i+1),
       range: (function(){ const st=capParseDate(data.periods[i]); const en=new Date(st.getTime()+13*86400000);
         return (st.getMonth()+1)+'/'+st.getDate()+'–'+(en.getMonth()+1)+'/'+en.getDate(); })(),
-      actual, expected, diff, isRampPeriod, rampPctLabel, leaveDays,
+      actual, expected, diff, isRampPeriod, rampPctLabel, leaveDays, prov: !!(data.prov && data.prov[i]),
     });
   }
   return rows;
 }
 
+// ══ Capacity Dashboard detail — views, sessions, no-shows, graph notes (Nov 22 2026) ══
+var CAPV={sid:null,view:'cum',tab:'sess',data:{},notes:{},pins:{}};
+function capCdxCss(){ return '<style>.cdx{padding:16px 18px;background:#fafafa}.cdx-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}@media(max-width:820px){.cdx-top{grid-template-columns:1fr}}'
+  +'.cdx-score{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:12px 14px}.cdx-ring{width:96px;height:96px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}'
+  +'.cdx-ring>div{width:78px;height:78px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}.cdx-ring b{font-size:21px;line-height:1}.cdx-ring small{font-size:10px;color:#6b7280;font-weight:600}'
+  +'.cdx-lab{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8f9e}.cdx-big{font-size:16px;font-weight:800;color:#122B67;margin:3px 0}.cdx-sub{font-size:12.5px;color:#6b7280}.cdx-sub b{color:#374151}'
+  +'.cdx-catch>div{margin-bottom:0!important;height:100%}.cdx-catch>div+div{margin-top:8px}.cdx-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:14px 16px;position:relative}'
+  +'.cdx-ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.cdx-t{font-size:15px;font-weight:800;color:#122B67;margin-right:auto}.cdx-new{font-size:11.5px;font-weight:800;letter-spacing:.05em;color:#fff;background:#F2A54B;border-radius:20px;padding:4px 10px;animation:cdxNew 1.6s ease-in-out infinite}@keyframes cdxNew{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}.cdx-sel{font:inherit;font-size:13px;font-weight:700;color:#122B67;border:1px solid #d4dbe6;border-radius:9px;padding:7px 10px;background:#fff}'
+  +'.cdx-lab2{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8f9e;margin:18px 0 8px}.cdx-qs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}@media(max-width:860px){.cdx-qs{grid-template-columns:1fr 1fr}}'
+  +'.cdx-q{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:11px 12px}.cdx-q.cur{border-color:#18A9B6;box-shadow:0 0 0 2px #18A9B622}.cdx-q.fut{opacity:.6}.cdx-qh{font-size:12px;font-weight:800;color:#334155;display:flex;gap:6px;align-items:center;flex-wrap:wrap}'
+  +'.cdx-qtd{font-size:10px;font-weight:800;color:#0b4f56;background:#dff4f6;border-radius:20px;padding:1px 7px}.cdx-qn{font-size:12.5px;color:#6b7280;margin:5px 0}.cdx-qn b{font-size:20px;color:#122B67}.cdx-qbar{height:7px;border-radius:5px;background:#eef1f5;position:relative}'
+  +'.cdx-qbar span{display:block;height:100%;border-radius:5px}.cdx-qbar i{position:absolute;top:-3px;width:2px;height:13px;background:#122B67}.cdx-qs2{font-size:12px;font-weight:700;margin-top:6px}.cdx-qs2.mut,.cdx-muted{color:#9ca3af;font-size:12.5px;font-weight:600}'
+  +'.cdx-dhead{display:flex;align-items:baseline;gap:10px;margin:22px 0 8px}.cdx-dt{font-size:15px;font-weight:800;color:#122B67}.cdx-dsub{font-size:12.5px;color:#6b7280}'+'.cdx-kg{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:900px){.cdx-kg{grid-template-columns:1fr}}.cdx-kc{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px}'
+  +'.cdx-kh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;font-weight:800;color:#122B67;margin-bottom:10px}.cdx-vd{font-size:11.5px;font-weight:800;border-radius:20px;padding:3px 10px;white-space:nowrap}'
+  +'.cdx-kbig{font-size:34px;font-weight:800;color:#122B67;line-height:1.05;margin-bottom:14px}.cdx-kbig small{display:block;font-size:12.5px;font-weight:500;color:#6b7280;margin-top:4px}'
+  +'.cdx-bars{display:grid;gap:9px}.cdx-br{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;font-size:13px;color:#4b5563}.cdx-br b{text-align:right;color:#374151}.cdx-br.me{color:#122B67;font-weight:800}.cdx-br.me b{color:#122B67}'
+  +'.cdx-bt{grid-column:1/-1;grid-row:2;height:10px;background:#f1f3f7;border-radius:6px;overflow:hidden}.cdx-bt span{display:block;height:100%;background:#c7d3ee;border-radius:6px}.cdx-br.me .cdx-bt span{background:#122B67}'
+  +'.cdx-kfoot{font-size:12px;color:#9ca3af;margin-top:12px}.cdx-split{position:relative;display:flex;height:30px;border-radius:8px;overflow:visible;margin:4px 0 2px}.cdx-split span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:12.5px;font-weight:800}'
+  +'.cdx-split span:first-child{border-radius:8px 0 0 8px}.cdx-split span:last-child{border-radius:0 8px 8px 0}.cdx-split i{position:absolute;top:-4px;bottom:-4px;width:2px;background:#122B67}'
+  +'.cdx-sr{margin-bottom:12px}.cdx-srh{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:#6b7280;margin-bottom:4px}.cdx-sr.me .cdx-srh{color:#122B67;font-weight:800}.cdx-sr .cdx-split{margin:0}.cdx-kmark{font-size:11.5px;color:#122B67;font-weight:700;margin-bottom:12px}.cdx-krow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #f1f2f4}.cdx-krow i{width:12px;height:12px;border-radius:3px;margin-top:4px;flex-shrink:0}'
+  +'.cdx-krow b{color:#122B67;font-size:14px}.cdx-krow small{display:block;color:#6b7280;font-size:12px}'
+  +'.cdx-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;background:#e8eef9;border:1px solid #c7d3ee;border-radius:12px;padding:6px;margin-bottom:12px}'+'@media(max-width:900px){.cdx-tabs{grid-template-columns:1fr 1fr 1fr}}.cdx-tab{font:inherit;font-size:14px;font-weight:700;color:#122B67;background:transparent;border:0;border-radius:9px;padding:10px 12px;cursor:pointer;transition:background .15s}'+'.cdx-tab:hover{background:#fff}.cdx-tab.on{background:#122B67;color:#fff;box-shadow:0 2px 6px rgba(18,43,103,.25)}.cdx-tab:focus-visible{outline:2px solid #18A9B6;outline-offset:2px}'+'.cdx-pane>div:first-child{margin-top:0}.cdx-say{font-size:13.5px;line-height:1.6;color:#1f2937;margin:0 0 10px}.cdx-say b{color:#122B67}.cdx-cmp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}'
+  +'.cdx-cmp>div{border:1px solid #e8e8e8;border-radius:10px;padding:9px 11px;font-size:12px;color:#6b7280;background:#fff}.cdx-cmp b{display:block;font-size:19px;color:#122B67}.cdx-pie{width:116px;height:116px;border-radius:50%;flex-shrink:0}'
+  +'.cdx-leg{font-size:13px;line-height:1.9}.cdx-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px}.cdx-tip{position:absolute;pointer-events:none;background:#122B67;color:#fff;font-size:12px;border-radius:8px;padding:6px 9px;display:none;white-space:nowrap;z-index:5}'
+  +'.cdx-note{display:flex;gap:10px;padding:8px 0;border-top:1px solid #f1f2f4;font-size:13px}.cdx-note:first-child{border-top:0}.cdx-av{width:28px;height:28px;border-radius:50%;background:#e8eef9;color:#122B67;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;flex-shrink:0}'
+  +'.cdx-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.cdx-add input[type=text]{flex:1;min-width:200px}.cdx-add input,.cdx-add select{font:inherit;font-size:13px;border:1px solid #d4dbe6;border-radius:8px;padding:7px 10px}</style>'; }
+// "NEW ⟶" flag beside the chart View dropdown — retires itself after a month (Nov 22 → Dec 22 2026)
+const CAP_VIEW_NEW_UNTIL='2026-12-22';
+function capViewNewOn(){ try{ return obIso(new Date())<CAP_VIEW_NEW_UNTIL; }catch(e){ return false; } }
+// Clicking a pay period (chart dot, over/under bar or table row) asks first, in a small popover next to the click,
+// then opens the Pay Period Snapshot for that person + pay period with a way back to this dashboard.
+function capPPAsk(ev,sid,idx){
+  try{ capPPAskClose(); const tp=document.getElementById('cdx-tip'); if(tp) tp.style.display='none'; const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null; if(!data||!data.periods||!data.periods[idx]) return;
+    const st=capParseDate(data.periods[idx]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13), md=function(d){ return (d.getMonth()+1)+'/'+d.getDate(); };
+    const el=document.createElement('div'); el.id='cap-ppask'; el.setAttribute('role','dialog');
+    el.style.cssText='position:fixed;z-index:9999;width:270px;background:#fff;border:1px solid #d4dbe6;border-radius:12px;box-shadow:0 10px 30px rgba(18,43,103,.22);padding:12px 14px;font-size:13px;color:#1f2937';
+    el.innerHTML='<div style="font-weight:800;color:#122B67;margin-bottom:3px">PP '+(idx+1)+' · '+md(st)+' – '+md(en)+'</div>'
+      +'<div style="line-height:1.45;margin-bottom:10px">Go to the Pay Period Snapshot to see the breakdown of this pay period?</div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" style="font-size:12.5px;padding:6px 12px;background:#fff;border:1px solid #d4dbe6;color:#122B67" onclick="capPPAskClose()">Not now</button>'
+      +'<button class="btn btn-primary" style="font-size:12.5px;padding:6px 12px" onclick="capPPGo(\''+hesc(sid)+'\','+idx+')">View snapshot →</button></div>'
+      +(capNoteCanWrite(sid)?'<div style="border-top:1px solid #eef1f5;margin-top:10px;padding-top:8px"><button class="hs-link" style="margin:0;color:#122B67;font-weight:700" onclick="capPPAskClose();capNoteJump(\''+capISO(en)+'\')">📌 Add a note for this pay period</button></div>':'');
+    document.body.appendChild(el);
+    let x=ev&&ev.clientX!=null&&ev.clientX?ev.clientX:0, y=ev&&ev.clientY?ev.clientY:0;
+    if(!x&&ev&&ev.target&&ev.target.getBoundingClientRect){ const r=ev.target.getBoundingClientRect(); x=r.left+40; y=r.bottom; }
+    const z=parseFloat(getComputedStyle(document.body).zoom)||1; x/=z; y/=z;   // the body is zoomed (1.35) — fixed positions are in zoomed units
+    const W=window.innerWidth/z, H=window.innerHeight/z, h=el.offsetHeight;
+    el.style.left=Math.max(8,Math.min(x+12,W-290))+'px'; el.style.top=(y+12+h>H-8?Math.max(8,y-h-12):y+12)+'px';
+    setTimeout(function(){ document.addEventListener('mousedown',capPPAskOut,true); document.addEventListener('keydown',capPPAskKey,true); },0);
+    const b=el.querySelector('.btn-primary'); if(b) b.focus();
+  }catch(e){ console.error(e); }
+}
+// Scroll to the graph-notes form, optionally pinned to a date
+function capNoteJump(iso){ try{ const f=document.getElementById('cdx-ntx'), d=document.getElementById('cdx-nd'); if(!f){ const n=document.getElementById('cdx-notes'); if(n) n.scrollIntoView({behavior:'smooth',block:'center'}); showToast('Only the clinician, their leaders and admins can add notes here'); return; }
+  if(iso&&d) d.value=iso; f.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){ try{ f.focus(); }catch(e){} },350); }catch(e){ console.error(e); } }
+function capPPAskOut(e){ const el=document.getElementById('cap-ppask'); if(el&&!el.contains(e.target)) capPPAskClose(); }
+function capPPAskKey(e){ if(e.key==='Escape') capPPAskClose(); }
+function capPPAskClose(){ try{ const el=document.getElementById('cap-ppask'); if(el) el.remove(); document.removeEventListener('mousedown',capPPAskOut,true); document.removeEventListener('keydown',capPPAskKey,true); }catch(e){} }
+function capPPGo(sid,idx){
+  try{ capPPAskClose(); const data=CLINICAL_HOURS_DATA, st=capParseDate(data.periods[idx]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13);
+    PSNAP.fromCap={sid:sid,view:CAPV.view}; paySnapGo(sid,capISO(st),capISO(en)); }catch(e){ console.error(e); }
+}
+function capTabSet(t){ CAPV.tab=t; document.querySelectorAll('.cdx-tabs .cdx-tab').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-t')===t); }); document.querySelectorAll('.cdx-pane').forEach(function(p){ p.style.display=p.getAttribute('data-t')===t?'':'none'; }); }
+function capViewSet(v){ CAPV.view=v; const cum=document.getElementById('cdx-v-cum'), alt=document.getElementById('cdx-v-alt'), t=document.getElementById('cdx-t');
+  if(t) t.textContent={cum:'Clinical hours vs goal — year to date',pp:'Over / under goal — each pay period',ns:'No-shows — each pay period',grp:'Group sessions — each pay period',types:'Sessions by type — each pay period'}[v]||'';
+  if(cum) cum.style.display=v==='cum'?'':'none'; if(alt){ alt.style.display=v==='cum'?'none':''; if(v!=='cum') capAltChart(v); } }
+// Session kind from a statement line: group · couples/family · individual (no-shows and supervision are left out)
+function capLineKind(L){ const tx=String(L.tx||'').toUpperCase(), h=String(L.head||'');
+  if(L.manual||/90853/.test(tx)||/^GV?\s/.test(tx)||/group/i.test(h)) return 'grp';
+  if(/9084[67]/.test(tx)||/COUPFAM/.test(tx)||/couples|family/i.test(h)) return 'cpl';
+  return 'ind'; }
+// Load this person's pay-period statements (own, Super Admin, or Pay Period Snapshot whose-data) + practice/site stats
+async function capVLoad(sid){
+  try{ const D={pp:{},ok:false,prac:{},site:null,team:''}; const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; D.team=st['Team']||'';
+    const DG=await capDelGuide();
+    try{ const list=window.payStore?await payStore.myStatements(sid):null;
+      if(list){ D.ok=true; const latest={}; list.forEach(function(x){ if(x.kind!=='ppu'||String(x.ppId||'').slice(0,4)!==String(CAP_YEAR)) return; if(!latest[x.periodId]||(latest[x.periodId].version||1)<(x.version||1)) latest[x.periodId]=x; });
+        Object.keys(latest).forEach(function(k){ const x=latest[k], i=+String(x.ppId).slice(5)-1, o={ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},prog:ppuProgressOf(x.lines)};
+          (x.lines||[]).forEach(function(L){ if(L.status&&L.status!=='counted') return; const h=L.head||''; if(h===PPU_NOSHOW_PAID){ o.nsPaid++; return; } if(h===PPU_NOSHOW_UNPAID){ o.nsUnpaid++; return; } if(h===PPU_SUP_PAID||h===PPU_SUP_UNPAID) return;
+            o[capLineKind(L)]++; const k5=capLineKind5(L); o.k5[k5]=(o.k5[k5]||0)+1; o.c5[k5]=(o.c5[k5]||0)+(+L.clin||0); const dk=capLineDel(L,DG); o.dl[dk]=(o.dl[dk]||0)+(+L.clin||0); const b=o.byHead[h||'Other']=o.byHead[h||'Other']||0; o.byHead[h||'Other']=b+1; });
+          D.pp[i]=o; }); } }catch(e){ console.error(e); }
+    try{ const r=await window.storage.get('app_practice_stats'); const d=r&&r.value?JSON.parse(r.value):{}; const pr={sessions:0,noShows:0,paidNS:0,signed:0,late24:0,daysSum:0}, si={sessions:0,noShows:0,signed:0,late24:0,daysSum:0};
+      Object.keys(d||{}).forEach(function(k){ if(k.slice(0,4)!==String(CAP_YEAR)) return; const a=d[k]||{}; ['sessions','noShows','paidNS','signed','late24','daysSum'].forEach(function(f){ pr[f]+=+a[f]||0; });
+        const b=a.bySite&&D.team&&a.bySite[D.team]; if(b) ['sessions','noShows','signed','late24','daysSum'].forEach(function(f){ si[f]+=+b[f]||0; }); });
+      D.prac=pr; D.site=si.sessions?si:null; }catch(e){}
+    CAPV.data[sid]=D; if(CAPV.sid!==sid) return;
+    capSessPane(sid); capNsPane(sid); if(CAPV.view!=='cum') capAltChart(CAPV.view);
+  }catch(e){ console.error(e); }
+}
+function capYtd(D){ const t={ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},n:0,signed:0,late24:0,daysSum:0}; Object.keys(D.pp).forEach(function(i){ const o=D.pp[i]; t.n++; ['ind','cpl','grp','nsPaid','nsUnpaid'].forEach(function(k){ t[k]+=o[k]; });
+  Object.keys(o.byHead).forEach(function(h){ t.byHead[h]=(t.byHead[h]||0)+o.byHead[h]; }); ['k5','c5','dl'].forEach(function(f){ Object.keys(o[f]||{}).forEach(function(k){ t[f][k]=(t[f][k]||0)+o[f][k]; }); }); t.signed+=o.prog.signed||0; t.late24+=o.prog.late24||0; t.daysSum+=o.prog.daysSum||0; }); return t; }
+const CAP_KIND_COL={ind:'#122B67',cpl:'#18A9B6',grp:'#F2A54B'}, CAP_KIND_LAB={ind:'Individual',cpl:'Couples / family (90846 · 90847 · private-pay couples/family)',grp:'Groups (90853)'};
+// Pie slices for Sessions & clients: individual 60 / individual 45 / family-couples / groups / intake & other
+function capLineKind5(L){ const k=capLineKind(L); if(k!=='ind') return k; const tx=String(L.tx||'').toUpperCase(); if(/90837/.test(tx)) return 'i60'; if(/90834/.test(tx)) return 'i45'; return 'oth'; }
+const CAP_K5=[['i60','Individual 60 min (90837)','#122B67'],['i45','Individual 45 min (90834)','#18A9B6'],['cpl','Family / couples','#5EBAC8'],['grp','Groups (90853)','#F2A54B'],['oth','Intake & other','#c7d3ee']];
+function capSessPane(sid){ const el=document.getElementById('cdx-sess'); if(!el) return; const D=CAPV.data[sid];
+  if(!D||!D.ok){ el.innerHTML='<div class="cdx-muted" style="margin-bottom:10px">Session details come from closed pay periods and are visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.</div>'; return; }
+  const t=capYtd(D), tot=t.ind+t.cpl+t.grp; if(!tot){ el.innerHTML='<div class="cdx-muted" style="margin-bottom:10px">No sessions in closed pay periods yet this year.</div>'; return; }
+  let a=0; const seg=CAP_K5.map(function(k){ const p=(t.k5[k[0]]||0)/tot*360, r=k[2]+' '+a+'deg '+(a+p)+'deg'; a+=p; return r; }).join(',');
+  const hs=Object.keys(t.byHead).sort(function(x,y){ return t.byHead[y]-t.byHead[x]; }), f1=function(v){ return (Math.round(v*10)/10).toLocaleString(); };
+  const indC=((t.c5.i60||0)+(t.c5.i45||0)+(t.c5.cpl||0)+(t.c5.oth||0))/100, grpC=(t.c5.grp||0)/100;   // statement clin is in hundredths
+  el.innerHTML='<div class="cdx-card" style="margin-bottom:12px"><div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"><div class="cdx-pie" style="background:conic-gradient('+seg+')"></div><div class="cdx-leg">'
+    +CAP_K5.filter(function(k){ return t.k5[k[0]]; }).map(function(k){ const n=t.k5[k[0]]; return '<i style="background:'+k[2]+'"></i>'+hesc(k[1])+' · '+Math.round(n/tot*100)+'%'+(k[0]==='grp'?' · '+n+' session'+(n===1?'':'s'):''); }).join('<br>')+'</div>'
+    +'<div style="margin-left:auto;font-size:13.5px;line-height:1.8;color:#374151"><b style="color:#122B67">'+tot.toLocaleString()+'</b> sessions this year<br>Individual / family credit <b style="color:#122B67">'+f1(indC)+' hrs</b><br>Group credit <b style="color:#122B67">'+f1(grpC)+' hrs</b> (attendees × .33)</div></div>'
+    +'<div class="cdx-muted" style="margin-top:8px;font-weight:400">From the service codes on your closed pay periods ('+t.n+' so far). The full “sessions by type” table sits under this.</div>'
++'<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#122B67">Sessions by type (service heading)</summary><table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px">'
+    +hs.map(function(h){ return '<tr style="border-top:1px solid #f1f2f4"><td style="padding:6px 8px">'+hesc(h)+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+t.byHead[h]+'</td></tr>'; }).join('')+'</table></details></div>'+capDelCard(t);
+}
+function capCmpWord(me,avg,tol){ if(me==null||avg==null) return ''; const d=me-avg; return Math.abs(d)<=(tol||0.5)?'about the same as':d>0?'higher than':'lower than'; }
+function capNsPane(sid){ const el=document.getElementById('cdx-ns'); if(!el) return; const D=CAPV.data[sid];
+  try{ const n0=document.getElementById('cdx-nc'); if(n0) n0.innerHTML='<div class="cdx-muted">'+(D&&D.ok?'No signed notes in closed pay periods yet this year.':'Note completion comes from closed pay periods and is visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.')+'</div>'; }catch(e){}
+  if(!D||!D.ok){ el.innerHTML='<div class="cdx-muted">No-show and note details come from closed pay periods and are visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.</div>'; return; }
+  const t=capYtd(D), sess=t.ind+t.cpl+t.grp, ns=t.nsPaid+t.nsUnpaid, appts=sess+ns, pc=function(a,b){ return b>0?Math.round(a*1000/b)/10:null; };
+  const me=pc(ns,appts), pr=pc(D.prac.noShows,D.prac.sessions+D.prac.noShows), si=D.site?pc(D.site.noShows,D.site.sessions+D.site.noShows):null, site=D.team?(typeof kpiSiteName==='function'?kpiSiteName(D.team):D.team):'your site';
+  const prPaid=pc(D.prac.paidNS,D.prac.noShows), mePaid=pc(t.nsPaid,ns);
+  if(!appts){ el.innerHTML='<div class="cdx-muted">No appointments in closed pay periods yet this year.</div>'; return; }
+  const f1=function(v){ return v==null?'—':(Math.round(v*10)/10).toLocaleString('en-US'); };
+  // ── No-shows tab: two cards — how often (vs team and practice) · charged vs not charged ──
+  let h='<div class="cdx-kg">'
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>Your no-show rate</span>'+capVerdict(me,si!=null?si:pr,0.5)+'</div>'
+      +'<div class="cdx-kbig">'+f1(me)+'%<small>'+ns.toLocaleString('en-US')+' no-shows out of '+appts.toLocaleString('en-US')+' appointments this year</small></div>'
+      +capKBars([['You',me,true],[hesc(site)+' average',si],['Practice average',pr]],'%')
+      +'<div class="cdx-kfoot">Lower is better · averages of every clinician’s closed pay periods this year</div></div>'
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>When your clients no-show</span>'+(mePaid!=null&&prPaid!=null?'<span class="cdx-vd" style="background:#e8eef9;color:#122B67">'+(Math.abs(mePaid-prPaid)<=2?'About the same as the practice':mePaid>prPaid?'You charge more often':'You charge less often')+'</span>':'')+'</div>'
+      +(ns?(capSplitRow('You',t.nsPaid,t.nsUnpaid,true)
+          +(D.prac.noShows?capSplitRow('Practice',D.prac.paidNS||0,(D.prac.noShows||0)-(D.prac.paidNS||0),false):'')
+        +'<div class="cdx-krow" style="margin-top:6px"><i style="background:#18A9B6"></i><div><b>'+t.nsPaid+' of your '+ns+' no-shows were charged to the client</b><small>Code 11111 · you’re paid 1 FFS hour</small></div></div>'
+        +'<div class="cdx-krow"><i style="background:#F2A54B"></i><div><b>'+t.nsUnpaid+' of your '+ns+' no-shows were not charged</b><small>Code 11112 · not paid</small></div></div>')
+       :'<div class="cdx-muted">You have no no-shows this year.</div>')
+      +'</div></div>';
+  // ── Notes tab: signed after 24 hrs · average days to sign ──
+  const l=pc(t.late24,t.signed), lp=pc(D.prac.late24,D.prac.signed), dm=t.signed?Math.round(t.daysSum*10/t.signed)/10:null, dp=D.prac.signed?Math.round(D.prac.daysSum*10/D.prac.signed)/10:null;
+  const ncEl=document.getElementById('cdx-nc'); let nc='';
+  if(t.signed) nc='<div class="cdx-kg">'
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>Notes signed more than 24 hours after the session</span>'+capVerdict(l,lp,1)+'</div>'
+      +'<div class="cdx-kbig">'+f1(l)+'%<small>'+t.late24.toLocaleString('en-US')+' of '+t.signed.toLocaleString('en-US')+' signed notes this year</small></div>'
+      +capKBars([['You',l,true],['Practice average',lp]],'%')+'<div class="cdx-kfoot">Lower is better.</div></div>'
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>Average time to sign a note</span>'+capVerdict(dm,dp,0.2)+'</div>'
+      +'<div class="cdx-kbig">'+f1(dm)+'<small>days after the session, on average</small></div>'
+      +capKBars([['You',dm,true],['Practice average',dp]],' days')+'<div class="cdx-kfoot">Lower is better.</div></div></div>';
+  if(ncEl) ncEl.innerHTML=nc||'<div class="cdx-muted">No signed notes in closed pay periods yet this year.</div>';
+  el.innerHTML=h; }
+// In person vs virtual for a statement line: the Service Code Workbook's delivery (published in kv app_code_guide; the
+// built-in seed as a fallback), else the code/description (GV… or "virtual" = virtual; G… or "in person" = in person).
+var CAP_DELG=null;
+async function capDelGuide(){ if(CAP_DELG) return CAP_DELG; const m={};
+  try{ (PPU_SEED||[]).forEach(function(a){ m[ppuNormId(a[1])]={d:a[5]||'',t:a[4]||''}; }); }catch(e){}
+  try{ const r=await window.storage.get('app_code_guide'); const g=r&&r.value?JSON.parse(r.value):null; ((g&&g.rows)||[]).forEach(function(x){ const k=ppuNormId(x.id); m[k]={d:x.delivery||(m[k]||{}).d||'',t:x.desc||(m[k]||{}).t||''}; }); }catch(e){}
+  CAP_DELG=m; return m; }
+function capLineDel(L,G){ const tx=String(L.tx||''), k=ppuNormId(tx), g=(G||{})[k]||{}, d=String(g.d||'').toLowerCase(), t=String(g.t||'').toLowerCase();
+  if(d==='virtual') return 'v'; if(d==='in person') return 'p';
+  if(/^GV\s/i.test(tx)||/\bvirtual\b|telehealth/.test(t)) return 'v'; if(/^G\s/i.test(tx)||/in person/.test(t)) return 'p';
+  return 'u'; }
+// One labelled charged / not-charged bar (You or Practice)
+function capDelCard(t){ try{ const v=(t.dl.v||0)/100, p=(t.dl.p||0)/100, u=(t.dl.u||0)/100, tot=v+p+u; if(!tot) return '';
+    const f=function(x){ return (Math.round(x*10)/10).toLocaleString('en-US'); }, pc=function(x){ return Math.round(x/tot*100); };
+    return '<div class="cdx-kc" style="margin-bottom:12px"><div class="cdx-kh"><span>Your clinical hours: in person vs virtual</span><span class="cdx-muted" style="font-weight:600">'+f(tot)+' hrs this year</span></div>'
+      +'<div class="cdx-split"><span style="width:'+(p/tot*100)+'%;background:#122B67">'+(pc(p)>=8?pc(p)+'%':'')+'</span><span style="width:'+(v/tot*100)+'%;background:#5EBAC8">'+(pc(v)>=8?pc(v)+'%':'')+'</span>'+(u?'<span style="width:'+(u/tot*100)+'%;background:#d4dbe6;color:#374151">'+(pc(u)>=8?pc(u)+'%':'')+'</span>':'')+'</div>'
+      +'<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:10px"><div class="cdx-krow" style="border:0;padding:0"><i style="background:#122B67"></i><div><b>'+f(p)+' hrs in person</b><small>'+pc(p)+'% of your clinical hours</small></div></div>'
+      +'<div class="cdx-krow" style="border:0;padding:0"><i style="background:#5EBAC8"></i><div><b>'+f(v)+' hrs virtual</b><small>'+pc(v)+'% of your clinical hours</small></div></div>'
+      +(u?'<div class="cdx-krow" style="border:0;padding:0"><i style="background:#d4dbe6"></i><div><b>'+f(u)+' hrs not marked</b><small>service codes without in person / virtual in the workbook</small></div></div>':'')+'</div></div>'; }catch(e){ return ''; } }
+function capSplitRow(lab,paid,unpaid,me){ const n=paid+unpaid; if(!n) return ''; const p=Math.round(paid/n*100);
+  return '<div class="cdx-sr'+(me?' me':'')+'"><div class="cdx-srh"><span>'+lab+'</span><span>'+p+'% charged · '+(100-p)+'% not charged</span></div><div class="cdx-split"'+(me?'':' style="height:18px;opacity:.75"')+'><span style="width:'+(paid/n*100)+'%;background:#18A9B6">'+(me&&p>=12?p+'%':'')+'</span><span style="width:'+(unpaid/n*100)+'%;background:#F2A54B">'+(me&&100-p>=12?(100-p)+'%':'')+'</span></div></div>'; }
+// "Lower is better" verdict chip: you vs an average (tol = what counts as about the same)
+function capVerdict(me,avg,tol){ if(me==null||avg==null) return ''; const d=me-avg;
+  const v=Math.abs(d)<=tol?['About average','#e8eef9','#122B67']:d<0?['Better than average','#dff4f6','#0b4f56']:['Higher than average','#fff1dc','#9a5b00'];
+  return '<span class="cdx-vd" style="background:'+v[1]+';color:'+v[2]+'">'+v[0]+'</span>'; }
+// Horizontal comparison bars [[label, value, isYou]]
+function capKBars(rows,unit){ const mx=Math.max.apply(null,rows.map(function(r){ return r[1]||0; }).concat([0.0001]))*1.15;
+  return '<div class="cdx-bars">'+rows.map(function(r){ const v=r[1]; return '<div class="cdx-br'+(r[2]?' me':'')+'"><span class="cdx-bl">'+r[0]+'</span><span class="cdx-bt"><span style="width:'+(v==null?0:v/mx*100)+'%"></span></span><b>'+(v==null?'—':(Math.round(v*10)/10)+unit)+'</b></div>'; }).join('')+'</div>'; }
+// The other chart views (bars per pay period), labelled quietly: one small number per bar
+function capAltChart(view){
+  const host=document.getElementById('cdx-v-alt'); if(!host) return; const sid=CAPV.sid, s=(STAFF||[]).find(function(x){ return x._id===sid; }); if(!s){ host.innerHTML=''; return; }
+  const D=CAPV.data[sid], N=26, w=1000, h=300, top=26, bot=34, X=function(i){ return 50+i*(w-70)/N; }, bw=(w-70)/N*.62, M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const T=function(x,y,t,c,anc,wt,sz){ return '<text x="'+x+'" y="'+y+'" font-size="'+(sz||11)+'" fill="'+c+'" font-weight="'+(wt||700)+'" text-anchor="'+(anc||'middle')+'" paint-order="stroke" stroke="#fff" stroke-width="4">'+t+'</text>'; };
+  let svg=''; const ys=new Date(CAP_YEAR_START); for(let m=0;m<12;m++){ const d=new Date(ys.getFullYear(),ys.getMonth()+m,1), i=Math.max(0,(d-ys)/86400000/14); if(i>N) break; const x=X(i); svg+='<line x1="'+x+'" y1="'+top+'" x2="'+x+'" y2="'+(h-bot)+'" stroke="#f2f3f6"/><text x="'+(x+4)+'" y="'+(h-12)+'" font-size="12" fill="#6b7280">'+M[d.getMonth()]+'</text>'; }
+  let legend='', note='';
+  if(view==='pp'){ let rows=[]; try{ rows=capPeriodRows(s,capCompute(s)); }catch(e){}
+    const mx=Math.max(4,...rows.map(function(r){ return Math.abs(r.diff); })), base=top+(h-top-bot)/2, sc=(h-top-bot)/2/mx*.85;
+    svg+='<line x1="50" y1="'+base+'" x2="'+(w-20)+'" y2="'+base+'" stroke="#cbd2df"/>'+T(46,base+4,'goal','#6b7280','end',600);
+    rows.forEach(function(r){ const cx=X(r.idx+.5), x=cx-bw/2, full=r.leaveDays>=14&&r.expected<=0.05;
+      if(full){ svg+='<rect x="'+x+'" y="'+(base-4)+'" width="'+bw+'" height="8" rx="3" fill="#c7d3ee" class="cdx-hz" data-t="'+r.label+' · '+r.range+': on leave"/>'; return; }
+      const d=Math.round(r.diff*10)/10, hh=Math.max(2,Math.abs(d)*sc), col=d>=0?'#16a34a':'#c0432a', lbl=(d>=0?'+':'')+d;
+      svg+='<rect x="'+x+'" y="'+(d<0?base:base-hh)+'" width="'+bw+'" height="'+hh+'" rx="3" fill="'+col+'" class="cdx-hz" style="cursor:pointer" onclick="capPPAsk(event,\''+hesc(sid)+'\','+r.idx+')" data-t="'+r.label+' · '+r.range+': '+(Math.round(r.actual*10)/10)+' hrs vs '+(Math.round(r.expected*10)/10)+' expected ('+lbl+')'+(r.prov?' · not closed yet':'')+' · click to see it in the Pay Period Snapshot"/>'
+        +T(cx,d<0?base+hh+12:base-hh-5,lbl,col); });
+    legend='<span style="color:#16a34a">■</span> hours over that pay period’s goal · <span style="color:#c0432a">■</span> under · <span style="color:#9fb0d6">■</span> on leave · click a bar to see that pay period in the Pay Period Snapshot';
+    if(!rows.length) note='No pay periods with hours yet this year.';
+  } else {
+    if(!D||!D.ok){ host.innerHTML='<div class="cdx-muted" style="padding:30px 0;text-align:center">'+(D?'This view comes from closed pay periods, visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.':'Loading…')+'</div>'; return; }
+    const pr=D.prac, prRate=pr.sessions+pr.noShows>0?pr.noShows/(pr.sessions+pr.noShows)*100:null; let mx=1;
+    for(let i=0;i<N;i++){ const o=D.pp[i]; if(!o) continue; const v=view==='ns'?(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid?(o.nsPaid+o.nsUnpaid)/(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid)*100:0):view==='grp'?o.grp:o.ind+o.cpl+o.grp; mx=Math.max(mx,v); }
+    if(view==='ns'&&prRate!=null) mx=Math.max(mx,prRate*1.4);
+    const base=h-bot, sc=(h-top-bot-18)/mx;
+    if(view==='ns'&&prRate!=null){ const yy=base-prRate*sc; svg+='<line x1="50" y1="'+yy+'" x2="'+(w-20)+'" y2="'+yy+'" stroke="#F2A54B" stroke-dasharray="5 5"/>'+T(w-22,yy-6,'practice average '+(Math.round(prRate*10)/10)+'%','#b45309','end'); }
+    for(let i=0;i<N;i++){ const o=D.pp[i]; if(!o) continue; const cx=X(i+.5), x=cx-bw/2, ppl='PP '+(i+1);
+      if(view==='types'){ let y=base, tot=o.ind+o.cpl+o.grp; ['ind','cpl','grp'].forEach(function(k){ const hh=o[k]*sc; if(!hh) return; y-=hh; svg+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+hh+'" fill="'+CAP_KIND_COL[k]+'"/>'; });
+        svg+='<rect x="'+x+'" y="'+(base-tot*sc)+'" width="'+bw+'" height="'+(tot*sc)+'" fill="transparent" class="cdx-hz" data-t="'+ppl+': '+o.ind+' individual · '+o.cpl+' couples/family · '+o.grp+' groups"/>'+(tot?T(cx,base-tot*sc-5,tot,'#122B67'):''); continue; }
+      if(view==='ns'){ const nn=o.nsPaid+o.nsUnpaid, all=o.ind+o.cpl+o.grp+nn, r=all?nn/all*100:0, hp=all?o.nsPaid/all*100*sc:0, hu=all?o.nsUnpaid/all*100*sc:0;
+        svg+='<rect x="'+x+'" y="'+(base-hp)+'" width="'+bw+'" height="'+hp+'" fill="#18A9B6"/><rect x="'+x+'" y="'+(base-hp-hu)+'" width="'+bw+'" height="'+hu+'" fill="#F2A54B"/>'
+          +'<rect x="'+x+'" y="'+(base-hp-hu-2)+'" width="'+bw+'" height="'+(hp+hu+2)+'" fill="transparent" class="cdx-hz" data-t="'+ppl+': '+(Math.round(r*10)/10)+'% no-shows · '+o.nsPaid+' charged · '+o.nsUnpaid+' not charged (of '+all+' appointments)"/>'+(nn?T(cx,base-hp-hu-5,(Math.round(r*10)/10)+'%','#374151'):''); continue; }
+      const v=o.grp, hh=v*sc; svg+='<rect x="'+x+'" y="'+(base-hh)+'" width="'+bw+'" height="'+Math.max(hh,0)+'" rx="3" fill="#F2A54B" class="cdx-hz" data-t="'+ppl+': '+v+' group session'+(v===1?'':'s')+'"/>'+(v?T(cx,base-hh-5,v,'#b45309'):''); }
+    legend=view==='types'?'<span style="color:#122B67">■</span> individual · <span style="color:#18A9B6">■</span> couples / family · <span style="color:#F2A54B">■</span> groups (90853) · number = sessions that pay period'
+      :view==='ns'?'<span style="color:#18A9B6">■</span> charged to client (11111) · <span style="color:#F2A54B">■</span> not charged (11112) · bar height = no-show rate · dashed = practice average'
+      :'<span style="color:#F2A54B">■</span> group sessions (90853) each pay period';
+    if(!Object.keys(D.pp).length) note='No closed pay periods yet this year.'; }
+  host.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:4px">'+legend+'</div>'+(note?'<div class="cdx-muted" style="padding:30px 0;text-align:center">'+note+'</div>':'<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="display:block">'+svg+'</svg><div class="cdx-tip" id="cdx-tip"></div>');
+  const tip=document.getElementById('cdx-tip'), card=host; host.querySelectorAll('.cdx-hz').forEach(function(el){ el.addEventListener('mousemove',function(e){ const r=card.getBoundingClientRect(); tip.textContent=el.getAttribute('data-t'); tip.style.display='block'; tip.style.left=Math.min(e.clientX-r.left+12,r.width-300)+'px'; tip.style.top=(e.clientY-r.top+12)+'px'; }); el.addEventListener('mouseleave',function(){ tip.style.display='none'; }); });
+}
+// ── Graph notes: Firestore capNotes {sid, by (staff id), byName, date, text, vis 'all'|'lead', at} ──
+// Write: the clinician, their leaders (Capacity Dashboard view of that person) and admins. Read: 'all' = everyone who
+// sees the dashboard (incl. the clinician); 'lead' = leaders & admins only. firestore.rules enforce it.
+function capNoteCanWrite(sid){ try{ const me=homeMe(); if(me&&me._id===sid) return true; return pvA('cap','view',sid)&&(pvOn()?pvSees('cap','view',sid):true); }catch(e){ return false; } }
+// 📌 pins along the bottom of the year-to-date chart at each note's date (hover = the note)
+// Clicking a 📌 opens that note in a small popover next to the pin (same popover box as the pay-period one)
+function capPinOpen(ev,k){
+  try{ capPPAskClose(); const n=(CAPV.pins||{})[k]; if(!n) return; const tp=document.getElementById('cdx-tip'); if(tp) tp.style.display='none';
+    const me=homeMe(), mine=me&&n.by===me._id;
+    const el=document.createElement('div'); el.id='cap-ppask'; el.setAttribute('role','dialog');
+    el.style.cssText='position:fixed;z-index:9999;width:300px;background:#fff;border:1px solid #d4dbe6;border-top:4px solid #F2A54B;border-radius:12px;box-shadow:0 10px 30px rgba(18,43,103,.22);padding:12px 14px;font-size:13px;color:#1f2937';
+    el.innerHTML='<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="color:#122B67">📌 '+hesc(n.date?usDate(n.date):'Note')+'</b><button onclick="capPPAskClose()" aria-label="Close" style="border:0;background:none;font-size:16px;color:#6b7280;cursor:pointer;line-height:1">×</button></div>'
+      +'<div style="font-size:14px;line-height:1.5;margin:6px 0 8px;white-space:pre-wrap">'+hesc(n.text||'')+'</div>'
+      +'<div class="cdx-muted" style="font-weight:400;font-size:12px">'+hesc(n.byName||'')+' · '+(n.vis==='lead'?'leaders &amp; admins only':'everyone who sees this dashboard')+'</div>'
+      +((mine||isSuperAdminView())?'<div style="text-align:right;margin-top:8px"><button class="hs-link" style="margin:0;color:#b91c1c" onclick="capPPAskClose();capNoteDel(\''+hesc(n.__id||n.id||'')+'\')">Remove note</button></div>':'');
+    document.body.appendChild(el);
+    const z=parseFloat(getComputedStyle(document.body).zoom)||1; let x=(ev.clientX||0)/z, y=(ev.clientY||0)/z; const W=window.innerWidth/z, H=window.innerHeight/z, h=el.offsetHeight;
+    el.style.left=Math.max(8,Math.min(x-150,W-316))+'px'; el.style.top=(y-h-14>8?y-h-14:Math.min(H-h-8,y+14))+'px';
+    setTimeout(function(){ document.addEventListener('mousedown',capPPAskOut,true); document.addEventListener('keydown',capPPAskKey,true); },0);
+  }catch(e){ console.error(e); }
+}
+function capPinsPaint(list){
+  try{ CAPV.pins={}; document.querySelectorAll('#cdx-v-cum svg').forEach(function(svg){ const g=svg.querySelector('.cdx-pins'); if(!g) return;
+      const pl=+svg.getAttribute('data-padl'), pw=+svg.getAttribute('data-plotw'), py=+svg.getAttribute('data-piny'); let h='';
+      (list||[]).forEach(function(n){ const d=n.date?capDateOf(n.date):null; if(!d) return; const w=(d-CAP_YEAR_START)/(7*86400000); if(w<0||w>CAP_YEAR_WEEKS) return;
+        const k=String(n.__id||n.id||(n.date+'|'+n.at)); CAPV.pins[k]=n;
+        h+='<text x="'+(pl+w/CAP_YEAR_WEEKS*pw)+'" y="'+py+'" text-anchor="middle" font-size="19" style="cursor:pointer" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();capPinOpen(event,\''+hesc(k).replace(/'/g,"\\'")+'\')"><title>Click to read the note</title>📌</text>'; });
+      g.innerHTML=h; }); }catch(e){ console.error(e); }
+}
+async function capNotesLoad(sid){
+  const el=document.getElementById('cdx-notes'); if(!el) return;
+  try{ const me=homeMe(), self=!!(me&&me._id===sid); let list=[];
+    if(window.capNoteStore) list=(await capNoteStore.forSid(sid,self))||[]; else list=(CAPV.notes[sid]||[]).filter(function(n){ return !self||n.vis==='all'; });
+    if(document.getElementById('cdx-notes')!==el) return;
+    list.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||''))||String(b.at||'').localeCompare(String(a.at||'')); });
+    capPinsPaint(list);
+    const ini=function(n){ return String(n||'?').split(/\s+/).map(function(x){ return x[0]||''; }).join('').slice(0,2).toUpperCase(); };
+    el.innerHTML=(list.length?list.map(function(n){ const mine=me&&n.by===me._id; return '<div class="cdx-note"><div class="cdx-av">'+hesc(ini(n.byName))+'</div><div style="flex:1"><b style="color:#122B67">'+hesc(n.byName||'')+'</b> <span class="cdx-muted" style="font-weight:400">'+(n.date?'about '+usDate(n.date)+' · ':'')+(n.vis==='lead'?'leaders &amp; admins only':'everyone who sees this dashboard')+'</span><br>'+hesc(n.text||'')+'</div>'
+        +(mine||isSuperAdminView()?'<button class="hs-link" style="margin:0;color:#b91c1c" onclick="capNoteDel(\''+hesc(n.__id||n.id)+'\')">Remove</button>':'')+'</div>'; }).join(''):'<div class="cdx-muted">No notes yet. Add context the graph can’t show — a holiday week, a caseload change, a plan you agreed on.</div>')
+      +(capNoteCanWrite(sid)?'<div class="cdx-add"><input type="text" id="cdx-ntx" maxlength="400" placeholder="Add a note about this graph…"><input type="date" id="cdx-nd" title="The date it’s about" value="'+obIso(new Date())+'">'
+        +(self?'':'<select id="cdx-nv" title="Who sees it"><option value="all">Everyone who sees this dashboard</option><option value="lead">Leaders &amp; admins only</option></select>')
+        +'<button class="btn btn-primary" style="font-size:12.5px" onclick="capNoteAdd(\''+hesc(sid)+'\')">Add note</button></div>':'');
+  }catch(e){ console.error(e); el.innerHTML='<div class="cdx-muted">Couldn’t load notes.</div>'; }
+}
+async function capNoteAdd(sid){
+  try{ const tx=String((document.getElementById('cdx-ntx')||{}).value||'').trim(); if(!tx){ showToast('Write the note first'); return; }
+    const me=homeMe(); if(!me){ showToast('No staff record is linked to your login'); return; }
+    const rec={sid:sid,by:me._id,byName:me['Clinician']||'',date:(document.getElementById('cdx-nd')||{}).value||'',text:tx.slice(0,400),vis:(document.getElementById('cdx-nv')||{}).value||'all',at:new Date().toISOString()};
+    if(window.capNoteStore){ if(!(await capNoteStore.add(rec))){ showToast('⚠ Could not save the note'); return; } } else { rec.id='n'+Date.now(); (CAPV.notes[sid]=CAPV.notes[sid]||[]).push(rec); }
+    showToast('✓ Note added'); capNotesLoad(sid); }catch(e){ console.error(e); showToast('⚠ Could not save the note'); }
+}
+async function capNoteDel(id){ try{ if(!confirm('Remove this note?')) return; if(window.capNoteStore){ if(!(await capNoteStore.remove(id))){ showToast('⚠ Could not remove it'); return; } } else Object.keys(CAPV.notes).forEach(function(k){ CAPV.notes[k]=CAPV.notes[k].filter(function(n){ return n.id!==id; }); });
+  capNotesLoad(CAPV.sid); }catch(e){ console.error(e); } }
 function capDrillHTML(s,c){
   const stat=(label,val,sub,color)=>`<div style="flex:1;min-width:120px">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">${label}</div>
@@ -12658,12 +13164,12 @@ function capDrillHTML(s,c){
   // Shows: dashed goal-pace line, quarter benchmark dots, a TODAY marker, and
   // the clinician's ACTUAL cumulative hours plotted period-by-period. Hovering any
   // point shows a tooltip with the exact values. Larger and easier to read.
-  const W=820, H=366, padL=60, padR=24, padT=28, padB=84;
+  const W=1000, H=400, padL=26, padR=30, padT=44, padB=48;   // Nov 22: restyled to the approved mockup (option 1)
   const plotW=W-padL-padR, plotH=H-padT-padB;
-  const maxY=(c.annual*1.05) || 1;
+  const maxY=(Math.max(c.annual||0, c.ytd||0)*1.12) || 1;
   const x=f=>padL + f*plotW;
   const y=h=>padT + plotH - (h/maxY)*plotH;
-  const statusCol=capStatusColor(c.ytdPct);
+  const statusCol=capStatusColor(c.attainPct!=null?c.attainPct:c.ytdPct);
   const uid='cap'+Math.abs((s._id||'x').split('').reduce((a,ch)=>((a<<5)-a+ch.charCodeAt(0))|0,7));
 
   // Cumulative weeks at the START of each period (so each period plots at its end).
@@ -12724,19 +13230,15 @@ function capDrillHTML(s,c){
 
   // Y gridlines + labels
   const yTicks=[0,0.25,0.5,0.75,1].map(t=>maxY*t);
-  const grid=yTicks.map(h=>`<line x1="${padL}" y1="${y(h)}" x2="${W-padR}" y2="${y(h)}" stroke="#eee" stroke-width="1"/>
-    <text x="${padL-8}" y="${y(h)+4}" text-anchor="end" font-size="11" fill="#aaa">${Math.round(h)}</text>`).join('');
+  const grid='';
   // Quarter boundary vertical bands + labels with DATE RANGES
   const qStartsW=[0, CAP_CUM_WEEKS[0], CAP_CUM_WEEKS[1], CAP_CUM_WEEKS[2]];
-  const qBands=qStartsW.map((w0,i)=>{
-    const w1=CAP_CUM_WEEKS[i];
-    const xMid=x(((w0+w1)/2)/CAP_YEAR_WEEKS);
-    const band = i%2===1 ? `<rect x="${x(w0/CAP_YEAR_WEEKS)}" y="${padT}" width="${x(w1/CAP_YEAR_WEEKS)-x(w0/CAP_YEAR_WEEKS)}" height="${plotH}" fill="#f8fafc"/>` : '';
-    return `${band}
-      <line x1="${x(w1/CAP_YEAR_WEEKS)}" y1="${padT}" x2="${x(w1/CAP_YEAR_WEEKS)}" y2="${H-padB}" stroke="#e5e7eb" stroke-width="1"/>
-      <text x="${xMid}" y="${H-padB+52}" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">Q${i+1}</text>
-      <text x="${xMid}" y="${H-padB+66}" text-anchor="middle" font-size="9.5" fill="#aaa">${CAP_QUARTER_RANGES_SHORT[i]}</text>`;
-  }).join('');
+  // Leave of absence bands (shaded, "on leave")
+  let qBands='', leaveLabs='';
+  try{ (s._leaves||[]).forEach(function(l){ const a0=capDateOf(l.start); if(!a0) return; const b0=capDateOf(l.end)||new Date();
+      const wa=Math.max(0,(a0-CAP_YEAR_START)/(7*86400000)), wb=Math.min(CAP_YEAR_WEEKS,(b0-CAP_YEAR_START)/(7*86400000)+1/7); if(wb<=wa) return;
+      const xa=x(wa/CAP_YEAR_WEEKS), xb=x(wb/CAP_YEAR_WEEKS);
+      qBands+=`<rect x="${xa}" y="${padT}" width="${xb-xa}" height="${plotH}" fill="#eef2fb"/>`; leaveLabs+=`<text x="${(xa+xb)/2}" y="${padT+16}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8193c0" stroke="#eef2fb" stroke-width="4" paint-order="stroke" style="pointer-events:none">on leave</text>`; }); }catch(e){ qBands=''; leaveLabs=''; }
   // Month labels along the bottom (a tick at each month start, the name centred in its month).
   let monthAxis='';
   try{
@@ -12746,29 +13248,31 @@ function capDrillHTML(s,c){
       const a=Math.max(0,wk(d)), b=Math.min(span,wk(nx)); if(b-a<1.2) continue;
       const showYr=d.getMonth()===0||monthAxis==='';
       const lbl=d.toLocaleDateString('en-US',{month:'short'})+(showYr?" '"+String(d.getFullYear()).slice(2):'');
-      if(wk(d)>0) monthAxis+=`<line x1="${x(a/span)}" y1="${H-padB+18}" x2="${x(a/span)}" y2="${H-padB+34}" stroke="#cbd5e1" stroke-width="1"/>`;
-      monthAxis+=`<text x="${x(((a+b)/2)/span)}" y="${H-padB+30}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#475569">${lbl}</text>`;
+      monthAxis+=`<line x1="${x(a/span)}" y1="${padT}" x2="${x(a/span)}" y2="${H-padB}" stroke="#f1f2f4" stroke-width="1"/>`;
+      monthAxis+=`<text x="${x(((a+b)/2)/span)}" y="${H-padB+30}" text-anchor="middle" font-size="14" fill="#6b7280">${d.toLocaleDateString('en-US',{month:'short'})}</text>`;
     }
   }catch(e){ console.error(e); monthAxis=''; }
 
   // Goal pace line
   // Goal pace follows the person's timeline (flat during leave, steeper/flatter after a capacity change).
   const pacePts=[]; for(let wk=0; wk<=CAP_YEAR_WEEKS; wk++){ const dt=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+wk*7); pacePts.push(x(wk/CAP_YEAR_WEEKS)+','+y(capGoalTo(s,dt))); }
-  const paceLine=`<polyline points="${pacePts.join(' ')}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5"/>`;
+  const paceLine=`<polyline points="${pacePts.join(' ')}" fill="none" stroke="#9fb0d6" stroke-width="2.5" stroke-dasharray="8 6"/>`;
   // Benchmark dots (interactive)
   const qLabelsFull=['End of Q1','Mid-Year','End of Q3','Year-End'];
   const bench=CAP_CUM_WEEKS.map((cw,i)=>{
     const px=x(cw/CAP_YEAR_WEEKS), py=y(c.benchmarks[i].goal), isNext=c.benchmarks[i].key===c.nextBenchmark.key;
     const tip=`${qLabelsFull[i]} (${CAP_QUARTER_RANGES_SHORT[i]}) — goal ${Math.round(c.benchmarks[i].goal)} hrs`;
-    return `<circle cx="${px}" cy="${py}" r="${isNext?7:5}" fill="${isNext?'#d97706':'#cbd5e1'}" stroke="#fff" stroke-width="2"
+    if(i===CAP_CUM_WEEKS.length-1) return '';
+    const doneQ=actualPts.some(p=>p.qi>i);
+    return `<circle cx="${px}" cy="${py}" r="5" fill="${doneQ?'#122B67':'#cbd5e1'}" stroke="#fff" stroke-width="2"
       class="${uid}-pt" data-tip="${tip}" data-x="${px}" data-y="${py}" style="cursor:pointer"/>`;
   }).join('');
 
   // Actual cumulative line + area + per-period dots (interactive)
   const linePts=actualPts.map(p=>`${x(p.w/CAP_YEAR_WEEKS)},${y(p.h)}`).join(' ');
   const lastP=actualPts[actualPts.length-1];
-  const actualArea=`<polygon points="${x(0)},${y(0)} ${linePts} ${x(lastP.w/CAP_YEAR_WEEKS)},${y(0)}" fill="${statusCol}" opacity="0.07"/>`;
-  const actualLine=`<polyline points="${linePts}" fill="none" stroke="${statusCol}" stroke-width="3" stroke-linejoin="round"/>`;
+  const actualArea='';
+  const actualLine=`<polyline points="${linePts}" fill="none" stroke="${statusCol}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
   const actualDots=actualPts.slice(1).map(p=>{
     const px=x(p.w/CAP_YEAR_WEEKS), py=y(p.h);
     const split = (p.grpWtd>0) ? ` (${p.indHrs} ind + ${p.grpWtd} group @ .33)` : '';
@@ -12782,18 +13286,20 @@ function capDrillHTML(s,c){
   // goal and the actual for the same quarter never overlap.
   let dataLabels='';
   try{
-    const fmt=n=>Math.round(n).toLocaleString('en-US'), qShort=['Q1','Q2','Q3','Year-end'];
-    const lab=(px,py,txt,anchor,col,wt,sz)=>`<text x="${px}" y="${py}" text-anchor="${anchor}" font-size="${sz||10.5}" font-weight="${wt||700}" fill="${col}" stroke="#fff" stroke-width="3.5" paint-order="stroke" style="pointer-events:none">${txt}</text>`;
+    const fmt=n=>Math.round(n).toLocaleString('en-US'), qShort=['Q1','Q2','Q3'];
+    const lab=(px,py,txt,anchor,col,sz)=>`<text x="${px}" y="${py}" text-anchor="${anchor}" font-size="${sz||13.5}" font-weight="800" fill="${col}" stroke="#fff" stroke-width="4" paint-order="stroke" style="pointer-events:none">${txt}</text>`;
     CAP_CUM_WEEKS.forEach((cw,i)=>{
       const goal=c.benchmarks[i].goal, bx=x(cw/CAP_YEAR_WEEKS), by=y(goal), last=i===CAP_CUM_WEEKS.length-1;
+      if(last){ const ahead=(c.ytd||0)>=(c.expectedToDate||0); let ly=ahead?by+30:by-14; const lx=Math.min(bx,W-padR)-4;
+        try{ const nx=x(lastP.w/CAP_YEAR_WEEKS), ny=y(lastP.h); if(nx>lx-190&&Math.abs(ny-(ly-5))<22) ly=ahead?ny+34:ny-28; }catch(e){}
+        dataLabels+=lab(lx, Math.max(padT+6,Math.min(H-padB-8,ly)), 'Year-end goal '+fmt(goal), 'end', '#122B67', 14.5); return; }
       const inQ=actualPts.filter(p=>p.qi===i), done=actualPts.some(p=>p.qi>i), ap=done&&inQ.length?inQ[inQ.length-1]:null;
-      const ay=ap?y(ap.h):null, actualAbove=ap&&ay<by;
-      // Both lines rise to the right, so "above" labels go up-left of their point and "below" labels down-right.
-      const gTxt=(last?'Year-end goal ':qShort[i]+' goal ')+fmt(goal);
-      if(last) dataLabels+=lab(bx-6, by+30, gTxt, 'end', '#122B67', 800, 12);
-      else dataLabels+=actualAbove?lab(bx+8, by+16, gTxt, 'start', '#64748b'):lab(bx-8, by-9, gTxt, 'end', '#64748b');
-      if(ap){ const pct=goal>0?Math.round(ap.h/goal*100):0, axp=x(ap.w/CAP_YEAR_WEEKS), aTxt='Actual '+fmt(ap.h)+' ('+pct+'%)';
-        dataLabels+=actualAbove?lab(axp-8, ay-9, aTxt, 'end', statusCol, 800, 11):lab(axp+8, ay+17, aTxt, 'start', statusCol, 800, 11); }
+      if(!ap) return;   // quarters not finished yet: the "Now" label covers the current one
+      const axp=x(ap.w/CAP_YEAR_WEEKS), ay=y(ap.h), above=ay<=by, pct=goal>0?Math.round(ap.h/goal*100):0;
+      dataLabels+=`<circle cx="${axp}" cy="${ay}" r="6" fill="${statusCol}" stroke="#fff" stroke-width="2" style="pointer-events:none"/>`;
+      // the higher of the two gets its label up-left, the lower one down-right, so they never collide
+      dataLabels+=above?lab(axp-10, ay-12, 'Actual '+fmt(ap.h)+' ('+pct+'%)', 'end', statusCol):lab(axp+12, ay+24, 'Actual '+fmt(ap.h)+' ('+pct+'%)', 'start', statusCol);
+      dataLabels+=above?lab(bx+12, by+26, qShort[i]+' goal '+fmt(goal), 'start', '#122B67'):lab(bx-10, by-12, qShort[i]+' goal '+fmt(goal), 'end', '#122B67');
     });
   }catch(e){ console.error(e); dataLabels=''; }
 
@@ -12801,30 +13307,26 @@ function capDrillHTML(s,c){
   // the current pay period isn't entered until payroll is processed).
   const todayF = lastP.w/CAP_YEAR_WEEKS;
   const lastPPlabel = lastP.pp ? `Through PP${lastP.pp}` : 'No data yet';
-  const todayLine=`<line x1="${x(todayF)}" y1="${padT}" x2="${x(todayF)}" y2="${H-padB}" stroke="#475569" stroke-width="1.5" stroke-dasharray="3 3"/>
-    <text x="${x(todayF)}" y="${padT-10}" text-anchor="middle" font-size="11" font-weight="800" fill="#475569">${lastPPlabel} · ${lastP.h} hrs</text>`;
-
+  let todayLine='';
+  try{ if(lastP.pp){ const nd=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+Math.round(lastP.w*7)-1), ng=capGoalTo(s,nd), nx=x(todayF), ny=y(lastP.h);
+      const nAbove=lastP.h>=ng; todayLine=`<circle cx="${nx}" cy="${ny}" r="6.5" fill="${statusCol}" stroke="#fff" stroke-width="2" style="pointer-events:none"/><text x="${Math.min(nx+4,W-padR-150)}" y="${nAbove?ny-16:ny+28}" text-anchor="middle" font-size="13.5" font-weight="800" fill="${statusCol}" stroke="#fff" stroke-width="4" paint-order="stroke" style="pointer-events:none">Now ${Math.round(lastP.h).toLocaleString('en-US')} · goal ${Math.round(ng).toLocaleString('en-US')}</text>`; } }catch(e){ todayLine=''; }
   // Pay-period number ticks along the bottom axis (1…26), light so they don't
   // clutter — every period gets a small tick, numbers shown on a readable subset.
-  const ppAxis = (data&&data.periodQuarter? data.periodQuarter : [])
-    .map((q,i)=>{ if(q<0) return ''; const wEnd=(i+1)*2; const px=x(wEnd/CAP_YEAR_WEEKS);
-      const showNum = (i%2===0); // label every other period to avoid crowding
-      return `<line x1="${px}" y1="${H-padB}" x2="${px}" y2="${H-padB+4}" stroke="#cbd5e1" stroke-width="1"/>`+
-        (showNum?`<text x="${px}" y="${H-padB+13}" text-anchor="middle" font-size="8.5" fill="#b3b8c2">${i+1}</text>`:'');
-    }).join('');
-
-  const chart=`<div style="position:relative">
-    <svg id="${uid}-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:inherit" onmousemove="capChartHover(event,'${uid}')" onmouseleave="capChartHide('${uid}')" onclick="capChartClick(event,'${uid}','${hesc(s._id)}')">
-      ${qBands}${ppAxis}${monthAxis}${grid}${paceLine}${actualArea}${actualLine}${bench}${actualDots}${todayLine}${dataLabels}
+  const ppAxis='';
+  const chart=`<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:#4b5563;margin:2px 0 6px">
+    <span><span style="display:inline-block;width:22px;height:4px;background:${statusCol};vertical-align:middle;border-radius:2px"></span> Your clinical hours (actual)</span>
+    <span><span style="display:inline-block;width:22px;height:0;border-top:3px dashed #9fb0d6;vertical-align:middle"></span> Goal pace</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#122B67;vertical-align:-1px"></span> quarter goal vs actual</span>
+    <span>📌 note</span><span style="margin-left:auto"><button class="btn" onclick="capNoteJump('')" style="font-size:12.5px;padding:6px 12px;background:#fff;border:1px solid #d4dbe6;color:#122B67;font-weight:700">📌 Add a note to this graph</button></span></div>
+  <div style="font-size:12px;color:#9ca3af;margin-bottom:4px">Hover the line for each pay period · click a pay period to open its snapshot or pin a note to it · click a 📌 to read the note</div>
+  <style>#${uid}-svg .${uid}-pt[data-pp]{opacity:0}#${uid}-svg .${uid}-pt[data-pp][r="6"]{opacity:1}</style>
+  <div style="position:relative">
+    <svg id="${uid}-svg" data-padl="${padL}" data-plotw="${plotW}" data-piny="${H-padB-6}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:inherit" onmousemove="capChartHover(event,'${uid}')" onmouseleave="capChartHide('${uid}')" onclick="capChartClick(event,'${uid}','${hesc(s._id)}')">
+      ${qBands}${ppAxis}${monthAxis}${grid}${paceLine}${actualArea}${actualLine}${bench}${actualDots}${dataLabels}${todayLine}${leaveLabs}<g class="cdx-pins"></g>
     </svg>
     <div id="${uid}-tip" style="position:absolute;display:none;pointer-events:none;background:#1e293b;color:#fff;font-size:12px;padding:6px 10px;border-radius:7px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-130%);z-index:20"></div>
   </div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#888">
-    <span><span style="display:inline-block;width:22px;height:0;border-top:2px dashed #94a3b8;vertical-align:middle"></span> Goal pace</span>
-    <span><span style="display:inline-block;width:22px;height:3px;background:${statusCol};vertical-align:middle;border-radius:2px"></span> Actual (each dot = one pay period)</span>
-    <span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#d97706;vertical-align:middle"></span> Next benchmark</span>
-    <span style="color:#aaa">Hover any point for details</span>
-  </div>`;
+`;
 
   // Benchmark ladder (compact, with reached state)
   const ladder = c.benchmarks.map((b,i)=>{
@@ -12894,8 +13396,9 @@ function capDrillHTML(s,c){
     const leaveTag = r.leaveDays
       ? ` <span title="On leave ${r.leaveDays>=14?'the whole pay period':r.leaveDays+' of 14 days'} — no clinical hours expected on leave days" style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;color:#122B67;background:#e8eef9;border:1px solid #c7d3ee;border-radius:8px;padding:1px 6px;vertical-align:middle">⏸ ON LEAVE${r.leaveDays>=14?'':' · '+r.leaveDays+' days'}</span>` : '';
     const fullLeave = r.leaveDays>=14 && r.expected<=0.05;
-    return `<tr class="cap-pprow" tabindex="0" role="button" title="Open the pay sheet for ${r.label}" onclick="prOpenSheetForPP('${hesc(s._id)}',${r.idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();prOpenSheetForPP('${hesc(s._id)}',${r.idx});}" style="border-bottom:1px solid #f1f0ec;cursor:pointer${r.isRampPeriod?';background:#fffdf5':r.leaveDays?';background:#f6f8fd':''}">
-      <td style="padding:8px 12px;font-size:12px;color:#333;white-space:nowrap"><strong>${r.label}</strong> <span style="color:#aaa;font-weight:500">${r.range}</span>${rampTag}${leaveTag} <span style="font-size:10.5px;color:#1a56db;font-weight:700;margin-left:4px">Pay sheet →</span></td>
+    const provTag = r.prov ? ` <span title="From the uploaded Valant export — payroll hasn't closed this pay period yet, so these hours can still change" style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;color:#475569;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:1px 6px;vertical-align:middle">NOT CLOSED YET</span>` : '';
+    return `<tr class="cap-pprow" tabindex="0" role="button" title="See ${r.label} in the Pay Period Snapshot" onclick="capPPAsk(event,'${hesc(s._id)}',${r.idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();capPPAsk(event,'${hesc(s._id)}',${r.idx});}" style="border-bottom:1px solid #f1f0ec;cursor:pointer${r.isRampPeriod?';background:#fffdf5':r.leaveDays?';background:#f6f8fd':''}">
+      <td style="padding:8px 12px;font-size:12px;color:#333;white-space:nowrap"><strong>${r.label}</strong> <span style="color:#aaa;font-weight:500">${r.range}</span>${rampTag}${leaveTag}${provTag} <span style="font-size:10.5px;color:#1a56db;font-weight:700;margin-left:4px">Pay sheet →</span></td>
       <td style="padding:8px 12px;font-size:11px;color:#888">${qLabels[r.quarter]||''}</td>
       <td style="padding:8px 12px;font-size:12.5px;text-align:right;font-weight:700;color:#1a1a1a">${Math.round(r.actual*10)/10}</td>
       <td style="padding:8px 12px;font-size:12.5px;text-align:right;color:#888">${Math.round(r.expected*10)/10}</td>
@@ -13000,23 +13503,41 @@ function capDrillHTML(s,c){
   }
 
   catchUp += capTierReviewHtml(c, fname);
-  return `<div style="padding:18px 20px;background:#fafafa">
-    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
-      ${stat('Year to Date', c.ytd+' hrs', `of ${Math.round(c.annual)} hr annual goal`, '#1a1a1a')}
-      ${stat('Attainment Score', c.attainPct===null?'—':c.attainPct+'%', `${Math.round(c.ytd)} of ${Math.round(c.expectedToDate)} hrs expected`, capStatusColor(c.attainPct))}
-      ${stat('Annual goal', Math.round(c.annual)+' hrs', `${c.weekly} hrs/wk · ${c.adjWeekly?Math.round(c.adjWeekly*10)/10:0} hr/wk pace`, '#1a1a1a')}
-    </div>
-    ${catchUp}
-
-    <div style="margin-bottom:4px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999;margin-bottom:8px">Hours vs. Goal Pace — ${c.P.year}</div>
-      ${chart}
-    </div>
-
-    ${breakdown}
-    ${weekTable}
-    ${sessionTable}
-  </div>`;
+  // ── Layout (Nov 22 2026, Michael's pick): score + hours-to-add on top, full-width chart with a View dropdown,
+  // quarters (goal vs actual, current = quarter to date), details tabs, graph notes at the bottom.
+  try{ CAPV.sid=s._id; }catch(e){}
+  const ringDeg=Math.max(0,Math.min(100,c.attainPct||0))*3.6, rc=capStatusColor(c.attainPct);
+  const top='<div class="cdx-top"><div class="cdx-score"><div class="cdx-ring" style="background:conic-gradient('+rc+' 0 '+ringDeg+'deg,#e5e7eb '+ringDeg+'deg 360deg)"><div><b style="color:'+rc+'">'+(c.attainPct==null?'—':c.attainPct+'%')+'</b><small>attainment</small></div></div>'
+    +'<div><div class="cdx-lab">Attainment score</div><div class="cdx-big">'+Math.round(c.ytd)+' of '+Math.round(c.expectedToDate)+' hrs expected so far</div>'
+    +'<div class="cdx-sub">Year goal <b>'+Math.round(c.annual)+' hrs</b> · '+c.weekly+' hrs/wk · pace needed '+(c.adjWeekly?Math.round(c.adjWeekly*10)/10:0)+' hrs/wk</div></div></div>'
+    +'<div class="cdx-catch">'+catchUp+'</div></div>';
+  const views=[['cum','Year to date (cumulative)'],['pp','Over / under by pay period'],['ns','No-shows'],['grp','Groups'],['types','Session types']];
+  const chartCard='<div class="cdx-card"><div class="cdx-ctl"><span class="cdx-t" id="cdx-t">Clinical hours vs goal — year to date</span>'
+    +(capViewNewOn()?'<span class="cdx-new" title="New: switch the graph between year to date, over/under by pay period, no-shows, groups and session types">NEW ⟶</span>':'')
+    +'<select class="cdx-sel" style="'+(capViewNewOn()?'border:2px solid #F2A54B;box-shadow:0 0 0 3px #F2A54B33':'')+'" aria-label="Chart view" onchange="capViewSet(this.value)">'+views.map(function(v){ return '<option value="'+v[0]+'"'+(CAPV.view===v[0]?' selected':'')+'>View: '+v[1]+'</option>'; }).join('')+'</select></div>'
+    +'<div id="cdx-v-cum"'+(CAPV.view!=='cum'?' style="display:none"':'')+'>'+chart+'</div><div id="cdx-v-alt"'+(CAPV.view==='cum'?' style="display:none"':'')+'></div></div>';
+  // Quarters: goal vs actual for each quarter; the current one = quarter to date
+  const quarters=(function(){ try{ const A=capActualPeriods(s), pq=(data&&data.periodQuarter)||[], qa=[0,0,0,0];
+      A.per.forEach(function(v,i){ const q=pq[i]; if(q>=0&&q<4) qa[q]+=v; });
+      const cq=Math.min(c.P.quarter,3), names=['Q1','Q2','Q3','Q4'];
+      return '<div class="cdx-lab2">Quarters</div><div class="cdx-qs">'+c.benchmarks.map(function(b,i){ const prev=i?c.benchmarks[i-1].goal:0, g=Math.max(0,b.goal-prev), a=Math.round(qa[i]*10)/10;
+        if(i>cq) return '<div class="cdx-q fut"><div class="cdx-qh">'+names[i]+' · '+hesc(b.range||'')+'</div><div class="cdx-qn"><b>—</b> / '+Math.round(g)+' goal</div><div class="cdx-qbar"></div><div class="cdx-qs2 mut">not started</div></div>';
+        if(i===cq){ const gt=Math.max(0,c.expectedToDate-prev), p=gt>0?Math.round(a/gt*100):null, col=capStatusColor(p);
+          return '<div class="cdx-q cur"><div class="cdx-qh">'+names[i]+' · '+hesc(b.range||'')+' <span class="cdx-qtd">quarter to date</span></div><div class="cdx-qn"><b>'+a+'</b> / '+Math.round(gt)+' so far · '+Math.round(g)+' by quarter end</div>'
+            +'<div class="cdx-qbar"><span style="width:'+Math.min(100,g>0?a/g*100:0)+'%;background:'+col+'"></span><i style="left:'+Math.min(100,g>0?gt/g*100:0)+'%"></i></div><div class="cdx-qs2" style="color:'+col+'">'+(p==null?'—':p+'% of pace')+' · '+Math.max(0,Math.round(g-a))+' hrs to go</div></div>'; }
+        const p=g>0?Math.round(a/g*100):null, col=capStatusColor(p), d=Math.round((a-g)*10)/10;
+        return '<div class="cdx-q"><div class="cdx-qh">'+names[i]+' · '+hesc(b.range||'')+'</div><div class="cdx-qn"><b>'+a+'</b> / '+Math.round(g)+' goal</div><div class="cdx-qbar"><span style="width:'+Math.min(100,p||0)+'%;background:'+col+'"></span></div><div class="cdx-qs2" style="color:'+col+'">'+(p==null?'—':p+'%')+' · '+(d>=0?'+':'')+d+' hrs</div></div>'; }).join('')+'</div>'; }catch(e){ console.error(e); return ''; } })();
+  const adjust=(function(){ try{ return capAdjustBannerHtml(s)+(pvA('cap','manage',s&&s._id)?capAdjustAdminHtml(s):''); }catch(e){ return ''; } })();
+  const tabs=[['sess','Sessions & clients'],['ns','No-shows'],['nc','Notes'],['goal','How your goal is figured'],['table','Pay period table']];
+  const details='<div class="cdx-dhead"><span class="cdx-dt">Details</span><span class="cdx-dsub">Pick a tab to see more</span></div><div class="cdx-tabs" role="tablist">'+tabs.map(function(t){ return '<button class="cdx-tab'+(CAPV.tab===t[0]?' on':'')+'" role="tab" data-t="'+t[0]+'" onclick="capTabSet(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
+    +'<div class="cdx-pane" data-t="sess"'+(CAPV.tab!=='sess'?' style="display:none"':'')+'><div id="cdx-sess"><div class="cdx-muted">Loading…</div></div></div>'
+    +'<div class="cdx-pane" data-t="nc"'+(CAPV.tab!=='nc'?' style="display:none"':'')+'><div id="cdx-nc"><div class="cdx-muted">Loading…</div></div></div>'
+    +'<div class="cdx-pane" data-t="ns"'+(CAPV.tab!=='ns'?' style="display:none"':'')+'><div id="cdx-ns"><div class="cdx-muted">Loading…</div></div></div>'
+    +'<div class="cdx-pane" data-t="goal"'+(CAPV.tab!=='goal'?' style="display:none"':'')+'>'+(adjust||'<div class="cdx-muted">Nothing has adjusted this goal — it’s the full year at '+c.weekly+' hrs/wk.</div>')+'</div>'
+    +'<div class="cdx-pane" data-t="table"'+(CAPV.tab!=='table'?' style="display:none"':'')+'>'+weekTable+'</div>';
+  setTimeout(function(){ try{ capVLoad(s._id); capNotesLoad(s._id); }catch(e){ console.error(e); } },0);
+  return capCdxCss()+'<div class="cdx">'+top+chartCard+quarters+details
+    +'<div class="cdx-lab2">Graph notes</div><div class="cdx-card" id="cdx-notes"><div class="cdx-muted">Loading…</div></div></div>';
 }
 
 // The "Capacity Data" nav page is a separate raw-data view that was never built
@@ -13410,6 +13931,7 @@ const PAGE_META={
   'site-info':{title:'Site Info',sub:'Location details and procedures'},
   'supplies':{title:'Supply Ordering',sub:'Request office and clinical supplies'},
   'crisis':{title:'Crisis & Safety',sub:'Emergency contacts and response guide'},
+  'safety':{title:'Emergency & Safety',sub:'Emergency numbers, panic buttons, the Office Safety Policy and the crisis guide'},
   'announcements':{title:'Announcements',sub:'Good News Mondays and practice updates'},
   'my-ceus':{title:'My CEUs',sub:'Continuing education certificates'},
   'ceu-upload':{title:'Bulk Record Upload',sub:'Import HR documents and CEU certificates into Employee Files'},
@@ -13562,9 +14084,11 @@ function hbGoBack(){
     if(hbCurrentPage()!==t){ HB_BACK.push(t); HB_BACK_TO=null; hbBackPaint(hbCurrentPage()); } }catch(e){ console.error(e); }
 }
 function showPage(id,btn,_fromHistory){
+  try{ if(id!=='paysnap'&&typeof PSNAP!=='undefined') PSNAP.fromCap=null; capPPAskClose(); }catch(e){}
   if(id==='coderules'){ try{ HBM.sec='payset'; }catch(e){} id='admin'; btn=document.getElementById('nav-admin'); }
   if(id==='ceu-upload'){ try{ HBM.sec='bulk'; }catch(e){} id='admin'; btn=document.getElementById('nav-admin'); }   // Bulk Record Upload lives in Homebase Control Panel   // Payroll Settings lives in Homebase Control Panel now
   if(id==='meetings-hr'){ try{ PPU.view='mtg'; }catch(e){} id='ppu'; btn=document.getElementById('nav-ppu'); }   // old HR page lives in Payroll Processing now
+  if(id==='crisis'){ try{ SAFETY.tab='crisis'; }catch(e){} id='safety'; btn=document.getElementById('nav-safety'); }   // old crisis page → Emergency & Safety
   if(id==='team-dashboard'){ try{ RC.tab='hours'; }catch(e){} id='report-center'; btn=document.getElementById('nav-report-center'); }   // Leadership Dashboard archived (Nov 16) → Insights & Reports › Attainment Tracking
   // Unsaved edits anywhere → hard stop; leaving re-runs this navigation.
   if(typeof hbConfirmLeave==='function' && !hbConfirmLeave(function(){ showPage(id,btn,_fromHistory); })) return;
@@ -13633,6 +14157,7 @@ function showPage(id,btn,_fromHistory){
     }
   }
   if(id==='crisis')renderCrisisNumbers();
+  if(id==='safety'){ try{ safetyPageRender(); }catch(e){ console.error(e); } }
   if(id==='home'){renderHome();if(typeof loadHomePanelAvail==='function')loadHomePanelAvail();if(typeof loadHomeReviews==='function')loadHomeReviews();if(typeof loadHomeIpAlert==='function')loadHomeIpAlert();if(typeof loadHomeSignAlert==='function')loadHomeSignAlert();return;}
   if(id==='announcements'){renderAnnouncements();return;}
   if(id==='site-info'){renderSiteInfo();return;}
@@ -15881,8 +16406,9 @@ async function hbmRenderLocations(el){
         +'<div class="hbm-d">'+[d.phone?'Main '+hesc(d.phone):'',d.police?'Police '+hesc(d.police):'',d.fire?'Fire '+hesc(d.fire):''].filter(Boolean).join(' · ')+'</div>'
         +'<div class="hbm-d" style="color:#4b5563">'+hesc(teamLabel(k))+' · '+n+' active staff · '+(off?off+' office'+(off>1?'s':'')+' · '+fut+' current/upcoming booking'+(fut===1?'':'s'):'no office bookings')+(d.closedNote?' · '+hesc(d.closedNote):'')+'</div></div>'
         +locStatusPill(k)
-        +'<button class="btn btn-secondary hbm-b" onclick="locEdit(\''+hesc(k)+'\')">Edit</button>'
-        +(d.closed?'<button class="btn btn-secondary hbm-b" onclick="locReopen(\''+hesc(k)+'\')">Reopen</button>':'<button class="btn btn-secondary hbm-b del" onclick="locClose(\''+hesc(k)+'\')">Close</button>')+'</div>'; };
+        +(open&&!off&&k!=='NCA'?'<button class="btn btn-primary hbm-b" onclick="locEdit(\''+hesc(k)+'\',true)" title="Give this location offices so it gets an office calendar">＋ Add offices</button>':'')
+        +'<button class="btn btn-secondary hbm-b" onclick="locEdit(\''+hesc(k)+'\')">Change</button>'
+        +(d.closed?'<button class="btn btn-secondary hbm-b" onclick="locReopen(\''+hesc(k)+'\')">Reactivate</button>':'<button class="btn btn-secondary hbm-b del" onclick="locClose(\''+hesc(k)+'\')">Deactivate…</button>')+'</div>'; };
     const openL=codes.filter(function(k){ return !dir[k].closed||siteIsOpen(k); }), closedL=codes.filter(function(k){ return dir[k].closed&&!siteIsOpen(k); });
     el.innerHTML='<div class="hbm-head"><div><b>Locations</b><div class="hbm-sub">Practice sites with their addresses and emergency numbers. Each location is also a <b>team</b> on the roster and, if it has offices, a site on <b>Office Bookings</b>. Office names and hours are in <a href="#" onclick="hbmGo(\'offices\');return false" style="color:#122B67;font-weight:700">Office settings</a>.</div></div><button class="btn btn-primary" onclick="locEdit()">+ Add location</button></div>'
       +'<div class="hbm-list">'+(openL.length?openL.map(row).join(''):'<div class="hbm-empty">No open locations.</div>')+'</div>'
@@ -15890,7 +16416,7 @@ async function hbmRenderLocations(el){
   }catch(e){ console.error(e); el.innerHTML='<div class="hs-none">Couldn’t load locations.</div>'; }
 }
 function locSuggestCode(name){ const base=String(name||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4)||'SITE'; const used=Object.keys(locDir()).concat(CONFIG.teamOpts||[]); let c=base, i=2; while(used.indexOf(c)>=0) c=base.slice(0,3)+(i++); return c; }
-function locEdit(code){
+function locEdit(code,focusOffices){
   try{
     const isNew=!code, d=isNew?{l:'',addr:'',phone:'',police:'',fire:'',offices:0}:Object.assign({},locDir()[code]||{}), m=isNew?{}:((CONFIG.siteMeta||{})[code]||{});
     const off=isNew?0:locOfficeCount(code), curCol=m.color||LOC_COLORS[Object.keys(locDir()).length%LOC_COLORS.length][0];
@@ -15910,6 +16436,7 @@ function locEdit(code){
     if(isNew){ const l=document.getElementById('loc-l'), c=document.getElementById('loc-code'), t=document.getElementById('loc-team');
       l.oninput=function(){ if(!c.dataset.touched) c.value=locSuggestCode(l.value); if(!t.dataset.touched) t.value=l.value?l.value.trim()+' Team':''; };
       c.oninput=function(){ c.dataset.touched='1'; }; t.oninput=function(){ t.dataset.touched='1'; }; }
+    if(focusOffices){ setTimeout(function(){ const o=document.getElementById('loc-off'); if(o){ o.focus(); o.select(); o.style.outline='2px solid #18A9B6'; } },60); }
   }catch(e){ console.error(e); }
 }
 async function locSaveConfig(extra){
@@ -15952,12 +16479,12 @@ function locClose(code){
   try{
     const d=locDir()[code]||{}, ppl=locActiveStaff(code), today=obIso(new Date());
     const fut=(OB.list||[]).filter(function(b){ return b.site===code&&b.status!=='declined'&&(b.kind==='weekly'?(!b.until||b.until>=today):b.date>=today); });
-    hbmModal('Close '+hesc(d.l||code),
+    hbmModal('Deactivate '+hesc(d.l||code),
       '<div style="font-size:13px;color:#374151;margin-bottom:10px">From the closing date, '+hesc(d.l||code)+' is hidden from the emergency-number picker, event and alert pickers'+(locOfficeCount(code)?' and <b>Office Bookings</b>':'')+'. Past bookings and hours stay in the Insights & Reports.</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+hbmL('Closing date (first day closed)','<input id="loc-cdate" type="date" style="'+HBM_F+'" value="'+today+'">')+hbmL('Note (optional)','<input id="loc-cnote" style="'+HBM_F+'" placeholder="e.g. Moved to Hadley">')+'</div>'
       +(fut.length?'<label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:13px;color:#374151"><input type="checkbox" id="loc-cbook" checked style="margin-top:3px"> <span>End <b>'+fut.length+'</b> office booking'+(fut.length>1?'s':'')+' on or after that date (weekly bookings end the day before; one-time bookings are declined).</span></label>':'')
       +(ppl.length?'<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff8ee;border:1px solid #F2A54B;font-size:12.5px;color:#7a4a0a"><b>'+ppl.length+' active staff are still on '+hesc(teamLabel(code))+'</b>: '+ppl.slice(0,12).map(function(s){ return hesc(s['Clinician']||''); }).join(', ')+(ppl.length>12?' and '+(ppl.length-12)+' more':'')+'. Move them to their new team from their profile (Team history keeps the date).</div>':''),
-      'locCloseCommit(\''+hesc(code)+'\')','Close location');
+      'locCloseCommit(\''+hesc(code)+'\')','Deactivate location');
   }catch(e){ console.error(e); }
 }
 async function locCloseCommit(code){
@@ -15980,7 +16507,7 @@ async function locCloseCommit(code){
   }catch(e){ console.error(e); showToast('⚠ Could not close the location'); }
 }
 async function locReopen(code){
-  try{ const prev=Object.assign({},locDir()[code]||{}); if(!confirm('Reopen '+(prev.l||code)+'?')) return;
+  try{ const prev=Object.assign({},locDir()[code]||{}); if(!confirm('Reactivate '+(prev.l||code)+'?')) return;
     const nx=Object.assign({},prev); delete nx.closed; delete nx.closedNote; delete nx.closedAt;
     CONFIG.siteDirectory=Object.assign({},CONFIG.siteDirectory); CONFIG.siteDirectory[code]=nx;
     if(!(await locSaveConfig())){ CONFIG.siteDirectory[code]=prev; showToast('⚠ Could not save'); return; }
@@ -16068,9 +16595,10 @@ async function renderAnnouncements(){
     +(v.length?v.map(function(n){ return '<div class="hn-card">'+newsCardHtml(n,true)+'</div>'; }).join(''):'<div class="hs-none" style="text-align:center;padding:30px">No announcements yet.</div>');
 }
 // ══ the page ══
-function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
+function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; try{ if(isAdminView()) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings']); }catch(e){} if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
 // New permissions: one area per Homebase Control Panel section (Nov 18 2026)
 function pvHbmSections(){ const s=[], C=function(k,l){ return pvCan(k,l||'manage'); };
+  if(C('mtg')) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings']);
   if(C('pnot')) s.push(['alerts','🔔 Practice notifications']); if(C('news')) s.push(['news','📣 News & announcements']); if(C('cal')) s.push(['events','📅 Events calendar']);
   if(C('loc')) s.push(['locations','📍 Locations']); if(C('obs')) s.push(['offices','🚪 Office settings']);
   if(C('perm','view')) s.push(['perm2','🔐 Roles & permissions']); if(pvIsSA()) s.push(['roles','🗂 Access levels (old system)']);
@@ -16081,7 +16609,7 @@ function hbmShell(body){
   const secs=hbmSections(); if(!secs.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Homebase Control Panel is for Admins.</div>'; return null; }
   if(!HBM.sec||!secs.some(function(x){ return x[0]===HBM.sec; })) HBM.sec=secs[0][0];
   // Side navigation (Nov 2026): sections grouped down the left instead of rows of tabs across the top.
-  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
+  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['Groups & meetings',['groups','mtgset']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
   const by={}; secs.forEach(function(x){ by[x[0]]=x[1]; });
   const item=function(k){ const lab=by[k]; const m=String(lab).match(/^(\S+)\s+(.*)$/)||[0,'',lab];
     return '<button class="hbm-nl'+(HBM.sec===k?' on':'')+'" aria-current="'+(HBM.sec===k?'page':'false')+'" onclick="hbmGoSec(\''+k+'\')"><span class="ic" aria-hidden="true">'+m[1]+'</span><span>'+hesc(m[2])+'</span></button>'; };
@@ -16614,7 +17142,7 @@ function homeCapMoreHtml(c,col){
 // Row 2 of My Homebase: capacity is the focus (wide), with the intake profile and office widgets beside it.
 function homeCapRowHtml(){
   try{
-    const cap=homeCapacityHtml(), side=homeIpWidgetHtml()+homeOfficeWidgetHtml();
+    const cap=homeCapacityHtml(), side=homeIpWidgetHtml();   // My office now lives inside Your Site & Emergency (Nov 22)
     if(cap) return '<div class="hm-row hm-capfocus">'+cap.replace('class="hs-card hs-cap"','class="hs-card hs-cap hs-capwide"')+(side?'<div class="hm-col">'+side+'</div>':'')+'</div>';
     return side?'<div class="hm-row hm-r1"><div class="hm-pair">'+side+'</div></div>':'';
   }catch(e){ console.error(e); return ''; }
@@ -16654,26 +17182,49 @@ const SAFETY_DEFAULT={panic:"> **Your safety matters.** While serious emergencie
 var SAFETY={doc:null,tab:'panic',edit:false};
 function safetyCanEdit(){ try{ if(pvOn()) return pvCan('safety','manage'); return hbmCanContent(); }catch(e){ return false; } }
 async function safetyLoad(){ try{ const r=await window.storage.get('app_safety_doc'); const o=r&&r.value?JSON.parse(r.value):null; SAFETY.doc=Object.assign({},SAFETY_DEFAULT,o||{}); }catch(e){ SAFETY.doc=Object.assign({},SAFETY_DEFAULT); } return SAFETY.doc; }
-async function safetyOpen(tab){
-  try{ if(tab) SAFETY.tab=tab; SAFETY.edit=false; if(!SAFETY.doc) await safetyLoad();
-    let m=document.getElementById('safety-modal'); if(!m){ m=document.createElement('div'); m.id='safety-modal'; m.className='modal-overlay'; m.style.zIndex='395'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','Panic buttons and safety protocols'); m.onclick=function(ev){ if(ev.target===m) safetyClose(); }; document.body.appendChild(m);
-      document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'&&m.classList.contains('open')&&!SAFETY.edit) safetyClose(); }); }
-    safetyPaint(); m.classList.add('open'); }catch(e){ console.error(e); showToast('⚠ Could not open the safety guide'); }
-}
+// Emergency & Safety is a page now (Nov 22 2026); safetyOpen(tab) still works from anywhere and goes there.
+async function safetyOpen(tab){ try{ if(tab) SAFETY.tab=tab; SAFETY.edit=false; showPage('safety',document.getElementById('nav-safety')); }catch(e){ console.error(e); } }
 function safetyClose(){ const m=document.getElementById('safety-modal'); if(m) m.classList.remove('open'); }
+async function safetyPageRender(){
+  const host=document.getElementById('safety-page'); if(!host) return;
+  try{ if(!SAFETY.doc){ host.innerHTML='<div class="hs-none" style="padding:30px">Loading…</div>'; await safetyLoad(); } }catch(e){}
+  safetyPaint();
+}
+// Numbers for a site (your site first; any open site can be picked)
+function safetyNumbersHtml(){
+  try{ const dir=CONFIG.siteDirectory||{}, codes=(typeof SITE_ORDER!=='undefined'&&SITE_ORDER.length?SITE_ORDER:Object.keys(dir)).filter(function(k){ return dir[k]&&siteIsOpen(k); });
+    const mine=homeSiteCode(), code=SAFETY.site&&dir[SAFETY.site]?SAFETY.site:(mine||codes[0]), site=dir[code]||{};
+    const tel=function(lbl,num,strong){ return num?'<div class="sfp-tel"><span'+(strong?' style="font-weight:800"':'')+'>'+hesc(lbl)+'</span><a href="'+hesc(telHref(num))+'">'+hesc(num)+'</a></div>':''; };
+    const lines=(CONFIG.crisisContacts||[]).filter(function(c){ return c&&!c.leadership; }), lead=(CONFIG.crisisContacts||[]).filter(function(c){ return c&&c.leadership; });
+    return '<div class="sfp-box"><div class="sfp-lab" style="display:flex;align-items:center;gap:8px">Emergency numbers'
+        +(codes.length>1?'<select aria-label="Site" onchange="SAFETY.site=this.value;safetyPaint()" style="margin-left:auto;font:inherit;font-size:12px;font-weight:600;padding:3px 6px;border:1px solid #e5e7eb;border-radius:7px;background:#fff;text-transform:none;letter-spacing:0">'
+          +codes.map(function(k){ return '<option value="'+hesc(k)+'"'+(k===code?' selected':'')+'>'+hesc((dir[k]&&dir[k].l)||k)+(k===mine?' (your site)':'')+'</option>'; }).join('')+'</select>':'')+'</div>'
+      +tel('Life-threatening emergency','911',true)+tel((site.l||code)+' police',site.police)+tel((site.l||code)+' fire',site.fire)
+      +lines.map(function(c){ return tel(c.name,c.phone); }).join('')
+      +(lead.length?'<div class="sfp-lab" style="margin-top:12px">Leadership on call</div>'+lead.map(function(c){ return tel(c.name,c.phone); }).join(''):'')
+      +(site.addr?'<a class="hs-addr" style="display:block;margin-top:10px" href="https://maps.google.com/?q='+encodeURIComponent(site.addr)+'" target="_blank" rel="noopener">📍 '+hesc(site.addr)+' ↗</a>':'')
+      +'</div>'; }catch(e){ return ''; }
+}
+function safetyCrisisHtml(){ try{ const el=document.getElementById('crisis-proto'); return el?'<div class="sfp-crisis">'+el.outerHTML.replace('id="crisis-proto"','')+'</div>':''; }catch(e){ return ''; } }
 function safetyPaint(){
-  const m=document.getElementById('safety-modal'); if(!m) return; const d=SAFETY.doc||SAFETY_DEFAULT, t=SAFETY.tab, ed=SAFETY.edit, can=safetyCanEdit();
-  const tabs=[['panic','🚨 Panic buttons'],['policy','🛡 Office Safety Policy']];
-  m.innerHTML='<div class="cmodal sfx" onclick="event.stopPropagation()"><button class="hev-x" onclick="safetyClose()" aria-label="Close">×</button>'
-    +'<div class="sfx-hd"><div class="sfx-ey">Site safety</div><h2>Panic buttons &amp; safety protocols</h2>'
-    +'<div class="sfx-quick"><div><b>In immediate danger?</b> Press and hold your office panic button (on the <b>door trim</b>) for <b>2 seconds</b> — it’s silent. Get to safety. Call <b>911</b> if you can.</div></div></div>'
-    +'<div class="hb-tabs sfx-tabs">'+tabs.map(function(x){ return '<button class="hb-tab'+(t===x[0]?' on':'')+'" onclick="SAFETY.tab=\''+x[0]+'\';SAFETY.edit=false;safetyPaint()">'+x[1]+'</button>'; }).join('')+'</div>'
-    +(ed?'<div class="sfx-edit"><div class="muted" style="font-size:12px;margin-bottom:6px">Formatting: <code>## Heading</code> · <code>### Sub-heading</code> · <code>- bullet</code> · <code>1. step</code> · <code>&gt; callout</code> · <code>**bold**</code></div><textarea id="sfx-tx" rows="22">'+hesc(d[t]||'')+'</textarea>'
-        +'<div class="form-actions" style="margin-top:10px"><button class="btn btn-secondary" style="margin-right:auto" onclick="safetyReset()">Restore original text</button><button class="btn btn-secondary" onclick="SAFETY.edit=false;safetyPaint()">Cancel</button><button class="btn btn-primary" onclick="safetySave()">Save</button></div></div>'
-      :'<div class="sfx-body">'+libRender(d[t]||'')+'</div>'
-        +'<div class="form-actions" style="margin-top:12px">'+(can?'<button class="btn btn-secondary" style="margin-right:auto" onclick="SAFETY.edit=true;safetyPaint()">✏️ Edit this page</button>':'<span style="margin-right:auto"></span>')
-        +'<button class="btn btn-secondary" onclick="safetyPrint()">Print</button><button class="btn btn-primary" onclick="safetyClose()">Close</button></div>')
-    +(d.updatedAt?'<div class="muted" style="font-size:11px;margin-top:8px">Last updated '+new Date(d.updatedAt).toLocaleDateString()+(d.updatedBy?' by '+hesc(d.updatedBy):'')+'</div>':'')+'</div>';
+  const host=document.getElementById('safety-page'); if(!host) return; const d=SAFETY.doc||SAFETY_DEFAULT, can=safetyCanEdit();
+  let t=SAFETY.tab||'panic'; if(['panic','policy','crisis'].indexOf(t)<0) t=SAFETY.tab='panic'; const ed=SAFETY.edit&&t!=='crisis';
+  const tabs=[['panic','🚨 Panic buttons'],['policy','🛡 Office Safety Policy'],['crisis','📋 Crisis guide']];
+  host.innerHTML='<style>#safety-page .sfp{max-width:1120px;margin:0 auto;padding:18px 20px 40px}.sfp-alert{background:#b91c1c;color:#fff;border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.5;margin-bottom:16px}'
+      +'.sfp-alert b{font-size:15.5px}.sfp-alert a{color:#fff;font-weight:800}.sfp-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:18px;align-items:start}@media(max-width:820px){.sfp-grid{grid-template-columns:1fr}}'
+      +'.sfp-box,.sfp-main{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px}.sfp-lab{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8f9e;margin-bottom:6px}'
+      +'.sfp-tel{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #f4f4f5;font-size:13px;color:#374151}.sfp-tel a{color:#b91c1c;font-weight:800;text-decoration:none;white-space:nowrap}'
+      +'.sfp-body{font-size:13.5px;line-height:1.6;color:#374151}.sfp-crisis>div{border:0!important}.sfp-top{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;flex-wrap:wrap}</style>'
+    +'<div class="sfp"><div class="sfp-alert"><b>Life-threatening emergency? Call <a href="tel:911">911</a>.</b><br>In immediate danger: press and hold your office panic button (on the <b>door trim</b>) for <b>2 seconds</b> — it’s silent. Get to safety, then call 911 if you can.</div>'
+    +'<div class="sfp-grid"><div>'+safetyNumbersHtml()+'</div><div class="sfp-main">'
+      +'<div class="hb-tabs" style="margin-bottom:10px">'+tabs.map(function(x){ return '<button class="hb-tab'+(t===x[0]?' on':'')+'" onclick="SAFETY.tab=\''+x[0]+'\';SAFETY.edit=false;safetyPaint()">'+x[1]+'</button>'; }).join('')+'</div>'
+      +(ed?'<div class="sfx-edit"><div class="muted" style="font-size:12px;margin-bottom:6px">Formatting: <code>## Heading</code> · <code>### Sub-heading</code> · <code>- bullet</code> · <code>1. step</code> · <code>&gt; callout</code> · <code>**bold**</code></div><textarea id="sfx-tx" rows="22" style="width:100%;font:inherit;font-size:13px">'+hesc(d[t]||'')+'</textarea>'
+          +'<div class="form-actions" style="margin-top:10px"><button class="btn btn-secondary" style="margin-right:auto" onclick="safetyReset()">Restore original text</button><button class="btn btn-secondary" onclick="SAFETY.edit=false;safetyPaint()">Cancel</button><button class="btn btn-primary" onclick="safetySave()">Save</button></div></div>'
+        :'<div class="sfp-top">'+(can&&t!=='crisis'?'<button class="btn btn-secondary" style="margin-right:auto;font-size:12.5px" onclick="SAFETY.edit=true;safetyPaint()">✏️ Edit this page</button>':'')
+          +'<button class="btn btn-secondary" style="font-size:12.5px" onclick="safetyPrint()">🖨 Print</button></div>'
+          +'<div class="sfp-body">'+(t==='crisis'?safetyCrisisHtml():libRender(d[t]||''))+'</div>')
+      +(d.updatedAt&&t!=='crisis'?'<div class="muted" style="font-size:11px;margin-top:8px">Last updated '+new Date(d.updatedAt).toLocaleDateString()+(d.updatedBy?' by '+hesc(d.updatedBy):'')+'</div>':'')
+    +'</div></div></div>';
 }
 async function safetySave(){
   try{ if(!safetyCanEdit()) return; const tx=String((document.getElementById('sfx-tx')||{}).value||''); if(!tx.trim()){ showToast('⚠ The page can’t be empty'); return; }
@@ -16689,7 +17240,7 @@ function homeTeamSiteHtml(){
   const code=homeSiteCode(); const site=code&&dir[code];
   if(!site) return '<section class="hs-card ts" style="--acc:#E46756;--acc-bg:#fdece9;--acc-ink:#122B67"><div class="hs-h"><span class="hs-ic">🏢</span> Your Site &amp; Emergency</div><div class="hs-none">'
     +(me?'No team site is set on your profile.':'Sign in with your staff account to see your team site.')+'</div>'
-    +homeEmergencyInner()
+    +homeEmergencyLine()
     +'<button class="hs-link" style="margin-left:0" onclick="showPage(\'site-info\',null)">All sites →</button></section>';
   const ctm=homeFindLead(code,function(t){ return t.indexOf('clinical team manager')>=0||/\bctm\b/.test(t); });
   const cpm=homeFindLead(code,function(t){ return t.indexOf('program manager')>=0||/\bcpm\b/.test(t); });
@@ -16703,10 +17254,10 @@ function homeTeamSiteHtml(){
     +'<div class="ts-sec"><div class="ts-lab">Your team leads</div>'
       +homeLeadsHtml(ctm,cpm,sup,supName)
     +'</div>'
-    +'<div class="ts-sec">'+homeEmergencyInner()+'<button class="sfx-btn" onclick="safetyOpen(\'panic\')"><span class="ic">🚨</span><span><b>Panic button &amp; safety protocols</b><small>Where it is, when to press it, what happens next</small></span><span class="go">→</span></button></div>'
+    +homeOfficeSecHtml()
+    +homeEmergencyLine()
     +'<div class="ts-foot">'
-      +'<span class="ts-links"><button class="hs-link" style="margin:0" onclick="showPage(\'site-info\',null)">Site info →</button>'
-      +'<button class="hs-link" style="margin:0" onclick="showPage(\'crisis\',null)">Full crisis &amp; safety guide →</button></span>'
+      +'<span class="ts-links"><button class="hs-link" style="margin:0" onclick="showPage(\'site-info\',null)">Site info →</button></span>'
     +'</div></section>';
 }
 // ── Clinical Profile for Intake widget (your own profile: intake status, freshness, what intake sees) ──
@@ -16764,6 +17315,29 @@ async function homeLoadMeetings(){
       +box('Awaiting pay',h(un.mins)+' h',(un.usd&&!payHideMoney(me)?'$'+un.usd.toFixed(2)+' at $25/hr':'')+(un.usd&&un.ffs&&!payHideMoney(me)?' · ':'')+(un.ffs?h(un.ffs)+' h at FFS':'')+(!un.mins?'all paid':''))+'</div>'
       +'<div style="font-size:11.5px;color:#9ca3af;margin-top:8px">Log time before the pay period closes. For anything older than the last pay period, contact HR.</div>';
   }catch(e){ console.error(e); host.innerHTML='<div class="hs-none">Couldn’t load your entries.</div>'; }
+}
+// Your Site & Emergency (Nov 22): emergency numbers fold into one line (911 stays visible), open on click;
+// the open/closed choice is remembered in this browser. My office (this week's bookings) sits in the same card.
+// Option B (Nov 22): one line — 🚨 Emergency · 911 · Emergency & safety page →
+function homeEmergencyLine(){
+  return '<div class="ts-sec"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span aria-hidden="true" style="font-size:16px">🚨</span><span style="font-weight:800;color:#7f1d1d;font-size:13px">Emergency</span>'
+    +'<a href="tel:911" title="Life-threatening emergency" style="font-size:13px;font-weight:800;color:#b91c1c;text-decoration:none;border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:1px 9px">911</a>'
+    +'<button class="hs-link" style="margin:0 0 0 auto;color:#18A9B6" onclick="showPage(\'safety\',document.getElementById(\'nav-safety\'))">Emergency &amp; safety page →</button></div></div>';
+}
+function homeEmergencyCollapsed(){
+  let open=false; try{ open=localStorage.getItem('hb_em_open')==='1'; }catch(e){}
+  return '<details class="hm-emd"'+(open?' open':'')+' ontoggle="try{localStorage.setItem(\'hb_em_open\',this.open?\'1\':\'0\')}catch(e){}">'
+    +'<summary><span class="ts-lab" style="margin:0">Emergency numbers</span><a class="hm-em911" href="tel:911" onclick="event.stopPropagation()" title="Life-threatening emergency">911</a><span class="hm-emtog"></span></summary>'
+    +homeEmergencyInner()+'</details>'
+    +'<style>.hm-emd>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;padding:2px 0}.hm-emd>summary::-webkit-details-marker{display:none}'
+    +'.hm-em911{font-size:12.5px;font-weight:800;color:#b91c1c;text-decoration:none;border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:1px 8px}.hm-emtog{margin-left:auto;font-size:12px;font-weight:700;color:#18A9B6;white-space:nowrap}'
+    +'.hm-emtog::after{content:"Show ▸"}.hm-emd[open] .hm-emtog::after{content:"Hide ▾"}.hm-emd[open]>summary{margin-bottom:4px}.hm-emd #home-emergency .hm-emh{font-size:0;margin:0}'
+    +'.hm-emd #home-emergency select{margin:0 0 4px}</style>';
+}
+function homeOfficeSecHtml(){
+  try{ const me=homeMe(); if(!me||!obShowFor(me)) return '';
+    return '<div class="ts-sec"><div class="ts-lab" style="display:flex;align-items:center;gap:8px">🚪 My office<button class="hs-link" style="margin:0 0 0 auto" onclick="showPage(\'offices\',document.getElementById(\'nav-offices\'))">Calendar →</button></div>'
+      +'<div id="home-ob"><div class="hs-none" style="text-align:left">Loading…</div></div></div>'; }catch(e){ return ''; }
 }
 // ── Emergency quick reference, by site (defaults to your team site) ──
 var HOME_EM_SITE=null;
@@ -16884,6 +17458,8 @@ async function boot() { // called by the Firebase auth module once sign-in compl
     const id = routed || 'roster';
     showPage(id, (typeof hbNavBtnFor==='function' && hbNavBtnFor(id)) || document.getElementById('nav-roster'));
   })();
+  // Uploaded-but-open pay periods → Capacity Dashboard (payroll managers, once per sign-in; Nov 22)
+  setTimeout(function(){ try{ if(pvS('ppu','manage')) capSyncOpenPeriods(false); }catch(e){} }, 5000);
   // After switching capacity year, come back to the page that asked for it.
   try{ const rp=sessionStorage.getItem('hb_capyear_return'); if(rp){ sessionStorage.removeItem('hb_capyear_return');
     if(document.getElementById('page-'+rp)) showPage(rp, document.querySelector('.nav-item[data-page="'+rp+'"]')); } }catch(e){}
@@ -18033,7 +18609,7 @@ function paySnapGo(sid,a,b){
     showPage('paysnap',document.getElementById('nav-paysnap')); }catch(e){ console.error(e); }
 }
 function paySnapToCapacity(){
-  try{ const sid=PSNAP.sid; showPage('capacity',document.getElementById('nav-capacity'));
+  try{ const sid=PSNAP.sid; if(PSNAP.fromCap&&PSNAP.fromCap.view) CAPV.view=PSNAP.fromCap.view; PSNAP.fromCap=null; showPage('capacity',document.getElementById('nav-capacity'));
     if(sid && (pvOn()?pvSees('cap','view',sid):currentRole()!=='therapist') && typeof capOpenDetail==='function') capOpenDetail(sid); }catch(e){ console.error(e); }
 }
 function paySnapPick(id){ PSNAP.sid=id; PSNAP.list=null; PSNAP.sel=null; renderPaySnap(); }
@@ -18074,11 +18650,13 @@ async function renderPaySnap(){
       picker='<label style="font-size:12px;font-weight:700;color:#6b7280;display:flex;align-items:center;gap:6px">Viewing <select onchange="paySnapPick(this.value)" style="font:inherit;font-size:13px;padding:6px 9px;border:1px solid #d1d5db;border-radius:8px;max-width:260px">'
         +ppl.map(function(x){ return '<option value="'+hesc(x._id)+'"'+(x._id===sid?' selected':'')+'>'+hesc(x['Clinician']||x._id)+'</option>'; }).join('')+'</select></label>';
     }
+    const fromCap=PSNAP.fromCap&&PSNAP.fromCap.sid===sid, capWho=(sa&&me&&sid!==me._id)?((STAFF.find(function(x){ return x._id===sid; })||{})['Clinician']||'their')+'’s':'your';
     let h=prCss()+prSheetCss()
+      +(fromCap?'<div style="display:flex;align-items:center;gap:10px;background:#e8f7f8;border:1px solid #bfe7eb;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px;color:#0b4f56"><button onclick="paySnapToCapacity()" style="padding:7px 13px;border-radius:8px;border:none;background:#122B67;color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer">← Back to the Capacity Dashboard</button><span>You came here from '+hesc(capWho)+' Capacity Dashboard graph.</span></div>':'')
       +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'
       +'<div style="flex:1;min-width:240px;font-size:13px;color:#4b5563">Each pay period once payroll closes: the clinical hours you were credited'+(paySnapNoMoney({sid:sid})?' and':',')+' what each session counted as'+(paySnapNoMoney({sid:sid})?'':', and the meeting &amp; admin time you were paid for')+'. Clients are shown by code only.</div>'
       +picker
-      +'<button onclick="paySnapToCapacity()" style="padding:8px 14px;border-radius:8px;border:1px solid #122B67;background:#122B67;color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">📈 '+(sa&&me&&sid!==me._id?'Their':'My')+' Capacity Dashboard →</button></div>';
+      +'<button onclick="paySnapToCapacity()" style="padding:8px 14px;border-radius:8px;border:1px solid #122B67;background:#122B67;color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">← '+(sa&&me&&sid!==me._id?'Their':'My')+' Capacity Dashboard</button></div>';
     if(!sid){ body.innerHTML=h+'<div class="pr-empty">Your sign-in isn’t linked to a staff record yet — ask an admin to link it.</div>'; return; }
     if(L.length){
       // Navigator: newer/older arrows, one menu grouped by year, and find-by-date.
@@ -18872,6 +19450,7 @@ async function renderPPU(){
     if(closed){ R=PPU.snap?PPU.snap.result:null; }
     else { R=ppuCompute(PPU.rows||[],ppuRulesForPP(PPU.ppId),(p&&p.corrections)||{},PPU.links,PPU.meetings,pp,(p&&p.manualGroups)||[]); if(!R.emps.length) R=null; }
     PPU.R=R||null;
+    try{ if(R&&p&&!closed&&p.importId){ const id=PPU.ppId, RR=R; clearTimeout(CAPPROV.t); CAPPROV.t=setTimeout(function(){ capProvWrite(id,RR); },1500); } }catch(e){}   // dashboards fill before close
     const optList=ALL_PPS.filter(function(x){ return appPPInMenu(x)||x.id===PPU.ppId; }).slice().reverse();
     const optYears=[]; optList.forEach(function(x){ const y=x.id.slice(0,4); if(optYears.indexOf(y)<0) optYears.push(y); });
     const opts=optYears.map(function(y){ return '<optgroup label="'+y+'">'+optList.filter(function(x){ return x.id.slice(0,4)===y; }).map(function(x){ const st=PPU.periods[x.id];
@@ -18999,7 +19578,7 @@ async function ppuPublishGuide(rules,force){
     if(!rules||!Array.isArray(rules.rows)) return;
     if(!force){ try{ const r=await window.storage.get('app_code_guide'); const o=r&&r.value?JSON.parse(r.value):null; if(o&&o.version===rules.version) return; }catch(e){} }
     const S=ppuSettings(rules);
-    const rows=rules.rows.filter(function(r){ return ppuNormId(r.id); }).map(function(r){ return {id:r.id,desc:r.desc||'',head:r.head||'',cat:r.cat||'',clin:r.clin,ffs:r.ffs,diff:!!r.diff,diffAny:!!r.diffAny,add:r.add||0}; });
+    const rows=rules.rows.filter(function(r){ return ppuNormId(r.id); }).map(function(r){ return {id:r.id,desc:r.desc||'',head:r.head||'',cat:r.cat||'',delivery:r.delivery||'',clin:r.clin,ffs:r.ffs,diff:!!r.diff,diffAny:!!r.diffAny,add:r.add||0}; });
     await window.storage.set('app_code_guide',JSON.stringify({version:rules.version||1,at:new Date().toISOString(),settings:{diffRate:S.diffRate,eveStart:S.eveStart,weekends:S.weekends!==false,threshold:S.threshold,bonusRate:S.bonusRate,anniv:S.anniv!==false,annivRate:S.annivRate,groupRate:S.groupRate,groupHeadCodes:S.groupHeadCodes},rows:rows}));
   }catch(e){ console.error(e); }
 }
@@ -19872,14 +20451,18 @@ function ppuStatement(E,R,pp,v,at){
 // Write each employee's clinical-hour credit into the Capacity Dashboard for that pay period.
 // Hours go in the clinical-hours store (the master sheet already sets each code's credit, so the
 // old 0.333 group factor isn't applied again — that period's group-hours entry is cleared).
-async function ppuWriteCapacity(ppId,emps,prevSids){
-  const year=+ppId.slice(0,4), idx=+ppId.slice(5)-1, wrote=[];
+async function ppuWriteCapacity(ppId,emps,prevSids,opt){
+  const year=+ppId.slice(0,4), idx=+ppId.slice(5)-1, wrote=[]; opt=opt||{};
   try{
     const key=function(base){ return year===2026?base:base+'_'+year; };
     let H,G,C;
     try{ const r=await window.storage.get(key('app_group_credit')); C=r&&r.value?JSON.parse(r.value):null; }catch(e){}
     C=C||{byId:{}}; C.byId=C.byId||{};
-    if(year===CAP_YEAR){ H=CLINICAL_HOURS_DATA; G=GROUP_HOURS_DATA; }
+    if(year===CAP_YEAR){
+      // Start from the saved copy (not just what this browser loaded) so other periods are never lost
+      try{ const r=await window.storage.get(key('app_clinical_hours')); const d=r&&r.value?JSON.parse(r.value):null; if(d&&d.byId) CLINICAL_HOURS_DATA=d; }catch(e){}
+      try{ const r=await window.storage.get(key('app_group_hours')); const d=r&&r.value?JSON.parse(r.value):null; if(d&&d.byId) GROUP_HOURS_DATA=d; }catch(e){}
+      H=CLINICAL_HOURS_DATA; G=GROUP_HOURS_DATA; }
     else {
       const o=ALL_PPS.findIndex(function(x){ return x.id===year+'-01'; });
       const per=ALL_PPS.slice(o,o+26).map(function(x){ return x.startISO; });
@@ -19895,10 +20478,45 @@ async function ppuWriteCapacity(ppId,emps,prevSids){
     (prevSids||[]).forEach(function(sid){ if(!seen[sid]){ if(H.byId[sid]) put(H,sid,null); if(G.byId[sid]) put(G,sid,null); if(C.byId[sid]) put(C,sid,null); } });
     try{ await window.storage.set(key('app_group_credit'),JSON.stringify(C)); if(year===CAP_YEAR) GROUP_CREDIT_DATA=C; }catch(e){ console.error(e); }
     H._version=CAP_DATA_VERSION; G._version=CAP_DATA_VERSION;
+    // prov = pay periods whose hours came from an upload that isn't closed yet (closing replaces them)
+    H.prov=H.prov||{}; if(opt.prov) H.prov[idx]=1; else delete H.prov[idx];
     if(year===CAP_YEAR){ await capPersistHours(); await capPersistGroupHours(); }
     else { await window.storage.set(key('app_clinical_hours'),JSON.stringify(H)); await window.storage.set(key('app_group_hours'),JSON.stringify(G)); }
   }catch(e){ console.error(e); showToast('⚠ Closed, but the Capacity Dashboard could not be updated'); }
   return wrote;
+}
+// ── Capacity from uploaded pay periods that aren't closed yet (Nov 22 2026) ──
+// The dashboards fill in as soon as a pay period's Valant export is uploaded: each open, uploaded period of the
+// capacity year is computed exactly like Payroll Processing does and its clinical hours are written as PROVISIONAL
+// (marked in CLINICAL_HOURS_DATA.prov; shown as "Not closed yet" on the dashboard). Closing the period replaces them.
+// Runs for people who can manage Payroll Processing: after an upload / any change on an open period, and once
+// per session after sign-in (and from the Capacity Dashboard's "↻ Update from uploaded pay periods").
+var CAPPROV={sig:{},busy:false,ran:false};
+async function capProvWrite(id,R){
+  try{ if(!pvS('ppu','manage')||!R||!R.emps) return false; const p=PPU.periods[id]; if(!p||p.status==='closed'||!p.importId) return false;
+    if(+id.slice(0,4)!==CAP_YEAR) return false;
+    const sig=JSON.stringify(R.emps.map(function(E){ return [E.sid||'',Math.round(E.clin||0),Math.round((E.grpClin||0)*100)]; }));
+    if(CAPPROV.sig[id]===sig) return false;
+    await ppuWriteCapacity(id,R.emps,[],{prov:true}); CAPPROV.sig[id]=sig;
+    try{ Object.keys(CAP_GOAL_CACHE).forEach(function(k){ delete CAP_GOAL_CACHE[k]; }); }catch(e){}
+    return true; }catch(e){ console.error(e); return false; }
+}
+async function capSyncOpenPeriods(manual){
+  if(CAPPROV.busy) return 0; if(!pvS('ppu','manage')||!window.payStore){ if(manual) showToast('🔒 Needs Payroll Processing access'); return 0; }
+  CAPPROV.busy=true; let n=0;
+  try{ if(manual) showToast('Reading uploaded pay periods…');
+    if(!PPU.loaded) await ppuLoadBase();
+    if(!PPU.meetings||!PPU.meetings.length){ try{ PPU.meetings=(await window.mtgStore.all())||[]; }catch(e){} }
+    const ids=Object.keys(PPU.periods||{}).filter(function(id){ const p=PPU.periods[id]; return p&&p.status!=='closed'&&p.importId&&+id.slice(0,4)===CAP_YEAR; }).sort();
+    for(const id of ids){ try{ const p=PPU.periods[id], pp=ppuPP(id);
+        const rows=(await payStore.rows(p.importId,p.importChunks||0))||[];
+        const R=ppuCompute(rows,ppuRulesForPP(id),p.corrections||{},PPU.links,PPU.meetings||[],pp,p.manualGroups||[]);
+        if(await capProvWrite(id,R)) n++; }catch(e){ console.error('cap sync',id,e); } }
+    CAPPROV.ran=true;
+    if(n||manual){ try{ const cp=document.getElementById('page-capacity'); if(cp&&cp.classList.contains('active')) renderCapacity(); }catch(e){} }   // only repaint the dashboard if it's showing
+    if(manual) showToast(n?'✅ Capacity updated from '+n+' uploaded pay period'+(n===1?'':'s'):'Capacity is already up to date with the uploaded pay periods');
+  }catch(e){ console.error(e); if(manual) showToast('⚠ Could not read the uploaded pay periods'); }
+  CAPPROV.busy=false; return n;
 }
 // ── Progress measures (shared by the per-person card and the practice summary) ──
 // From appointment lines: sessions = counted rows that aren't no-shows or supervision.
@@ -22244,6 +22862,13 @@ window.permStore = {
         ids.slice(i, i + 400).forEach(k => b.set(doc(db, 'userPerms', k), docs[k])); await b.commit(); n += Math.min(400, ids.length - i); }
       if (cfg) await setDoc(doc(db, 'permConfig', 'live'), cfg);
       return n; } catch (e) { console.error('permStore.publish', e); return -1; } }
+};
+// Capacity Dashboard graph notes (Nov 22 2026): capNotes/{id} = {sid, by, byName, date, text, vis 'all'|'lead', at}
+window.capNoteStore = {
+  forSid: async (sid, onlyPublic) => { try { const cs=[where('sid', '==', sid)]; if (onlyPublic) cs.push(where('vis', '==', 'all'));
+      const snap = await getDocs(query(collection(db, 'capNotes'), ...cs)); const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; } catch (e) { console.warn(e); return []; } },
+  add: async (rec) => { try { const ref = doc(collection(db, 'capNotes')); await setDoc(ref, rec); return ref.id; } catch (e) { console.warn(e); return null; } },
+  remove: async (id) => { try { await deleteDoc(doc(db, 'capNotes', id)); return true; } catch (e) { return false; } }
 };
 window.officeStore = {
   all: async () => { try { const snap = await getDocs(collection(db, 'officeBookings')); const out = []; snap.forEach(d => out.push({ __id: d.id, ...d.data() })); return out; } catch (e) { console.warn(e); return null; } },
