@@ -1188,3 +1188,13 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   (`capAdjRebuild`, idempotent) on add/remove; loaded with the hours (`capAdjLoad`) and added in `capActualPeriods` / `capRealHours`
   (group part to the group share). firestore.rules kvArea maps app_clinical_adj → 'ppu'. **Rules deploy needed.**
 - Assumption (unanswered): no second approval — payroll-entered adjustments are approved like other payroll entries.
+
+## Nov 23 2026 — Roles & permissions templates in the Employee File
+- Employee File → ⚙ Admin actions → **Access · Roles & permissions** (`pfPermHtml`): the person's templates as chips (Everyone / SLT /
+  Super Admin marked "auto"), fine-tuned-area count, **Change permissions…** (`pfPermOpen` dialog: every template from Roles &
+  permissions as a checkbox, auto ones locked, 🔒 templates only for Super Admin editors, "suggested from their title" via `pv2Suggest`;
+  `pfPermSave` writes `PV2.d.ppl[sid].tpl` and saves with `pv2Save` + change-log entry "(from their Employee File)", which also republishes
+  userPerms), **Fine-tune in Roles & permissions** (opens People with that person) and See Homebase as this person.
+- Shown to Roles & permissions = View (manage to change) when the new permissions are on, and to Admins when they're off (with a note that
+  they take effect when switched on). The old access-level dropdown stays below as **Sign-in level** (Super Admins only).
+- Blocked while Roles & permissions has unsaved staged changes (save/discard there first).

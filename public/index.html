@@ -8202,15 +8202,17 @@ function profileAdminBarHtml(p,hasCap){
     hbCan('see-comp')&&it('💲','Comp & Benes',"switchRosterTab('comp')"),
     pvAllA('npd','view')&&it('✅','Compliance checklist',"switchRosterTab('files')")]);
   let access='';
-  if(isAdminView()){
+  // New permissions (Nov 23 2026): the person's Roles & permissions templates, changeable right here
+  let pvAccess=''; try{ if(typeof PV2!=='undefined'&&PV2.d&&PV2.d.tpl&&(pvOn()?pvCan('perm','view'):isAdminView())) pvAccess=pfPermHtml(p,id); }catch(e){ console.error(e); }
+  access=pvAccess;
+  if(isAdminView()&&!(pvOn()&&!sa)){
     const role=roleOf(p), r=ROLES[role], isExplicit=!!ROLE_MAP[id];
-    access='<div class="pf-g"><div class="pf-h">Access</div><div class="pf-access"><span class="pf-pill" style="background:'+r.color+'18;color:'+r.color+'">'+hesc(r.label)+'</span><span class="pf-auto">'+(isExplicit?'set manually':'automatic')+'</span></div>'
+    access+='<div class="pf-g"><div class="pf-h">'+(pvAccess?'Sign-in level <span style="font-weight:500;text-transform:none;letter-spacing:0">(Super Admin or not'+(pvOn()?'':' · the old access levels, in effect while new permissions are off')+')</span>':'Access')+'</div><div class="pf-access"><span class="pf-pill" style="background:'+r.color+'18;color:'+r.color+'">'+hesc(r.label)+'</span><span class="pf-auto">'+(isExplicit?'set manually':'automatic')+'</span></div>'
       +'<div class="pf-desc">'+hesc(r.desc||'')+'</div>'
       +(sa?'<select class="pf-sel" aria-label="Change access level" onchange="pfClose();profileSetRole(\''+id+'\',this.value)"><option value="" selected>Change access level…</option>'
         +ROLE_ORDER.map(function(rk){ return '<option value="'+rk+'"'+(rk===role?' disabled':'')+'>'+ROLES[rk].label+(rk===role?' (current)':'')+'</option>'; }).join('')
         +'<option value="__default__"'+(!isExplicit?' disabled':'')+'>↺ Automatic ('+ROLES[defaultRoleFor(p)].label+')</option></select>'
-        +it('👁','See Homebase as this person',"closeDetail();setViewAs("+q+")")
-        +it('🔐','All roles & permissions',"closeDetail();PV2.tab='ppl';hbmGo('perm2')"):'')+'</div>';
+        +(pvAccess?'':it('👁','See Homebase as this person',"closeDetail();setViewAs("+q+")")+it('🔐','All roles & permissions',"closeDetail();PV2.tab='ppl';hbmGo('perm2')")):'')+'</div>';
   }
   g('Go to',[hasCap&&it('📊','Capacity Dashboard',"rosterViewCapacity("+q+")"),
     hasCap&&it('🗂','Clinical Profile for Intake',"closeDetail();ipOpenFor("+q+")"),
@@ -8220,6 +8222,46 @@ function profileAdminBarHtml(p,hasCap){
   setTimeout(function(){ try{ pfLoadFlags(id); }catch(e){} },0);
   return '<div class="pf-row"><div class="pf-flags" id="pf-flags"><span class="pf-fh">Notifications &amp; flags</span><span class="pf-none">Checking…</span></div>'
     +'<div class="pf-menuwrap"><button class="pf-menubtn" onclick="event.stopPropagation();this.parentNode.classList.toggle(\'open\')" aria-haspopup="true">⚙ Admin actions ▾</button>'+panel+'</div></div>';
+}
+// Employee File → Admin actions → Access, when the new Roles & permissions are on: which templates this person holds
+function pfPermHtml(p,id){
+  const D=PV2.d, held=pv2TplOf(p,D), P=(D.ppl||{})[id]||{}, nOv=Object.keys(P.ov||{}).length, can=pvOn()?pvCan('perm','manage'):isAdminView();
+  const chip=function(tid){ const t=D.tpl[tid]; if(!t) return ''; const auto=tid==='every'||tid==='slt'||tid==='sa'; return '<span class="pf-pill" style="background:'+(t.c||'#122B67')+'18;color:'+(t.c||'#122B67')+';margin:0 4px 4px 0;display:inline-block" title="'+hesc(t.d||'')+'">'+hesc(t.n)+(auto?' · auto':'')+'</span>'; };
+  return '<div class="pf-g"><div class="pf-h">Access · Roles &amp; permissions</div><div style="margin:2px 0 4px">'+held.map(chip).join('')+'</div>'
+    +'<div class="pf-desc">'+(nOv?nOv+' area'+(nOv===1?'':'s')+' fine-tuned just for this person. ':'')+'The widest access from any template wins.'+(pvOn()?'':' <b style="color:#b45309">New permissions are switched off — these take effect when a Super Admin turns them on.</b>')+'</div>'
+    +(can?'<button class="pf-it" onclick="pfClose();pfPermOpen(\''+id+'\')"><span>🔐</span><span>Change permissions…</span></button>':'')
+    +'<button class="pf-it" onclick="closeDetail();PV2.tab=\'ppl\';PV2.p=\''+id+'\';hbmGo(\'perm2\')"><span>🎚</span><span>Fine-tune in Roles &amp; permissions</span></button>'
+    +(isSuperAdminView()?'<button class="pf-it" onclick="closeDetail();setViewAs(\''+id+'\')"><span>👁</span><span>See Homebase as this person</span></button>':'')+'</div>';
+}
+function pfPermOpen(id){
+  try{ const s=(STAFF||[]).find(function(x){ return x._id===id; }); if(!s||!PV2.d) return; if(pv2RO()) return;
+    if(PV2.dirty){ showToast('⚠ There are unsaved changes in Roles & permissions — save or discard them there first'); return; }
+    const D=PV2.d, held=pv2TplOf(s,D), editor=pv2Editor(), sug=(function(){ try{ return pv2Suggest(s)||[]; }catch(e){ return []; } })();
+    const ids=Object.keys(D.tpl).sort(function(a,b){ const o=['every','sa','slt']; const ia=o.indexOf(a), ib=o.indexOf(b); if(ia>=0||ib>=0) return (ia<0?9:ia)-(ib<0?9:ib); return String(D.tpl[a].n).localeCompare(String(D.tpl[b].n)); });
+    let ov=document.getElementById('pfperm'); if(ov) ov.remove(); ov=document.createElement('div'); ov.id='pfperm';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto';
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);padding:18px 20px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:17px;color:#122B67">🔐 Permissions — '+hesc(s['Clinician']||'')+'</h3><button onclick="document.getElementById(\'pfperm\').remove()" aria-label="Close" style="font-size:20px;background:none;border:0;cursor:pointer">×</button></div>'
+      +'<div style="font-size:12.5px;color:#6b7280;margin:4px 0 12px">Templates from Homebase Control Panel → Roles &amp; permissions. Tick every one that applies — the widest access from any of them wins.</div>'
+      +ids.map(function(tid){ const t=D.tpl[tid], auto=tid==='every'||tid==='slt'||tid==='sa', on=held.indexOf(tid)>=0, lock=auto||(t.lock&&editor!=='sa');
+        const why=tid==='every'?'everyone has this':tid==='slt'?'automatic from the Senior Leadership role':tid==='sa'?'comes from their Super Admin level':'';
+        return '<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #f1f2f4;cursor:'+(lock?'default':'pointer')+';opacity:'+(lock&&!on?.55:1)+'"><input type="checkbox" class="pfperm-cb" value="'+hesc(tid)+'"'+(on?' checked':'')+(lock?' disabled':'')+' style="margin-top:3px">'
+          +'<span><b style="color:'+(t.c||'#122B67')+'">'+hesc(t.n)+'</b>'+(!on&&sug.indexOf(tid)>=0?' <span style="font-size:11px;font-weight:800;color:#0b4f56;background:#dff4f6;border-radius:20px;padding:1px 8px">suggested from their title</span>':'')+(why?' <span style="font-size:11.5px;color:#6b7280">· '+why+'</span>':'')+(t.d?'<br><span style="font-size:12px;color:#6b7280">'+hesc(t.d)+'</span>':'')+'</span></label>'; }).join('')
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-secondary" onclick="document.getElementById(\'pfperm\').remove()">Cancel</button><button class="btn btn-primary" onclick="pfPermSave(\''+id+'\')">Save permissions</button></div></div>';
+    document.body.appendChild(ov);
+  }catch(e){ console.error(e); showToast('⚠ Could not open permissions'); }
+}
+async function pfPermSave(id){
+  try{ const s=(STAFF||[]).find(function(x){ return x._id===id; }); if(!s||pv2RO()) return;
+    const pick=[].slice.call(document.querySelectorAll('.pfperm-cb')).filter(function(c){ return c.checked&&!c.disabled; }).map(function(c){ return c.value; });
+    const P=PV2.d.ppl[id]=PV2.d.ppl[id]||{tpl:[],ov:{}}, before=(P.tpl||[]).slice(); P.tpl=pick;
+    const add=pick.filter(function(x){ return before.indexOf(x)<0; }).map(function(x){ return PV2.d.tpl[x].n; }), rm=before.filter(function(x){ return pick.indexOf(x)<0; }).map(function(x){ return (PV2.d.tpl[x]||{}).n||x; });
+    if(!add.length&&!rm.length){ document.getElementById('pfperm').remove(); return; }
+    const what=(s['Clinician']||'')+': '+(add.length?'added '+add.join(', '):'')+(add.length&&rm.length?' · ':'')+(rm.length?'removed '+rm.join(', '):'')+' (from their Employee File)';
+    if(!(await pv2Save(what))){ P.tpl=before; showToast('⚠ Could not save — check your access'); return; }
+    document.getElementById('pfperm').remove(); showToast('✓ Permissions saved'); try{ if(typeof currentId!=='undefined'&&currentId===id) openRoster(id); }catch(e){}
+  }catch(e){ console.error(e); showToast('⚠ Could not save'); }
 }
 // Alerts & flags for one person: open alerts issued to them, plus automatic flags.
 async function pfLoadFlags(sid){
