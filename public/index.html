@@ -880,7 +880,7 @@ h1,h2,h3,.page-title,.nav-sec-label,.hs-h,.ip-name{font-family:var(--font-head)}
       <button class="nav-item" id="nav-team-dashboard" data-page="team-dashboard" onclick="showPage('team-dashboard',this)"><span class="nav-icon">📊</span>Leadership Dashboard</button>
       <button class="nav-item" id="nav-ppu" data-page="ppu" onclick="showPage('ppu',this)"><span class="nav-icon">💵</span>Payroll Processing</button>
       <button class="nav-item" id="nav-coderules" data-page="coderules" onclick="showPage('coderules',this)" style="display:none"><span class="nav-icon">⚙️</span>Payroll Settings</button>
-      <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Birdseye</button>
+      <button class="nav-item" id="nav-intake-finder" data-page="intake-finder" onclick="showPage('intake-finder',this)"><span class="nav-icon">🔎</span>Intake Client</button>
       <button class="nav-item" id="nav-report-center" data-page="report-center" onclick="showPage('report-center',this)"><span class="nav-icon">📑</span>Insights & Reports</button>
     </div>
     <div style="margin-top:auto;padding:10px 9px 16px">
@@ -4177,7 +4177,7 @@ function ipIdentHtml(ro){
       +(I.other?'<button class="ip-chip on"'+(ro?' disabled':'')+' title="Remove" onclick="IP_DOC.ident.other=\'\';renderIntakeProfile()">✓ '+hesc(I.other)+' ×</button>':'')
       +(ro?'':'<span style="display:inline-flex;gap:6px;align-items:center"><input id="ip-ident-add" class="ip-in" maxlength="60" style="width:220px" placeholder="e.g. a language you offer therapy in" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ipIdentAdd();}"><button class="btn btn-secondary" style="font-size:12.5px" onclick="ipIdentAdd()">+ Add</button></span>')
     +'</div></div>'
-    +'<div class="ip-muted" style="font-size:12px;margin-top:6px">'+(on.length||I.other?'Intake sees this on your card in Intake Birdseye.':'Nothing shared — that’s completely fine.')+'</div>'
+    +'<div class="ip-muted" style="font-size:12px;margin-top:6px">'+(on.length||I.other?'Intake sees this on your card in Intake Client.':'Nothing shared — that’s completely fine.')+'</div>'
     +(ro||!(on.length||I.other)?'':'<button class="btn btn-secondary" style="font-size:12.5px;margin-top:10px" onclick="IP_DOC.ident={list:[],other:\'\'};renderIntakeProfile()">Clear everything here</button>');
 }
 function ipMark(){ const d=ipDirty();
@@ -4953,7 +4953,7 @@ function ifRuns(slots){
 }
 
 async function renderIntakeFinder(){
-  // Intake Birdseye (Nov 16): side tabs — Match a client · Openings by team · Openings calendar · Profiles to update.
+  // Intake Client (Nov 16): side tabs — Match a client · Openings by team · Openings calendar · Profiles to update.
   // One toolbar (team filter + attainment key) applies to every tab. Every clinician's name carries their capacity attainment (ifAtt).
   const body=document.getElementById("intake-finder-body"); if(!body) return;
   try{
@@ -4963,15 +4963,15 @@ async function renderIntakeFinder(){
     const taking=rows.filter(function(r){ return r.p&&r.p.status==="open"; });
     const stale=rows.map(function(r){ return {r:r, age:r.p?ipAge(r.p):null, blank:!r.p}; }).filter(function(x){ return x.age===null||x.age>=IP_STALE_DAYS; });
     const tabs=[["match","🎯","Match a client",""],["teams","🗺️","Openings by team",String(taking.length)],["cal","🗓️","Openings calendar",""],["stale","⚠️","Profiles to update",stale.length?String(stale.length):""]];
-    const rail='<nav class="ifb-rail" aria-label="Intake Birdseye sections"><div class="ifb-rh">Intake Birdseye</div>'+tabs.map(function(t){ const on=IF_TAB===t[0];
+    const rail='<nav class="ifb-rail" aria-label="Intake Client sections"><div class="ifb-rh">Intake Client</div>'+tabs.map(function(t){ const on=IF_TAB===t[0];
       return '<button class="ifb-tab'+(on?' on':'')+(t[0]==="stale"&&stale.length?' warn':'')+'" aria-current="'+on+'" onclick="ifTab(\''+t[0]+'\')"><span class="ic" aria-hidden="true">'+t[1]+'</span><span class="t">'+t[2]+'</span>'+(t[3]?'<em>'+hesc(t[3])+'</em>':'')+'</button>'; }).join("")
       +'<div class="ifb-rf"><button class="ifb-link" onclick="ifRefresh()">↻ Refresh profiles</button>'+(IF_LOADED_AT?'<span>Loaded '+IF_LOADED_AT.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+'</span>':'')+'</div></nav>';
     const teams=ifTeamsAll();
     const bar='<div class="ifb-bar"><div class="ifb-chips"><span class="ifb-lab">Team</span>'
       +'<button class="ifb-chip'+(IF.team.length?'':' on')+'" onclick="IF.team=[];renderIntakeFinder()">All</button>'
       +teams.map(function(t){ const on=IF.team.indexOf(t)>=0; return '<button class="ifb-chip'+(on?' on':'')+'" aria-pressed="'+on+'" onclick="ifTog(\'team\',\''+hesc(t)+'\')">'+hesc(String(teamLabel(t)||t).replace(/ Team$/,''))+'</button>'; }).join("")+'</div>'
-      +'<div class="ifb-key" title="Capacity attainment: clinical hours so far this year ÷ hours expected by now"><b>% next to a name = capacity attainment</b> (year to date):'
-      +'<span class="ifb-att" style="color:#16a34a;border-color:#16a34a">100%+</span><span class="ifb-att" style="color:#d97706;border-color:#d97706">90–99%</span><span class="ifb-att" style="color:#dc2626;border-color:#dc2626">&lt;90%</span></div></div>';
+      +'<div class="ifb-key" title="From each clinician’s Capacity Dashboard and their New Client Request"><b>Next to each name:</b> extra clinical hrs/week needed to get back on track (next 90 days) · spots requested.'
+      +' <span class="ifb-spots" style="color:#0b4f56">✓ enough</span> <span class="ifb-spots" style="color:#b91c1c">⚠ not enough</span><span style="color:#9ca3af">(1 new client ≈ 1 hr/week)</span></div></div>';
     const T={match:['Match a client','Fill in what you know about the client. Clinicians who fit are ranked below, best fit first.'],
       teams:['Openings by team','Who is taking new clients on each team, how many spots they want and the hours they have open.'],
       cal:['Openings calendar','How many clinicians taking new clients are open each hour. Click an hour to see who.'],
@@ -4982,7 +4982,7 @@ async function renderIntakeFinder(){
     else if(IF_TAB==="stale") main=ifStaleTab(stale);
     else main=ifMatchTab(rows);
     body.innerHTML=ipCss()+ifCss()+ifbCss()+'<div class="ifb">'+rail+'<div class="ifb-main">'+bar+'<div class="ifb-title"><h2>'+T[0]+'</h2><p>'+T[1]+'</p></div>'+main+'</div></div>';
-  }catch(e){ console.error("renderIntakeFinder",e); body.innerHTML='<div class="ip-empty">Couldn’t load Intake Birdseye.</div>'; }
+  }catch(e){ console.error("renderIntakeFinder",e); body.innerHTML='<div class="ip-empty">Couldn’t load Intake Client.</div>'; }
 }
 var IF_TAB="match", IF_ATT={}, IF_CALSEL="", IF_CALFMT="any";
 function ifTab(t){ IF_TAB=t; renderIntakeFinder(); }
@@ -4990,9 +4990,20 @@ function ifTeamsAll(){ const seen={}; (IF_DATA||[]).forEach(function(r){ const t
   return Object.keys(seen).sort(function(a,b){ return String(teamLabel(a)||a).localeCompare(String(teamLabel(b)||b)); }); }
 // Capacity attainment (year to date) beside every name.
 function ifAtt(s){
-  try{ if(!(s._id in IF_ATT)){ let v=null; try{ const c=capCompute(s); v=(c&&c.hasData!==false&&c.attainPct!=null)?c.attainPct:null; }catch(e){} IF_ATT[s._id]=v; }
-    const v=IF_ATT[s._id]; return '<span class="ifb-att" style="color:'+capStatusColor(v)+';border-color:'+capStatusColor(v)+'" title="Capacity attainment, year to date'+(v==null?' — no hours data yet':'')+'">'+(v==null?'—':v+'%')+'</span>';
+  // Nov 23: instead of attainment — the extra clinical hours per week they need to get back on track (Capacity Dashboard, next 90 days)
+  // and the new-client spots they're asking for. ✓ = asking for enough (1 new weekly client ≈ 1 clinical hour a week).
+  try{ if(!(s._id in IF_ATT)){ let v=null; try{ const c=capCompute(s); v=(c&&c.hasData!==false)?{need:(c.deficit>0.5?(c.deficitPerWeek||0):0)}:null; }catch(e){} IF_ATT[s._id]=v; }
+    const v=IF_ATT[s._id], row=(IF_DATA||[]).find(function(r){ return r.s&&r.s._id===s._id; }), p=row&&row.p, open=!!(p&&p.status==='open'), spots=open?(+p.openings||0):0;
+    if(!v) return '<span class="ifb-need" style="color:#6b7280;border-color:#d4dbe6" title="No clinical hours on their Capacity Dashboard yet">no hours yet</span>'+ifSpotsTag(open,spots,null);
+    if(v.need<=0) return '<span class="ifb-need" style="color:#16a34a;border-color:#16a34a" title="On or ahead of pace on their Capacity Dashboard">on track</span>'+ifSpotsTag(open,spots,0);
+    const need=Math.round(v.need*10)/10, enough=open&&spots>=Math.ceil(need);
+    return '<span class="ifb-need" style="color:'+(enough?'#0b4f56':'#b45309')+';border-color:'+(enough?'#18A9B6':'#F2A54B')+'" title="Needs about '+need+' extra clinical hours a week for the next 90 days to get back on track (Capacity Dashboard)">needs +'+need+' h/wk</span>'+ifSpotsTag(open,spots,need);
   }catch(e){ return ''; }
+}
+function ifSpotsTag(open,spots,need){
+  if(!open) return '<span class="ifb-spots" style="color:'+(need?'#b91c1c':'#6b7280')+'" title="Not taking new clients">not taking'+(need?' ⚠':'')+'</span>';
+  const ok=need==null||need<=0||spots>=Math.ceil(need);
+  return '<span class="ifb-spots" style="color:'+(ok?'#0b4f56':'#b91c1c')+'" title="'+(need>0?(ok?'Asking for enough new clients to get back on track':'Asking for fewer new clients than they need — about '+Math.ceil(need)+' to get back on track'):'New-client spots requested')+'">'+spots+' spot'+(spots===1?'':'s')+(need>0?(ok?' ✓':' ⚠'):'')+'</span>';
 }
 function ifName(s){ return '<button class="if-cname" onclick="ipOpenFor(\''+s._id+'\')" title="Open their Clinical Profile">'+hesc(s["Clinician"]||"")+'</button> '+ifAtt(s); }
 function ifHrs(p){ const u={},w={}; ifSlots(p).forEach(function(x){ if(x.mode==="v") u[x.d+x.h]=1; else w[x.d+x.h]=1; }); return {v:Object.keys(u).length,p:Object.keys(w).length}; }
@@ -5026,7 +5037,7 @@ function ifTeamsTab(rows){
     let spots=0,v=0,ph=0; tk.forEach(function(r){ spots+=(+r.p.openings||0); const h=ifHrs(r.p); v+=h.v; ph+=h.p; });
     tot.t+=tk.length; tot.spots+=spots; tot.v+=v; tot.p+=ph;
     return '<section class="ifb-team"><div class="ifb-th"><b>'+hesc(teamLabel(k)||k)+'</b><span><i>'+tk.length+'/'+rs.length+' taking</i><i>'+spots+' spot'+(spots===1?'':'s')+'</i><i class="v">'+v+'h virtual</i><i class="p">'+ph+'h in person</i></span></div>'
-      +(tk.length?'<table class="ifb-t"><thead><tr><th class="l">Clinician · attainment</th><th>Spots</th><th>Virtual</th><th>In person</th><th class="l">Updated</th></tr></thead><tbody>'
+      +(tk.length?'<table class="ifb-t"><thead><tr><th class="l">Clinician · needs / spots</th><th>Spots</th><th>Virtual</th><th>In person</th><th class="l">Updated</th></tr></thead><tbody>'
         +tk.map(function(r){ const h=ifHrs(r.p), ages=(r.p.ages||[]).map(function(a){ return String(a).replace(/\s*\(.*\)/,''); });
           return '<tr><td class="l">'+ifName(r.s)+(ages.length?'<div class="ifb-sm" style="white-space:normal">Sees '+hesc(ages.slice(0,4).join(', ')+(ages.length>4?' +'+(ages.length-4):''))+'</div>':'')+'</td><td><b>'+hesc(r.p.openings||'—')+'</b></td><td>'+h.v+'h</td><td>'+h.p+'h</td><td class="l">'+ifAgeTag(r.p)+'</td></tr>'; }).join('')+'</tbody></table>'
         :'<div class="ifb-sm" style="padding:6px 0">Nobody on this team is taking new clients.</div>')
@@ -5062,7 +5073,7 @@ function ifCalTab(rows){
 function ifStaleTab(stale){
   if(!stale.length) return '<div class="ifb-empty">Everyone’s New Client Request is up to date.</div>';
   stale.sort(function(a,b){ return (b.age===null?9999:b.age)-(a.age===null?9999:a.age); });
-  return '<div class="ifb-team" style="padding:4px 10px"><table class="ifb-t"><thead><tr><th class="l">Clinician · attainment</th><th class="l">Team</th><th class="l">Status</th><th class="l">Last updated</th><th></th></tr></thead><tbody>'
+  return '<div class="ifb-team" style="padding:4px 10px"><table class="ifb-t"><thead><tr><th class="l">Clinician · needs / spots</th><th class="l">Team</th><th class="l">Status</th><th class="l">Last updated</th><th></th></tr></thead><tbody>'
     +stale.map(function(x){ const p=x.r.p, st=p&&IP_STATUS[p.status];
       return '<tr><td class="l">'+ifName(x.r.s)+'</td><td class="l">'+hesc(teamLabel(x.r.s["Team"])||'')+'</td><td class="l">'+(st?'<span class="ip-pill" style="background:'+st.bg+';color:'+st.c+'">'+st.l+'</span>':'<span class="ifb-sm">—</span>')+'</td>'
         +'<td class="l">'+(x.blank?'<span class="ifb-stale">never filled in</span>':x.age===null?'<span class="ifb-stale">request not set up</span>':'<span class="ifb-stale">'+x.age+' days ago</span>')+'</td>'
@@ -5086,7 +5097,7 @@ function ifbCss(){ return '<style>'
  +'.ifb-chip:hover{border-color:#9aa5bd}.ifb-chip.on{background:#122B67;border-color:#122B67;color:#fff}.ifb-chip:focus-visible{outline:2px solid #18A9B6;outline-offset:2px}'
  +'.ifb-key{font-size:11.5px;color:#6b7280;display:flex;align-items:center;gap:5px;flex-wrap:wrap}.ifb-key b{color:#374151;font-weight:700}'
  +'.ifb-title{margin:0 0 12px}.ifb-title h2{margin:0;font-size:17px;font-weight:800;color:#122B67}.ifb-title p{margin:2px 0 0;font-size:12.5px;color:#6b7280}'
- +'.ifb-att{display:inline-block;font-size:10.5px;font-weight:800;border:1.5px solid;border-radius:999px;padding:0 6px;line-height:16px;vertical-align:1px;background:#fff;font-variant-numeric:tabular-nums;cursor:help}'
+ +'.ifb-need{display:inline-block;font-size:10.5px;font-weight:800;border:1.5px solid;border-radius:999px;padding:0 7px;line-height:16px;vertical-align:1px;background:#fff;cursor:help;white-space:nowrap}.ifb-spots{display:inline-block;font-size:11px;font-weight:800;margin-left:5px;vertical-align:1px;cursor:help;white-space:nowrap}.ifb-att{display:inline-block;font-size:10.5px;font-weight:800;border:1.5px solid;border-radius:999px;padding:0 6px;line-height:16px;vertical-align:1px;background:#fff;font-variant-numeric:tabular-nums;cursor:help}'
  +'.ifb .if-cname{font-size:13.5px;font-weight:700;color:#1d2433}'
  +'.ifb-link{border:0;background:none;padding:0;font:inherit;font-size:12px;font-weight:700;color:#18A9B6;cursor:pointer}.ifb-link:hover{color:#122B67;text-decoration:underline}'
  +'.ifb-sm{font-size:12px;color:#6b7280}.ifb-stale{font-size:11.5px;font-weight:700;color:#b45309}.ifb-fresh{font-size:11.5px;color:#15803d;font-weight:600}'
@@ -10587,16 +10598,19 @@ const CAP_GOAL_DAYS=364+460;
 // behind). Being ahead is kept. From then on they're measured only against the new pace. Applies once the periods before
 // it have hours entered. Forgiven hours are recorded (capForgiven) for notes/reports; per-period "expected" figures
 // (capGoalBetween) still use the true day goals.
+var CAP_SYN={}, CAP_SYN_GOAL={};   // practice-wide dashboard (Nov 23): summed hours / goal tables for '__prac…' ids — never saved
 function capActualPeriods(s){
-  const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null, arr=(data&&data.byId&&data.byId[s._id])||null;
+  const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null, arr=CAP_SYN[s._id]||(data&&data.byId&&data.byId[s._id])||null;
+  const aArr=(!CAP_SYN[s._id]&&typeof CAP_ADJ_DATA!=='undefined'&&CAP_ADJ_DATA.byId&&CAP_ADJ_DATA.byId[s._id])||null;   // manual adjustments for earlier pay periods
   const gArr=(typeof GROUP_HOURS_DATA!=='undefined'&&GROUP_HOURS_DATA.byId&&GROUP_HOURS_DATA.byId[s._id])||null;
   const n=data&&data.periodQuarter?data.periodQuarter.length:26, out=[]; let last=-1;
-  for(let i=0;i<n;i++){ const v=arr?arr[i]:null, g=gArr?gArr[i]:null, has=(v!==null&&v!==undefined)||(g!==null&&g!==undefined);
-    out.push(has?((+v||0)+(+g||0)*GROUP_HOUR_FACTOR):0); if(has) last=i; }
+  for(let i=0;i<n;i++){ const v=arr?arr[i]:null, g=gArr?gArr[i]:null, ad=aArr?(+aArr[i]||0):0, has=(v!==null&&v!==undefined)||(g!==null&&g!==undefined)||ad>0;
+    out.push(has?((+v||0)+(+g||0)*GROUP_HOUR_FACTOR+ad):0); if(has) last=i; }
   return {per:out,last:last};
 }
 function capGoalTable(s){ return capGoalTables(s).adj; }
 function capGoalTables(s){
+  if(CAP_SYN_GOAL[s._id]) return CAP_SYN_GOAL[s._id];
   const A=capActualPeriods(s);
   const key=JSON.stringify([s['Weekly Capacity'],s['Date of Hire'],s['First Office Date']||'',s._capHist||null,s._leaves||null,s['Term Date']||'',capISO(capDateOf(new Date())),A.last,A.per]);
   const hit=CAP_GOAL_CACHE[s._id]; if(hit&&hit.key===key&&hit.adj) return hit;
@@ -11372,7 +11386,8 @@ function capRealHours(s){
   const arr = (data && data.byId && data.byId[s._id]) || null;
   const gArr = (typeof GROUP_HOURS_DATA!=='undefined' && GROUP_HOURS_DATA.byId && GROUP_HOURS_DATA.byId[s._id]) || null;
   const cArr = (typeof GROUP_CREDIT_DATA!=='undefined' && GROUP_CREDIT_DATA.byId && GROUP_CREDIT_DATA.byId[s._id]) || null;
-  if(!arr && !gArr) return {ytd:0, qtd:0, hasData:false, indYtd:0, indQtd:0, grpRawYtd:0, grpRawQtd:0, grpWtdYtd:0, grpWtdQtd:0};
+  const aArr = (typeof CAP_ADJ_DATA!=='undefined' && CAP_ADJ_DATA.byId && CAP_ADJ_DATA.byId[s._id]) || null, aG = (typeof CAP_ADJ_DATA!=='undefined' && CAP_ADJ_DATA.grp && CAP_ADJ_DATA.grp[s._id]) || null;   // manual adjustments for earlier pay periods
+  if(!arr && !gArr && !aArr) return {ytd:0, qtd:0, hasData:false, indYtd:0, indQtd:0, grpRawYtd:0, grpRawQtd:0, grpWtdYtd:0, grpWtdQtd:0};
   const P = capPeriodInfo();
   // ind* = individual / couples / family hours (full credit)
   // grpRaw* = raw group hours; grpWtd* = group hours after the 0.333 factor.
@@ -11388,6 +11403,8 @@ function capRealHours(s){
     // group-session credit from Payroll Processing: already inside the clinical total → move it to the group share
     const cr = (cArr && v!==null && v!==undefined) ? (+cArr[i]||0) : 0;
     if(cr){ grpCrYtd += cr; indYtd -= cr; if(pq===P.quarter){ grpCrQtd += cr; indQtd -= cr; } }
+    const ad = aArr ? (+aArr[i]||0) : 0, adG = aG ? (+aG[i]||0) : 0;
+    if(ad){ any=true; indYtd += ad-adG; grpCrYtd += adG; if(pq===P.quarter){ indQtd += ad-adG; grpCrQtd += adG; } }
   }
   const grpWtdYtd = grpRawYtd * GROUP_HOUR_FACTOR + grpCrYtd;
   const grpWtdQtd = grpRawQtd * GROUP_HOUR_FACTOR + grpCrQtd;
@@ -11413,6 +11430,7 @@ async function capPersistHours(){
 }
 
 async function capLoadPersistedHours(){
+  try{ await capAdjLoad(); }catch(e){}
   // Version-gated: only trust stored data if it was saved from the SAME embedded
   // data version. When a new build ships (CAP_DATA_VERSION changes), any older
   // cached copy is discarded and storage is reseeded from the fresh embedded data.
@@ -12872,7 +12890,7 @@ async function capAdjClearOffboard(id){
 function capPeriodRows(s, c){
   const data = (typeof CLINICAL_HOURS_DATA!=='undefined') ? CLINICAL_HOURS_DATA : null;
   if(!data || !data.periods) return [];
-  const arr = (data.byId && data.byId[s._id]) || null;
+  const arr = CAP_SYN[s._id] || (data.byId && data.byId[s._id]) || null;
   const ramp = capUsesRamp(s);
   const adjBiweekly = capAdjBiweekly(s);          // normal hrs per pay period
   const rows = [];
@@ -12955,6 +12973,7 @@ function capViewNewOn(){ try{ return obIso(new Date())<CAP_VIEW_NEW_UNTIL; }catc
 // Clicking a pay period (chart dot, over/under bar or table row) asks first, in a small popover next to the click,
 // then opens the Pay Period Snapshot for that person + pay period with a way back to this dashboard.
 function capPPAsk(ev,sid,idx){
+  if(String(sid||'').indexOf('__prac')===0) return;   // practice-wide dashboard: no single person's snapshot
   try{ capPPAskClose(); const tp=document.getElementById('cdx-tip'); if(tp) tp.style.display='none'; const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null; if(!data||!data.periods||!data.periods[idx]) return;
     const st=capParseDate(data.periods[idx]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13), md=function(d){ return (d.getMonth()+1)+'/'+d.getDate(); };
     const el=document.createElement('div'); el.id='cap-ppask'; el.setAttribute('role','dialog');
@@ -12985,8 +13004,10 @@ function capPPGo(sid,idx){
     PSNAP.fromCap={sid:sid,view:CAPV.view}; paySnapGo(sid,capISO(st),capISO(en)); }catch(e){ console.error(e); }
 }
 function capTabSet(t){ CAPV.tab=t; document.querySelectorAll('.cdx-tabs .cdx-tab').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-t')===t); }); document.querySelectorAll('.cdx-pane').forEach(function(p){ p.style.display=p.getAttribute('data-t')===t?'':'none'; }); }
-function capViewSet(v){ CAPV.view=v; const cum=document.getElementById('cdx-v-cum'), alt=document.getElementById('cdx-v-alt'), t=document.getElementById('cdx-t');
-  if(t) t.textContent={cum:'Clinical hours vs goal — year to date',pp:'Over / under goal — each pay period',ns:'No-shows — each pay period',grp:'Group sessions — each pay period',types:'Sessions by type — each pay period'}[v]||'';
+const CAP_VIEW_TITLES={goalpp:'Clinical hours each pay period vs goal',cum:'Clinical hours vs goal — year to date',pp:'Over / under goal — each pay period',team:'Attainment by site — year to date, each pay period',teamhrs:'Clinical hours by site — each pay period',sessint:'Intakes — each pay period',ns:'No-shows — each pay period',grp:'Group sessions — each pay period',types:'Sessions by type — each pay period',del:'In person vs virtual — each pay period'};
+function capCurView(){ return String(CAPV.sid||'').indexOf('__prac')===0?CAPP.view:CAPV.view; }
+function capViewSet(v){ if(String(CAPV.sid||'').indexOf('__prac')===0) CAPP.view=v; else CAPV.view=v; const cum=document.getElementById('cdx-v-cum'), alt=document.getElementById('cdx-v-alt'), t=document.getElementById('cdx-t');
+  if(t) t.textContent=CAP_VIEW_TITLES[v]||'';
   if(cum) cum.style.display=v==='cum'?'':'none'; if(alt){ alt.style.display=v==='cum'?'none':''; if(v!=='cum') capAltChart(v); } }
 // Session kind from a statement line: group · couples/family · individual (no-shows and supervision are left out)
 function capLineKind(L){ const tx=String(L.tx||'').toUpperCase(), h=String(L.head||'');
@@ -12995,29 +13016,83 @@ function capLineKind(L){ const tx=String(L.tx||'').toUpperCase(), h=String(L.hea
   return 'ind'; }
 // Load this person's pay-period statements (own, Super Admin, or Pay Period Snapshot whose-data) + practice/site stats
 async function capVLoad(sid){
-  try{ const D={pp:{},ok:false,prac:{},site:null,team:''}; const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; D.team=st['Team']||'';
+  try{ const D=await capVFetch(sid); CAPV.data[sid]=D; if(CAPV.sid!==sid) return;
+    capSessPane(sid); capNsPane(sid); if(capCurView()!=='cum') capAltChart(capCurView());
+  }catch(e){ console.error(e); }
+}
+async function capVFetch(sid,team){
+  try{ const D={pp:{},ok:false,prac:{},site:null,team:''}; const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; D.team=team!=null?team:(st['Team']||'');
     const DG=await capDelGuide();
-    try{ const list=window.payStore?await payStore.myStatements(sid):null;
+    try{ const list=(team!=null&&sid.indexOf('__prac')===0)?null:(window.payStore?await payStore.myStatements(sid):null);
       if(list){ D.ok=true; const latest={}; list.forEach(function(x){ if(x.kind!=='ppu'||String(x.ppId||'').slice(0,4)!==String(CAP_YEAR)) return; if(!latest[x.periodId]||(latest[x.periodId].version||1)<(x.version||1)) latest[x.periodId]=x; });
-        Object.keys(latest).forEach(function(k){ const x=latest[k], i=+String(x.ppId).slice(5)-1, o={ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},prog:ppuProgressOf(x.lines)};
+        Object.keys(latest).forEach(function(k){ const x=latest[k], i=+String(x.ppId).slice(5)-1, o={ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},int:{},prog:ppuProgressOf(x.lines)};
           (x.lines||[]).forEach(function(L){ if(L.status&&L.status!=='counted') return; const h=L.head||''; if(h===PPU_NOSHOW_PAID){ o.nsPaid++; return; } if(h===PPU_NOSHOW_UNPAID){ o.nsUnpaid++; return; } if(h===PPU_SUP_PAID||h===PPU_SUP_UNPAID) return;
-            o[capLineKind(L)]++; const k5=capLineKind5(L); o.k5[k5]=(o.k5[k5]||0)+1; o.c5[k5]=(o.c5[k5]||0)+(+L.clin||0); const dk=capLineDel(L,DG); o.dl[dk]=(o.dl[dk]||0)+(+L.clin||0); const b=o.byHead[h||'Other']=o.byHead[h||'Other']||0; o.byHead[h||'Other']=b+1; });
+            o[capLineKind(L)]++; const k5=capLineKind5(L); o.k5[k5]=(o.k5[k5]||0)+1; o.c5[k5]=(o.c5[k5]||0)+(+L.clin||0); const dk=capLineDel(L,DG); o.dl[dk]=(o.dl[dk]||0)+(+L.clin||0); if(capLineKind(L)==='ind'&&capIsIntake(L)) o.int[dk]=(o.int[dk]||0)+1; const b=o.byHead[h||'Other']=o.byHead[h||'Other']||0; o.byHead[h||'Other']=b+1; });
           D.pp[i]=o; }); } }catch(e){ console.error(e); }
     try{ const r=await window.storage.get('app_practice_stats'); const d=r&&r.value?JSON.parse(r.value):{}; const pr={sessions:0,noShows:0,paidNS:0,signed:0,late24:0,daysSum:0}, si={sessions:0,noShows:0,signed:0,late24:0,daysSum:0};
       Object.keys(d||{}).forEach(function(k){ if(k.slice(0,4)!==String(CAP_YEAR)) return; const a=d[k]||{}; ['sessions','noShows','paidNS','signed','late24','daysSum'].forEach(function(f){ pr[f]+=+a[f]||0; });
         const b=a.bySite&&D.team&&a.bySite[D.team]; if(b) ['sessions','noShows','signed','late24','daysSum'].forEach(function(f){ si[f]+=+b[f]||0; }); });
       D.prac=pr; D.site=si.sessions?si:null; }catch(e){}
-    CAPV.data[sid]=D; if(CAPV.sid!==sid) return;
-    capSessPane(sid); capNsPane(sid); if(CAPV.view!=='cum') capAltChart(CAPV.view);
-  }catch(e){ console.error(e); }
+    return D;
+  }catch(e){ console.error(e); return {pp:{},ok:false,prac:{},site:null,team:''}; }
 }
 function capYtd(D){ const t={ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},n:0,signed:0,late24:0,daysSum:0}; Object.keys(D.pp).forEach(function(i){ const o=D.pp[i]; t.n++; ['ind','cpl','grp','nsPaid','nsUnpaid'].forEach(function(k){ t[k]+=o[k]; });
   Object.keys(o.byHead).forEach(function(h){ t.byHead[h]=(t.byHead[h]||0)+o.byHead[h]; }); ['k5','c5','dl'].forEach(function(f){ Object.keys(o[f]||{}).forEach(function(k){ t[f][k]=(t[f][k]||0)+o[f][k]; }); }); t.signed+=o.prog.signed||0; t.late24+=o.prog.late24||0; t.daysSum+=o.prog.daysSum||0; }); return t; }
 const CAP_KIND_COL={ind:'#122B67',cpl:'#18A9B6',grp:'#F2A54B'}, CAP_KIND_LAB={ind:'Individual',cpl:'Couples / family (90846 · 90847 · private-pay couples/family)',grp:'Groups (90853)'};
 // Pie slices for Sessions & clients: individual 60 / individual 45 / family-couples / groups / intake & other
+function capIsIntake(L){ return /90791/.test(String(L.tx||'')); }   // every intake is a 90791 code (Michael, Nov 23)
 function capLineKind5(L){ const k=capLineKind(L); if(k!=='ind') return k; const tx=String(L.tx||'').toUpperCase(); if(/90837/.test(tx)) return 'i60'; if(/90834/.test(tx)) return 'i45'; return 'oth'; }
 const CAP_K5=[['i60','Individual 60 min (90837)','#122B67'],['i45','Individual 45 min (90834)','#18A9B6'],['cpl','Family / couples','#5EBAC8'],['grp','Groups (90853)','#F2A54B'],['oth','Intake & other','#c7d3ee']];
-function capSessPane(sid){ const el=document.getElementById('cdx-sess'); if(!el) return; const D=CAPV.data[sid];
+// Practice dashboard views: clinical hours each pay period vs goal · attainment by team
+function capAltChartPrac(view,host,s){
+  try{ const sid=s._id;
+    if(view==='team'||view==='teamhrs'){ const HRS=view==='teamhrs';
+      // one line per site: cumulative attainment (hours so far ÷ hours expected) at the end of each pay period
+      const data=CLINICAL_HOURS_DATA, n=data&&data.periodQuarter?data.periodQuarter.length:26, by={}, prac={a:new Array(n).fill(0),e:new Array(n).fill(0)}; let last=-1;
+      capClinicians().forEach(function(st){ const t=String(st['Team']||'').trim()||'—'; const A=capActualPeriods(st); let T=null; try{ T=capGoalTables(st); }catch(e){} if(!T) return;
+        const o=by[t]=by[t]||{a:new Array(n).fill(0),e:new Array(n).fill(0),n:0}; o.n++; let cum=0; last=Math.max(last,A.last);
+        for(let i=0;i<n;i++){ cum+=A.per[i]||0; const g=T.adj[Math.min((i+1)*14,T.adj.length-1)]||0; o.a[i]+=cum; o.e[i]+=g; prac.a[i]+=cum; prac.e[i]+=g; o.h=o.h||new Array(n).fill(0); o.h[i]+=A.per[i]||0; } });
+      Object.keys(by).forEach(function(k){ if(capSiteList().indexOf(k)<0) by[k].extra=true; }); const sites=capSiteList().concat(Object.keys(by).filter(function(k){ return by[k].extra; }));
+      sites.forEach(function(k){ by[k]=by[k]||{a:new Array(n).fill(0),e:new Array(n).fill(0),h:new Array(n).fill(0),n:0}; }); const COL=['#122B67','#18A9B6','#F2A54B','#5EBAC8','#0b4f56','#b45309'], W=1000, H=394, L=52, Rr=170, top=20, bot=54, N=26;
+      const pts={}; let mn=200, mx=0; (HRS?sites:sites.concat(['__p'])).forEach(function(k){ const o=k==='__p'?prac:by[k]; pts[k]=[]; if(k!=='__p'&&!o.n) return; for(let i=0;i<=last;i++){ if(data.periodQuarter[i]<0) break; if(HRS){ const v=(o.h||[])[i]||0; pts[k].push([i,v]); mn=0; mx=Math.max(mx,v); } else if(o.e[i]>0.5){ const p=o.a[i]/o.e[i]*100; pts[k].push([i,p]); mn=Math.min(mn,p); mx=Math.max(mx,p); } } });
+      if(HRS){ mn=0; const st=mx>400?100:mx>200?50:mx>80?20:10; mx=Math.max(st,Math.ceil(mx*1.1/st)*st); } else { mn=Math.min(80,Math.floor(mn/10)*10); mx=Math.max(120,Math.ceil(mx/10)*10); }
+      const X=function(i){ return L+(i+.5)*(W-L-Rr)/N; }, Y=function(p){ return top+(H-top-bot)*(1-(p-mn)/(mx-mn)); };
+      let svg='';
+      const stp=HRS?(mx>400?100:mx>200?50:mx>80?20:10):10; for(let p=mn;p<=mx;p+=stp) svg+='<line x1="'+L+'" y1="'+Y(p)+'" x2="'+(W-Rr)+'" y2="'+Y(p)+'" stroke="'+(!HRS&&p===100?'#9ca3af':'#f1f2f4')+'"'+(!HRS&&p===100?' stroke-dasharray="6 5"':'')+'/><text x="'+(L-6)+'" y="'+(Y(p)+4)+'" text-anchor="end" font-size="13" fill="#9ca3af">'+p+(HRS?'':'%')+'</text>';
+      for(let i=0;i<N;i+=2) svg+=capPPAxisLab(X(i),H-bot+18,i,13);
+      const labs=[];
+      (HRS?sites:sites.concat(['__p'])).forEach(function(k,ix){ const P=pts[k]; if(!P||!P.length) return; const col=k==='__p'?'#111827':COL[ix%COL.length], sel=(s.Team||'')===k, dim=s.Team&&!sel&&k!=='__p';
+        svg+='<polyline points="'+P.map(function(q){ return X(q[0])+','+Y(q[1]); }).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(sel?4.5:k==='__p'?2.5:3)+'"'+(k==='__p'?' stroke-dasharray="2 4"':'')+' stroke-linejoin="round" opacity="'+(dim?.3:1)+'"/>';
+        P.forEach(function(q){ svg+='<circle cx="'+X(q[0])+'" cy="'+Y(q[1])+'" r="7" fill="transparent" class="cdx-hz" data-t="'+(k==='__p'?'Entire practice':hesc(rcTeamLab(k)||k))+(HRS?' · PP'+(q[0]+1)+': '+Math.round(q[1])+' clinical hrs':' · through PP'+(q[0]+1)+': '+Math.round(q[1])+'% attainment')+'"/>'; });
+        const q=P[P.length-1]; svg+='<circle cx="'+X(q[0])+'" cy="'+Y(q[1])+'" r="4.5" fill="'+col+'" opacity="'+(dim?.3:1)+'"/>'; labs.push({y:Y(q[1]),x:X(q[0]),t:(k==='__p'?'Practice':(rcTeamLab(k)||k).replace(/ Team$/,''))+' '+Math.round(q[1])+(HRS?' hrs':'%'),c:col,dim:dim}); });
+      labs.sort(function(a,b){ return a.y-b.y; }); for(let i=1;i<labs.length;i++) if(labs[i].y-labs[i-1].y<17) labs[i].y=labs[i-1].y+17;
+      labs.forEach(function(l){ svg+='<text x="'+(l.x+10)+'" y="'+(l.y+5)+'" font-size="14" font-weight="800" fill="'+l.c+'" opacity="'+(l.dim?.4:1)+'" paint-order="stroke" stroke="#fff" stroke-width="4">'+hesc(l.t)+'</text>'; });
+      host.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+(HRS?'Each line = a site’s clinical hours (credited, same as the Capacity Dashboards) each pay period · end label = the latest pay period':'Each line = a site’s attainment so far (clinical hours ÷ hours expected) at the end of each pay period · dotted black = entire practice · dashed = 100%')+' · pick a site below to highlight and filter</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+sites.map(function(k,ix){ const on=(s.Team||'')===k; return '<button onclick="CAPP.site=\''+hesc(k==='—'?'':k)+'\';HRG.sel=null;renderReportCenter()" style="font:inherit;font-size:12px;font-weight:700;border-radius:20px;padding:3px 10px;cursor:pointer;border:2px solid '+COL[ix%COL.length]+';background:'+(on?COL[ix%COL.length]:'#fff')+';color:'+(on?'#fff':'#122B67')+'">'+hesc(rcTeamLab(k)||k)+' · '+by[k].n+(by[k].n?'':' clinicians')+'</button>'; }).join('')
+        +(s.Team?'<button onclick="CAPP.site=\'\';renderReportCenter()" style="font:inherit;font-size:12px;font-weight:700;border-radius:20px;padding:3px 10px;cursor:pointer;border:1px solid #d4dbe6;background:#fff;color:#122B67">All sites</button>':'')+'</div>'
+        +(last>=0?'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block">'+svg+'</svg><div class="cdx-tip" id="cdx-tip"></div>':'<div class="cdx-muted" style="padding:30px 0;text-align:center">No pay periods with hours yet this year.</div>');
+      const tip=document.getElementById('cdx-tip'); host.querySelectorAll('.cdx-hz').forEach(function(el){ el.addEventListener('mousemove',function(e){ const r=host.getBoundingClientRect(); tip.textContent=el.getAttribute('data-t'); tip.style.display='block'; tip.style.left=Math.min(e.clientX-r.left+12,r.width-260)+'px'; tip.style.top=(e.clientY-r.top+12)+'px'; }); el.addEventListener('mouseleave',function(){ tip.style.display='none'; }); });
+      return; }
+    // goalpp
+    if(!s.Team){ host.innerHTML='<div class="cdx-muted" style="padding:20px 0;text-align:center">Loading…</div>'; hrgChartHtml(true).then(function(h){ if(document.getElementById('cdx-v-alt')===host&&capCurView()==='goalpp') host.innerHTML=h; }); return; }
+    // one site: each pay period's hours vs the site's own goal (its clinicians' goals added up)
+    let rows=[]; try{ rows=capPeriodRows(s,CAPV.C); }catch(e){}
+    const N=26,W=1000,H=314,top=30,bot=54,L=50,bw=(W-70)/N, mx=Math.max(1,...rows.map(function(r){ return Math.max(r.actual,r.expected)*1.15; })), y=function(v){ return top+(H-top-bot)*(1-v/mx); };
+    let svg='<line x1="'+L+'" y1="'+y(0)+'" x2="'+(W-20)+'" y2="'+y(0)+'" stroke="#cbd5e1"/>';
+    rows.forEach(function(r){ const x=L+r.idx*bw, cx=x+bw/2, ok=r.actual>=r.expected, col=ok?'#16a34a':'#122B67';
+      svg+='<g><title>'+r.label+' · '+r.range+': '+Math.round(r.actual)+' of '+Math.round(r.expected)+' hrs expected'+(r.prov?' · not closed yet':'')+'</title><rect x="'+(x+bw*.15)+'" y="'+y(r.actual)+'" width="'+(bw*.7)+'" height="'+(y(0)-y(r.actual))+'" rx="3" fill="'+col+'"'+(r.prov?' fill-opacity=".45"':'')+'/>'
+        +'<line x1="'+(x+bw*.05)+'" y1="'+y(r.expected)+'" x2="'+(x+bw*.95)+'" y2="'+y(r.expected)+'" stroke="#F2A54B" stroke-width="3"/>'
+        +'<text x="'+cx+'" y="'+(Math.min(y(r.actual),y(r.expected))-6)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="'+col+'">'+Math.round(r.actual)+'</text></g>'
+        +(r.idx%2===0?capPPAxisLab(cx,H-bot+16,r.idx,11):''); });
+    host.innerHTML='<div style="font-size:12px;color:#6b7280;margin-bottom:4px"><span style="color:#16a34a">■</span> met · <span style="color:#122B67">■</span> under · <span style="color:#F2A54B">▬</span> that pay period’s goal (the site’s clinicians’ goals added up — ramp, leave and capacity changes included) · the practice-wide 2,000-hr goal shows with Site: Entire practice</div>'
+      +(rows.length?'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block">'+svg+'</svg>':'<div class="cdx-muted" style="padding:30px 0;text-align:center">No pay periods with hours yet this year.</div>');
+  }catch(e){ console.error(e); host.innerHTML=''; }
+}
+// Wording for the panes: the clinician ("You / your") or the practice-wide dashboard ("Practice" / a site)
+function capWho(sid){ sid=String(sid||''); if(sid.indexOf('__prac')!==0) return {prac:false,site:'',You:'You',Your:'Your',your:'your'};
+  const site=sid.slice(7), lab=site?(typeof rcTeamLab==='function'?rcTeamLab(site):site):'';
+  return site?{prac:true,site:site,You:lab,Your:lab+'’s',your:lab+'’s'}:{prac:true,site:'',You:'Practice',Your:'The practice’s',your:'the practice’s'}; }
+function capSessPane(sid){ const el=document.getElementById('cdx-sess'); if(!el) return; const D=CAPV.data[sid], W=capWho(sid);
   if(!D||!D.ok){ el.innerHTML='<div class="cdx-muted" style="margin-bottom:10px">Session details come from closed pay periods and are visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.</div>'; return; }
   const t=capYtd(D), tot=t.ind+t.cpl+t.grp; if(!tot){ el.innerHTML='<div class="cdx-muted" style="margin-bottom:10px">No sessions in closed pay periods yet this year.</div>'; return; }
   let a=0; const seg=CAP_K5.map(function(k){ const p=(t.k5[k[0]]||0)/tot*360, r=k[2]+' '+a+'deg '+(a+p)+'deg'; a+=p; return r; }).join(',');
@@ -13026,12 +13101,12 @@ function capSessPane(sid){ const el=document.getElementById('cdx-sess'); if(!el)
   el.innerHTML='<div class="cdx-card" style="margin-bottom:12px"><div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"><div class="cdx-pie" style="background:conic-gradient('+seg+')"></div><div class="cdx-leg">'
     +CAP_K5.filter(function(k){ return t.k5[k[0]]; }).map(function(k){ const n=t.k5[k[0]]; return '<i style="background:'+k[2]+'"></i>'+hesc(k[1])+' · '+Math.round(n/tot*100)+'%'+(k[0]==='grp'?' · '+n+' session'+(n===1?'':'s'):''); }).join('<br>')+'</div>'
     +'<div style="margin-left:auto;font-size:13.5px;line-height:1.8;color:#374151"><b style="color:#122B67">'+tot.toLocaleString()+'</b> sessions this year<br>Individual / family credit <b style="color:#122B67">'+f1(indC)+' hrs</b><br>Group credit <b style="color:#122B67">'+f1(grpC)+' hrs</b> (attendees × .33)</div></div>'
-    +'<div class="cdx-muted" style="margin-top:8px;font-weight:400">From the service codes on your closed pay periods ('+t.n+' so far). The full “sessions by type” table sits under this.</div>'
+    +'<div class="cdx-muted" style="margin-top:8px;font-weight:400">From the service codes on '+W.your+' closed pay periods ('+t.n+' so far). The full “sessions by type” table sits under this.</div>'
 +'<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#122B67">Sessions by type (service heading)</summary><table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px">'
     +hs.map(function(h){ return '<tr style="border-top:1px solid #f1f2f4"><td style="padding:6px 8px">'+hesc(h)+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+t.byHead[h]+'</td></tr>'; }).join('')+'</table></details></div>'+capDelCard(t);
 }
 function capCmpWord(me,avg,tol){ if(me==null||avg==null) return ''; const d=me-avg; return Math.abs(d)<=(tol||0.5)?'about the same as':d>0?'higher than':'lower than'; }
-function capNsPane(sid){ const el=document.getElementById('cdx-ns'); if(!el) return; const D=CAPV.data[sid];
+function capNsPane(sid){ const el=document.getElementById('cdx-ns'); if(!el) return; const D=CAPV.data[sid], W=capWho(sid);
   try{ const n0=document.getElementById('cdx-nc'); if(n0) n0.innerHTML='<div class="cdx-muted">'+(D&&D.ok?'No signed notes in closed pay periods yet this year.':'Note completion comes from closed pay periods and is visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.')+'</div>'; }catch(e){}
   if(!D||!D.ok){ el.innerHTML='<div class="cdx-muted">No-show and note details come from closed pay periods and are visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.</div>'; return; }
   const t=capYtd(D), sess=t.ind+t.cpl+t.grp, ns=t.nsPaid+t.nsUnpaid, appts=sess+ns, pc=function(a,b){ return b>0?Math.round(a*1000/b)/10:null; };
@@ -13041,16 +13116,16 @@ function capNsPane(sid){ const el=document.getElementById('cdx-ns'); if(!el) ret
   const f1=function(v){ return v==null?'—':(Math.round(v*10)/10).toLocaleString('en-US'); };
   // ── No-shows tab: two cards — how often (vs team and practice) · charged vs not charged ──
   let h='<div class="cdx-kg">'
-    +'<div class="cdx-kc"><div class="cdx-kh"><span>Your no-show rate</span>'+capVerdict(me,si!=null?si:pr,0.5)+'</div>'
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>'+W.Your+' no-show rate</span>'+capVerdict(me,si!=null?si:pr,0.5)+'</div>'
       +'<div class="cdx-kbig">'+f1(me)+'%<small>'+ns.toLocaleString('en-US')+' no-shows out of '+appts.toLocaleString('en-US')+' appointments this year</small></div>'
-      +capKBars([['You',me,true],[hesc(site)+' average',si],['Practice average',pr]],'%')
+      +capKBars([[W.You,me,true]].concat(W.prac?(W.site?[['Practice average',pr]]:[]):[[hesc(site)+' average',si],['Practice average',pr]]),'%')
       +'<div class="cdx-kfoot">Lower is better · averages of every clinician’s closed pay periods this year</div></div>'
-    +'<div class="cdx-kc"><div class="cdx-kh"><span>When your clients no-show</span>'+(mePaid!=null&&prPaid!=null?'<span class="cdx-vd" style="background:#e8eef9;color:#122B67">'+(Math.abs(mePaid-prPaid)<=2?'About the same as the practice':mePaid>prPaid?'You charge more often':'You charge less often')+'</span>':'')+'</div>'
-      +(ns?(capSplitRow('You',t.nsPaid,t.nsUnpaid,true)
-          +(D.prac.noShows?capSplitRow('Practice',D.prac.paidNS||0,(D.prac.noShows||0)-(D.prac.paidNS||0),false):'')
-        +'<div class="cdx-krow" style="margin-top:6px"><i style="background:#18A9B6"></i><div><b>'+t.nsPaid+' of your '+ns+' no-shows were charged to the client</b><small>Code 11111 · you’re paid 1 FFS hour</small></div></div>'
-        +'<div class="cdx-krow"><i style="background:#F2A54B"></i><div><b>'+t.nsUnpaid+' of your '+ns+' no-shows were not charged</b><small>Code 11112 · not paid</small></div></div>')
-       :'<div class="cdx-muted">You have no no-shows this year.</div>')
+    +'<div class="cdx-kc"><div class="cdx-kh"><span>When '+W.your+' clients no-show</span>'+(mePaid!=null&&prPaid!=null?'<span class="cdx-vd" style="background:#e8eef9;color:#122B67">'+(Math.abs(mePaid-prPaid)<=2?'About the same as the practice':mePaid>prPaid?(W.prac?'Charged more often':'You charge more often'):(W.prac?'Charged less often':'You charge less often'))+'</span>':'')+'</div>'
+      +(ns?(capSplitRow(W.You,t.nsPaid,t.nsUnpaid,true)
+          +(D.prac.noShows&&!(W.prac&&!W.site)?capSplitRow('Practice',D.prac.paidNS||0,(D.prac.noShows||0)-(D.prac.paidNS||0),false):'')
+        +'<div class="cdx-krow" style="margin-top:6px"><i style="background:#18A9B6"></i><div><b>'+t.nsPaid+' of '+W.your+' '+ns+' no-shows were charged to the client</b><small>Code 11111 · '+(W.prac?'the clinician is':'you’re')+' paid 1 FFS hour</small></div></div>'
+        +'<div class="cdx-krow"><i style="background:#F2A54B"></i><div><b>'+t.nsUnpaid+' of '+W.your+' '+ns+' no-shows were not charged</b><small>Code 11112 · not paid</small></div></div>')
+       :'<div class="cdx-muted">'+(W.prac?'No no-shows':'You have no no-shows')+' this year.</div>')
       +'</div></div>';
   // ── Notes tab: signed after 24 hrs · average days to sign ──
   const l=pc(t.late24,t.signed), lp=pc(D.prac.late24,D.prac.signed), dm=t.signed?Math.round(t.daysSum*10/t.signed)/10:null, dp=D.prac.signed?Math.round(D.prac.daysSum*10/D.prac.signed)/10:null;
@@ -13058,10 +13133,10 @@ function capNsPane(sid){ const el=document.getElementById('cdx-ns'); if(!el) ret
   if(t.signed) nc='<div class="cdx-kg">'
     +'<div class="cdx-kc"><div class="cdx-kh"><span>Notes signed more than 24 hours after the session</span>'+capVerdict(l,lp,1)+'</div>'
       +'<div class="cdx-kbig">'+f1(l)+'%<small>'+t.late24.toLocaleString('en-US')+' of '+t.signed.toLocaleString('en-US')+' signed notes this year</small></div>'
-      +capKBars([['You',l,true],['Practice average',lp]],'%')+'<div class="cdx-kfoot">Lower is better.</div></div>'
+      +capKBars([[W.You,l,true]].concat(W.prac&&!W.site?[]:[['Practice average',lp]]),'%')+'<div class="cdx-kfoot">Lower is better.</div></div>'
     +'<div class="cdx-kc"><div class="cdx-kh"><span>Average time to sign a note</span>'+capVerdict(dm,dp,0.2)+'</div>'
       +'<div class="cdx-kbig">'+f1(dm)+'<small>days after the session, on average</small></div>'
-      +capKBars([['You',dm,true],['Practice average',dp]],' days')+'<div class="cdx-kfoot">Lower is better.</div></div></div>';
+      +capKBars([[W.You,dm,true]].concat(W.prac&&!W.site?[]:[['Practice average',dp]]),' days')+'<div class="cdx-kfoot">Lower is better.</div></div></div>';
   if(ncEl) ncEl.innerHTML=nc||'<div class="cdx-muted">No signed notes in closed pay periods yet this year.</div>';
   el.innerHTML=h; }
 // In person vs virtual for a statement line: the Service Code Workbook's delivery (published in kv app_code_guide; the
@@ -13076,12 +13151,12 @@ function capLineDel(L,G){ const tx=String(L.tx||''), k=ppuNormId(tx), g=(G||{})[
   if(/^GV\s/i.test(tx)||/\bvirtual\b|telehealth/.test(t)) return 'v'; if(/^G\s/i.test(tx)||/in person/.test(t)) return 'p';
   return 'u'; }
 // One labelled charged / not-charged bar (You or Practice)
-function capDelCard(t){ try{ const v=(t.dl.v||0)/100, p=(t.dl.p||0)/100, u=(t.dl.u||0)/100, tot=v+p+u; if(!tot) return '';
+function capDelCard(t){ try{ const v=(t.dl.v||0)/100, p=(t.dl.p||0)/100, u=0, tot=v+p; if(!tot) return '';
     const f=function(x){ return (Math.round(x*10)/10).toLocaleString('en-US'); }, pc=function(x){ return Math.round(x/tot*100); };
-    return '<div class="cdx-kc" style="margin-bottom:12px"><div class="cdx-kh"><span>Your clinical hours: in person vs virtual</span><span class="cdx-muted" style="font-weight:600">'+f(tot)+' hrs this year</span></div>'
+    return '<div class="cdx-kc" style="margin-bottom:12px"><div class="cdx-kh"><span>'+capWho(CAPV.sid).Your+' clinical hours: in person vs virtual</span><span class="cdx-muted" style="font-weight:600">'+f(tot)+' hrs this year</span></div>'
       +'<div class="cdx-split"><span style="width:'+(p/tot*100)+'%;background:#122B67">'+(pc(p)>=8?pc(p)+'%':'')+'</span><span style="width:'+(v/tot*100)+'%;background:#5EBAC8">'+(pc(v)>=8?pc(v)+'%':'')+'</span>'+(u?'<span style="width:'+(u/tot*100)+'%;background:#d4dbe6;color:#374151">'+(pc(u)>=8?pc(u)+'%':'')+'</span>':'')+'</div>'
-      +'<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:10px"><div class="cdx-krow" style="border:0;padding:0"><i style="background:#122B67"></i><div><b>'+f(p)+' hrs in person</b><small>'+pc(p)+'% of your clinical hours</small></div></div>'
-      +'<div class="cdx-krow" style="border:0;padding:0"><i style="background:#5EBAC8"></i><div><b>'+f(v)+' hrs virtual</b><small>'+pc(v)+'% of your clinical hours</small></div></div>'
+      +'<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:10px"><div class="cdx-krow" style="border:0;padding:0"><i style="background:#122B67"></i><div><b>'+f(p)+' hrs in person</b><small>'+pc(p)+'% of '+capWho(CAPV.sid).your+' clinical hours</small></div></div>'
+      +'<div class="cdx-krow" style="border:0;padding:0"><i style="background:#5EBAC8"></i><div><b>'+f(v)+' hrs virtual</b><small>'+pc(v)+'% of '+capWho(CAPV.sid).your+' clinical hours</small></div></div>'
       +(u?'<div class="cdx-krow" style="border:0;padding:0"><i style="background:#d4dbe6"></i><div><b>'+f(u)+' hrs not marked</b><small>service codes without in person / virtual in the workbook</small></div></div>':'')+'</div></div>'; }catch(e){ return ''; } }
 function capSplitRow(lab,paid,unpaid,me){ const n=paid+unpaid; if(!n) return ''; const p=Math.round(paid/n*100);
   return '<div class="cdx-sr'+(me?' me':'')+'"><div class="cdx-srh"><span>'+lab+'</span><span>'+p+'% charged · '+(100-p)+'% not charged</span></div><div class="cdx-split"'+(me?'':' style="height:18px;opacity:.75"')+'><span style="width:'+(paid/n*100)+'%;background:#18A9B6">'+(me&&p>=12?p+'%':'')+'</span><span style="width:'+(unpaid/n*100)+'%;background:#F2A54B">'+(me&&100-p>=12?(100-p)+'%':'')+'</span></div></div>'; }
@@ -13094,12 +13169,13 @@ function capKBars(rows,unit){ const mx=Math.max.apply(null,rows.map(function(r){
   return '<div class="cdx-bars">'+rows.map(function(r){ const v=r[1]; return '<div class="cdx-br'+(r[2]?' me':'')+'"><span class="cdx-bl">'+r[0]+'</span><span class="cdx-bt"><span style="width:'+(v==null?0:v/mx*100)+'%"></span></span><b>'+(v==null?'—':(Math.round(v*10)/10)+unit)+'</b></div>'; }).join('')+'</div>'; }
 // The other chart views (bars per pay period), labelled quietly: one small number per bar
 function capAltChart(view){
-  const host=document.getElementById('cdx-v-alt'); if(!host) return; const sid=CAPV.sid, s=(STAFF||[]).find(function(x){ return x._id===sid; }); if(!s){ host.innerHTML=''; return; }
+  const host=document.getElementById('cdx-v-alt'); if(!host) return; const sid=CAPV.sid, s=(STAFF||[]).find(function(x){ return x._id===sid; })||(CAPV.S&&CAPV.S._id===sid?CAPV.S:null); if(!s){ host.innerHTML=''; return; }
   const D=CAPV.data[sid], N=26, w=1000, h=300, top=26, bot=34, X=function(i){ return 50+i*(w-70)/N; }, bw=(w-70)/N*.62, M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const T=function(x,y,t,c,anc,wt,sz){ return '<text x="'+x+'" y="'+y+'" font-size="'+(sz||11)+'" fill="'+c+'" font-weight="'+(wt||700)+'" text-anchor="'+(anc||'middle')+'" paint-order="stroke" stroke="#fff" stroke-width="4">'+t+'</text>'; };
   let svg=''; const ys=new Date(CAP_YEAR_START); for(let m=0;m<12;m++){ const d=new Date(ys.getFullYear(),ys.getMonth()+m,1), i=Math.max(0,(d-ys)/86400000/14); if(i>N) break; const x=X(i); svg+='<line x1="'+x+'" y1="'+top+'" x2="'+x+'" y2="'+(h-bot)+'" stroke="#f2f3f6"/><text x="'+(x+4)+'" y="'+(h-12)+'" font-size="12" fill="#6b7280">'+M[d.getMonth()]+'</text>'; }
   let legend='', note='';
-  if(view==='pp'){ let rows=[]; try{ rows=capPeriodRows(s,capCompute(s)); }catch(e){}
+  if(view==='goalpp'||view==='team'||view==='teamhrs'){ capAltChartPrac(view,host,s); return; }
+  if(view==='pp'){ let rows=[]; try{ rows=capPeriodRows(s,s._prac?CAPV.C:capCompute(s)); }catch(e){}
     const mx=Math.max(4,...rows.map(function(r){ return Math.abs(r.diff); })), base=top+(h-top-bot)/2, sc=(h-top-bot)/2/mx*.85;
     svg+='<line x1="50" y1="'+base+'" x2="'+(w-20)+'" y2="'+base+'" stroke="#cbd2df"/>'+T(46,base+4,'goal','#6b7280','end',600);
     rows.forEach(function(r){ const cx=X(r.idx+.5), x=cx-bw/2, full=r.leaveDays>=14&&r.expected<=0.05;
@@ -13112,18 +13188,28 @@ function capAltChart(view){
   } else {
     if(!D||!D.ok){ host.innerHTML='<div class="cdx-muted" style="padding:30px 0;text-align:center">'+(D?'This view comes from closed pay periods, visible to the clinician, their leaders with Pay Period Snapshot access, and Super Admins.':'Loading…')+'</div>'; return; }
     const pr=D.prac, prRate=pr.sessions+pr.noShows>0?pr.noShows/(pr.sessions+pr.noShows)*100:null; let mx=1;
-    for(let i=0;i<N;i++){ const o=D.pp[i]; if(!o) continue; const v=view==='ns'?(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid?(o.nsPaid+o.nsUnpaid)/(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid)*100:0):view==='grp'?o.grp:o.ind+o.cpl+o.grp; mx=Math.max(mx,v); }
+    for(let i=0;i<N;i++){ const o=D.pp[i]; if(!o) continue; const v=view==='sessint'?(function(){ const it=o.int||{}; return (it.p||0)+(it.v||0)+(it.u||0); })():view==='del'?((o.dl&&((o.dl.v||0)+(o.dl.p||0)))||0)/100:view==='ns'?(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid?(o.nsPaid+o.nsUnpaid)/(o.ind+o.cpl+o.grp+o.nsPaid+o.nsUnpaid)*100:0):view==='grp'?o.grp:o.ind+o.cpl+o.grp; mx=Math.max(mx,v); }
     if(view==='ns'&&prRate!=null) mx=Math.max(mx,prRate*1.4);
     const base=h-bot, sc=(h-top-bot-18)/mx;
     if(view==='ns'&&prRate!=null){ const yy=base-prRate*sc; svg+='<line x1="50" y1="'+yy+'" x2="'+(w-20)+'" y2="'+yy+'" stroke="#F2A54B" stroke-dasharray="5 5"/>'+T(w-22,yy-6,'practice average '+(Math.round(prRate*10)/10)+'%','#b45309','end'); }
     for(let i=0;i<N;i++){ const o=D.pp[i]; if(!o) continue; const cx=X(i+.5), x=cx-bw/2, ppl='PP '+(i+1);
-      if(view==='types'){ let y=base, tot=o.ind+o.cpl+o.grp; ['ind','cpl','grp'].forEach(function(k){ const hh=o[k]*sc; if(!hh) return; y-=hh; svg+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+hh+'" fill="'+CAP_KIND_COL[k]+'"/>'; });
-        svg+='<rect x="'+x+'" y="'+(base-tot*sc)+'" width="'+bw+'" height="'+(tot*sc)+'" fill="transparent" class="cdx-hz" data-t="'+ppl+': '+o.ind+' individual · '+o.cpl+' couples/family · '+o.grp+' groups"/>'+(tot?T(cx,base-tot*sc-5,tot,'#122B67'):''); continue; }
+      if(view==='types'||view==='sessint'){ const it=o.int||{}, ip=it.p||0, iv=it.v||0, iu=it.u||0, ni=ip+iv+iu, tot=o.ind+o.cpl+o.grp; let y=base;
+        const segs=view==='types'?[[Math.max(0,o.ind-ni),'#122B67'],[o.cpl,'#18A9B6'],[o.grp,'#F2A54B'],[ni,'#b9e3e8']]:[[ip,'#122B67'],[iv,'#5EBAC8'],[iu,'#d4dbe6']];
+        segs.forEach(function(a){ const hh=a[0]*sc; if(!hh) return; y-=hh; svg+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+hh+'" fill="'+a[1]+'"/>'; });
+        const tip=view==='types'?ppl+': '+Math.max(0,o.ind-ni)+' individual · '+o.cpl+' couples/family · '+o.grp+' groups · '+ni+' intake'+(ni===1?'':'s')
+          :ppl+': '+ni+' intake'+(ni===1?'':'s')+(ip+iv?' — '+ip+' in person · '+iv+' virtual':'');
+        const tt=view==='sessint'?ni:tot; svg+='<rect x="'+x+'" y="'+(base-tt*sc)+'" width="'+bw+'" height="'+(tt*sc)+'" fill="transparent" class="cdx-hz" data-t="'+tip+'"/>'+(tt?T(cx,base-tt*sc-5,tt,'#122B67'):''); continue; }
+      if(view==='del'){ const dv=(o.dl&&o.dl.v||0)/100, dp=(o.dl&&o.dl.p||0)/100, du=0, tot=dv+dp; let y=base;
+        [[dp,'#122B67'],[dv,'#5EBAC8'],[du,'#d4dbe6']].forEach(function(a){ const hh=a[0]*sc; if(!hh) return; y-=hh; svg+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+hh+'" fill="'+a[1]+'"/>'; });
+        svg+='<rect x="'+x+'" y="'+(base-tot*sc)+'" width="'+bw+'" height="'+(tot*sc)+'" fill="transparent" class="cdx-hz" data-t="'+ppl+': '+Math.round(dp)+' hrs in person · '+Math.round(dv)+' hrs virtual'+(du?' · '+Math.round(du)+' not marked':'')+'"/>'+(tot?T(cx,base-tot*sc-5,(tot?Math.round(dv/tot*100):0)+'%','#0b4f56',null,700,10):''); continue; }
       if(view==='ns'){ const nn=o.nsPaid+o.nsUnpaid, all=o.ind+o.cpl+o.grp+nn, r=all?nn/all*100:0, hp=all?o.nsPaid/all*100*sc:0, hu=all?o.nsUnpaid/all*100*sc:0;
         svg+='<rect x="'+x+'" y="'+(base-hp)+'" width="'+bw+'" height="'+hp+'" fill="#18A9B6"/><rect x="'+x+'" y="'+(base-hp-hu)+'" width="'+bw+'" height="'+hu+'" fill="#F2A54B"/>'
           +'<rect x="'+x+'" y="'+(base-hp-hu-2)+'" width="'+bw+'" height="'+(hp+hu+2)+'" fill="transparent" class="cdx-hz" data-t="'+ppl+': '+(Math.round(r*10)/10)+'% no-shows · '+o.nsPaid+' charged · '+o.nsUnpaid+' not charged (of '+all+' appointments)"/>'+(nn?T(cx,base-hp-hu-5,(Math.round(r*10)/10)+'%','#374151'):''); continue; }
       const v=o.grp, hh=v*sc; svg+='<rect x="'+x+'" y="'+(base-hh)+'" width="'+bw+'" height="'+Math.max(hh,0)+'" rx="3" fill="#F2A54B" class="cdx-hz" data-t="'+ppl+': '+v+' group session'+(v===1?'':'s')+'"/>'+(v?T(cx,base-hh-5,v,'#b45309'):''); }
-    legend=view==='types'?'<span style="color:#122B67">■</span> individual · <span style="color:#18A9B6">■</span> couples / family · <span style="color:#F2A54B">■</span> groups (90853) · number = sessions that pay period'
+    legend=view==='del'?'<span style="color:#122B67">■</span> in person · <span style="color:#5EBAC8">■</span> virtual · clinical hours each pay period, number = % virtual'
+      :view==='types'?'<span style="color:#122B67">■</span> individual · <span style="color:#18A9B6">■</span> couples / family · <span style="color:#F2A54B">■</span> groups (90853) · <span style="color:#9fd6dd">■</span> intakes (90791) · number = sessions that pay period'
+      :view==='sessint'?(function(){ let ts=0,ip=0,iv=0,iu=0; Object.keys(D.pp).forEach(function(k){ const o=D.pp[k], it=o.int||{}; ts+=o.ind+o.cpl+o.grp; ip+=it.p||0; iv+=it.v||0; iu+=it.u||0; });
+          return '<span style="color:#122B67">■</span> in person · <span style="color:#5EBAC8">■</span> virtual · number = intakes (90791) that pay period<div style="margin-top:3px;color:#374151">This year: <b>'+(ip+iv+iu).toLocaleString('en-US')+'</b> intakes'+(ip+iv?' — <b>'+ip+'</b> in person · <b>'+iv+'</b> virtual':'')+'</div>'; })()
       :view==='ns'?'<span style="color:#18A9B6">■</span> charged to client (11111) · <span style="color:#F2A54B">■</span> not charged (11112) · bar height = no-show rate · dashed = practice average'
       :'<span style="color:#F2A54B">■</span> group sessions (90853) each pay period';
     if(!Object.keys(D.pp).length) note='No closed pay periods yet this year.'; }
@@ -13184,6 +13270,8 @@ async function capNoteAdd(sid){
 async function capNoteDel(id){ try{ if(!confirm('Remove this note?')) return; if(window.capNoteStore){ if(!(await capNoteStore.remove(id))){ showToast('⚠ Could not remove it'); return; } } else Object.keys(CAPV.notes).forEach(function(k){ CAPV.notes[k]=CAPV.notes[k].filter(function(n){ return n.id!==id; }); });
   capNotesLoad(CAPV.sid); }catch(e){ console.error(e); } }
 function capDrillHTML(s,c){
+  // only one dashboard in the page at a time (the Insights practice dashboard and a clinician's share element ids)
+  try{ document.querySelectorAll('.cdx').forEach(function(el){ el.remove(); }); capPPAskClose(); }catch(e){}
   const stat=(label,val,sub,color)=>`<div style="flex:1;min-width:120px">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999">${label}</div>
     <div style="font-size:21px;font-weight:800;margin-top:2px;color:${color||'#1a1a1a'}">${val}</div>
@@ -13205,7 +13293,7 @@ function capDrillHTML(s,c){
   // Cumulative weeks at the START of each period (so each period plots at its end).
   const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null;
   const nPer = (data&&data.periodQuarter)?data.periodQuarter.length:0;
-  const indArr = data && data.byId && data.byId[s._id] ? data.byId[s._id] : [];
+  const indArr = CAP_SYN[s._id] || (data && data.byId && data.byId[s._id] ? data.byId[s._id] : []);
   // Pad to the full period count so a group-only clinician still plots.
   const arr = Array.from({length:nPer||indArr.length}, (_,i)=> (i<indArr.length?indArr[i]:null));
   // Every pay period is 2 weeks (26 periods × 2 = 52-week year).
@@ -13344,11 +13432,11 @@ function capDrillHTML(s,c){
   // clutter — every period gets a small tick, numbers shown on a readable subset.
   const ppAxis='';
   const chart=`<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:#4b5563;margin:2px 0 6px">
-    <span><span style="display:inline-block;width:22px;height:4px;background:${statusCol};vertical-align:middle;border-radius:2px"></span> Your clinical hours (actual)</span>
+    <span><span style="display:inline-block;width:22px;height:4px;background:${statusCol};vertical-align:middle;border-radius:2px"></span> ${s._prac?'Clinical hours (actual)':'Your clinical hours (actual)'}</span>
     <span><span style="display:inline-block;width:22px;height:0;border-top:3px dashed #9fb0d6;vertical-align:middle"></span> Goal pace</span>
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#122B67;vertical-align:-1px"></span> quarter goal vs actual</span>
-    <span>📌 note</span><span style="margin-left:auto"><button class="btn" onclick="capNoteJump('')" style="font-size:12.5px;padding:6px 12px;background:#fff;border:1px solid #d4dbe6;color:#122B67;font-weight:700">📌 Add a note to this graph</button></span></div>
-  <div style="font-size:12px;color:#9ca3af;margin-bottom:4px">Hover the line for each pay period · click a pay period to open its snapshot or pin a note to it · click a 📌 to read the note</div>
+    ${s._prac?'':`<span>📌 note</span><span style="margin-left:auto"><button class="btn" onclick="capNoteJump('')" style="font-size:12.5px;padding:6px 12px;background:#fff;border:1px solid #d4dbe6;color:#122B67;font-weight:700">📌 Add a note to this graph</button></span>`}</div>
+  <div style="font-size:12px;color:#9ca3af;margin-bottom:4px">${s._prac?'Hover the line for each pay period':'Hover the line for each pay period · click a pay period to open its snapshot or pin a note to it · click a 📌 to read the note'}</div>
   <style>#${uid}-svg .${uid}-pt[data-pp]{opacity:0}#${uid}-svg .${uid}-pt[data-pp][r="6"]{opacity:1}</style>
   <div style="position:relative">
     <svg id="${uid}-svg" data-padl="${padL}" data-plotw="${plotW}" data-piny="${H-padB-6}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:inherit" onmousemove="capChartHover(event,'${uid}')" onmouseleave="capChartHide('${uid}')" onclick="capChartClick(event,'${uid}','${hesc(s._id)}')">
@@ -13532,7 +13620,10 @@ function capDrillHTML(s,c){
       </div>`;
   }
 
-  catchUp += capTierReviewHtml(c, fname);
+  if(s._prac){ const pc=c.attainPct, W=capWho(s._id);
+    catchUp=pc==null?'<div class="cdx-muted" style="padding:14px">No clinical hours recorded yet.</div>':pc>=100?'<div style="background:#e3f3ea;border:1px solid #a7e0bf;border-radius:12px;padding:16px 18px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#157a45">On track</div><div style="font-size:28px;font-weight:800;color:#157a45;margin:2px 0 4px">+'+Math.round(c.ytd-c.expectedToDate).toLocaleString('en-US')+' hrs ahead</div><div style="font-size:12.5px;color:#14532d;line-height:1.5">'+W.Your+' clinicians are '+pc+'% of the way to where they should be today.</div></div>'
+      :'<div style="background:'+(pc>=90?'#fffbeb;border:1px solid #fcd97a':'#fef2f2;border:1px solid #fca5a5')+';border-radius:12px;padding:16px 18px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:'+(pc>=90?'#92610f':'#b91c1c')+'">Clinical hours to add over the next 90 days</div><div style="font-size:28px;font-weight:800;color:'+(pc>=90?'#b45309':'#b91c1c')+';margin:2px 0 4px">+'+Math.round(c.deficit).toLocaleString('en-US')+' hrs</div><div style="font-size:12.5px;line-height:1.5;color:#374151">About <b>'+(Math.round(c.deficitPerWeek*10)/10).toLocaleString('en-US')+' extra hrs/week</b> across '+W.your+' clinicians gets '+(W.prac&&!W.site?'the practice':'the site')+' back to 100%. '+c.nBehind+' of '+c.n+' clinicians are under 90%.</div></div>'; }
+  else catchUp += capTierReviewHtml(c, fname);
   // ── Layout (Nov 22 2026, Michael's pick): score + hours-to-add on top, full-width chart with a View dropdown,
   // quarters (goal vs actual, current = quarter to date), details tabs, graph notes at the bottom.
   try{ CAPV.sid=s._id; }catch(e){}
@@ -13541,11 +13632,15 @@ function capDrillHTML(s,c){
     +'<div><div class="cdx-lab">Attainment score</div><div class="cdx-big">'+Math.round(c.ytd)+' of '+Math.round(c.expectedToDate)+' hrs expected so far</div>'
     +'<div class="cdx-sub">Year goal <b>'+Math.round(c.annual)+' hrs</b> · '+c.weekly+' hrs/wk · pace needed '+(c.adjWeekly?Math.round(c.adjWeekly*10)/10:0)+' hrs/wk</div></div></div>'
     +'<div class="cdx-catch">'+catchUp+'</div></div>';
-  const views=[['cum','Year to date (cumulative)'],['pp','Over / under by pay period'],['ns','No-shows'],['grp','Groups'],['types','Session types']];
-  const chartCard='<div class="cdx-card"><div class="cdx-ctl"><span class="cdx-t" id="cdx-t">Clinical hours vs goal — year to date</span>'
+  const views=s._prac?[['goalpp','Clinical hours each pay period vs goal'],['cum','Year to date (cumulative)'],['pp','Over / under by pay period'],['team','Attainment by site'],['teamhrs','Clinical hours by site'],['ns','No-shows'],['grp','Groups'],['types','Session types'],['sessint','Intakes'],['del','In person vs virtual']]
+    :[['cum','Year to date (cumulative)'],['pp','Over / under by pay period'],['ns','No-shows'],['grp','Groups'],['types','Session types'],['sessint','Intakes'],['del','In person vs virtual']];
+  const VW=s._prac?CAPP.view:CAPV.view;
+  const siteSel=s._prac?(function(){ const sites=capSiteList();
+      return '<select class="cdx-sel" aria-label="Site" onchange="CAPP.site=this.value;HRG.sel=null;renderReportCenter()"><option value="">Site: Entire practice</option>'+sites.map(function(t){ return '<option value="'+hesc(t)+'"'+(t===(s.Team||'')?' selected':'')+'>Site: '+hesc(rcTeamLab(t))+'</option>'; }).join('')+'</select>'; })():'';
+  const chartCard='<div class="cdx-card"><div class="cdx-ctl"><span class="cdx-t" id="cdx-t">'+(CAP_VIEW_TITLES[VW]||'')+'</span>'
     +(capViewNewOn()?'<span class="cdx-new" title="New: switch the graph between year to date, over/under by pay period, no-shows, groups and session types">NEW ⟶</span>':'')
-    +'<select class="cdx-sel" style="'+(capViewNewOn()?'border:2px solid #F2A54B;box-shadow:0 0 0 3px #F2A54B33':'')+'" aria-label="Chart view" onchange="capViewSet(this.value)">'+views.map(function(v){ return '<option value="'+v[0]+'"'+(CAPV.view===v[0]?' selected':'')+'>View: '+v[1]+'</option>'; }).join('')+'</select></div>'
-    +'<div id="cdx-v-cum"'+(CAPV.view!=='cum'?' style="display:none"':'')+'>'+chart+'</div><div id="cdx-v-alt"'+(CAPV.view==='cum'?' style="display:none"':'')+'></div></div>';
+    +'<select class="cdx-sel" style="'+(capViewNewOn()?'border:2px solid #F2A54B;box-shadow:0 0 0 3px #F2A54B33':'')+'" aria-label="Chart view" onchange="capViewSet(this.value)">'+views.map(function(v){ return '<option value="'+v[0]+'"'+(VW===v[0]?' selected':'')+'>View: '+v[1]+'</option>'; }).join('')+'</select>'+siteSel+'</div>'
+    +'<div id="cdx-v-cum"'+(VW!=='cum'?' style="display:none"':'')+'>'+chart+'</div><div id="cdx-v-alt"'+(VW==='cum'?' style="display:none"':'')+'></div></div>';
   // Quarters: goal vs actual for each quarter; the current one = quarter to date
   const quarters=(function(){ try{ const A=capActualPeriods(s), pq=(data&&data.periodQuarter)||[], qa=[0,0,0,0];
       A.per.forEach(function(v,i){ const q=pq[i]; if(q>=0&&q<4) qa[q]+=v; });
@@ -13557,17 +13652,17 @@ function capDrillHTML(s,c){
             +'<div class="cdx-qbar"><span style="width:'+Math.min(100,g>0?a/g*100:0)+'%;background:'+col+'"></span><i style="left:'+Math.min(100,g>0?gt/g*100:0)+'%"></i></div><div class="cdx-qs2" style="color:'+col+'">'+(p==null?'—':p+'% of pace')+' · '+Math.max(0,Math.round(g-a))+' hrs to go</div></div>'; }
         const p=g>0?Math.round(a/g*100):null, col=capStatusColor(p), d=Math.round((a-g)*10)/10;
         return '<div class="cdx-q"><div class="cdx-qh">'+names[i]+' · '+hesc(b.range||'')+'</div><div class="cdx-qn"><b>'+a+'</b> / '+Math.round(g)+' goal</div><div class="cdx-qbar"><span style="width:'+Math.min(100,p||0)+'%;background:'+col+'"></span></div><div class="cdx-qs2" style="color:'+col+'">'+(p==null?'—':p+'%')+' · '+(d>=0?'+':'')+d+' hrs</div></div>'; }).join('')+'</div>'; }catch(e){ console.error(e); return ''; } })();
-  const adjust=(function(){ try{ return capAdjustBannerHtml(s)+(pvA('cap','manage',s&&s._id)?capAdjustAdminHtml(s):''); }catch(e){ return ''; } })();
-  const tabs=[['sess','Sessions & clients'],['ns','No-shows'],['nc','Notes'],['goal','How your goal is figured'],['table','Pay period table']];
+  const adjust=s._prac?capPracGoalHtml(s,c):(function(){ try{ return capAdjustBannerHtml(s)+(pvA('cap','manage',s&&s._id)?capAdjustAdminHtml(s):''); }catch(e){ return ''; } })();
+  const tabs=[['sess','Sessions & clients'],['ns','No-shows'],['nc','Notes'],['goal',s._prac?'How the goal is figured':'How your goal is figured'],['table','Pay period table']];
   const details='<div class="cdx-dhead"><span class="cdx-dt">Details</span><span class="cdx-dsub">Pick a tab to see more</span></div><div class="cdx-tabs" role="tablist">'+tabs.map(function(t){ return '<button class="cdx-tab'+(CAPV.tab===t[0]?' on':'')+'" role="tab" data-t="'+t[0]+'" onclick="capTabSet(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
     +'<div class="cdx-pane" data-t="sess"'+(CAPV.tab!=='sess'?' style="display:none"':'')+'><div id="cdx-sess"><div class="cdx-muted">Loading…</div></div></div>'
     +'<div class="cdx-pane" data-t="nc"'+(CAPV.tab!=='nc'?' style="display:none"':'')+'><div id="cdx-nc"><div class="cdx-muted">Loading…</div></div></div>'
     +'<div class="cdx-pane" data-t="ns"'+(CAPV.tab!=='ns'?' style="display:none"':'')+'><div id="cdx-ns"><div class="cdx-muted">Loading…</div></div></div>'
     +'<div class="cdx-pane" data-t="goal"'+(CAPV.tab!=='goal'?' style="display:none"':'')+'>'+(adjust||'<div class="cdx-muted">Nothing has adjusted this goal — it’s the full year at '+c.weekly+' hrs/wk.</div>')+'</div>'
     +'<div class="cdx-pane" data-t="table"'+(CAPV.tab!=='table'?' style="display:none"':'')+'>'+weekTable+'</div>';
-  setTimeout(function(){ try{ capVLoad(s._id); capNotesLoad(s._id); }catch(e){ console.error(e); } },0);
+  setTimeout(function(){ try{ if(VW!=='cum') capAltChart(VW); if(s._prac) capPracVLoad(s); else { capVLoad(s._id); capNotesLoad(s._id); } }catch(e){ console.error(e); } },0);
   return capCdxCss()+'<div class="cdx">'+top+chartCard+quarters+details
-    +'<div class="cdx-lab2">Graph notes</div><div class="cdx-card" id="cdx-notes"><div class="cdx-muted">Loading…</div></div></div>';
+    +(s._prac?'</div>':'<div class="cdx-lab2">Graph notes</div><div class="cdx-card" id="cdx-notes"><div class="cdx-muted">Loading…</div></div></div>');
 }
 
 // The "Capacity Data" nav page is a separate raw-data view that was never built
@@ -13976,7 +14071,7 @@ const PAGE_META={
   'discharge':{title:'Discharge & Transfer',sub:'Coming soon'},
   'therapy-thrive':{title:'Therapy Thrive',sub:'Coming soon'},
   'ecans':{title:'eCANS',sub:'Coming soon'},
-  'intake-finder':{title:'Intake Birdseye',sub:'Match new clients to clinicians and see openings across every team'},
+  'intake-finder':{title:'Intake Client',sub:'Match new clients to clinicians and see openings across every team'},
   'report-center':{title:'Insights & Reports',sub:'Attainment, clinical hours, sessions, office use and workforce'},
   'reviews':{title:'Performance Reviews',sub:'Your reviews, and the ones you complete as a supervisor or manager'},
   'reviews-hr':{title:'Reviews (HR)',sub:'Every review window — who\'s due, who\'s overdue, who\'s done'},
@@ -15380,7 +15475,7 @@ const PV2_CAT=[
  ['🩺 Clinical',[
   ['cap','Capacity Dashboard',['See hours, attainment, the goal-pace chart and KPIs.','Also change capacity goals, hire dates and tier reviews. (Clearing a pay period’s hours is under Payroll Processing.)'],['none','view','manage'],1],
   ['ip','Clinical Profile for Intake',['See clinical profiles: ages, identities, circumstances, specialties and new-client requests.','Edit someone’s clinical profile and new-client request for them.'],['none','view','manage'],1],
-  ['birds','Intake Birdseye',['See openings, matches, team views and the request calendar.','Update clinicians’ openings and new-client requests from Birdseye.'],['none','view','manage'],1],
+  ['birds','Intake Client',['See openings, matches, team views and the request calendar.','Update clinicians’ openings and new-client requests from Intake Client.'],['none','view','manage'],1],
   ['dt','Discharge & Transfer',['See discharge and transfer requests and where each one stands.','Create, update, approve and close discharge and transfer requests.'],['none','view','manage'],1],
   ['paper','Paperwork & Templates · eCANS · Learning',['Open and download forms, templates, eCANS and Learning & Reference items.','Add, edit, organize and remove those items.'],['none','view','manage'],0],
   ['thrive','Therapy Thrive',['Open Therapy Thrive.','Change what Therapy Thrive shows.'],['none','view','manage'],0],
@@ -19103,6 +19198,7 @@ async function ppuLoadBase(force){
   PPU.rules=rules;
   try{ ppuPublishGuide(rules); }catch(e){}
   const lk=await payStore.cfgDoc('ppuProviders'); PPU.links=(lk&&lk.map)||{};
+  try{ const sl=await payStore.cfgDoc('ppuSupLinks'); PPU.supLinks=(sl&&sl.map)||{}; }catch(e){ PPU.supLinks={}; }
   const ps=await payStore.periods(); PPU.periods={}; (ps||[]).forEach(function(p){ if(p&&p.kind==='ppu'&&p.ppId) PPU.periods[p.ppId]=p; });
   try{ PPU.meetings=window.mtgStore?(await window.mtgStore.all()||[]):[]; }catch(e){ PPU.meetings=[]; }
   PPU.loaded=true;
@@ -19110,6 +19206,16 @@ async function ppuLoadBase(force){
 
 // ── Valant upload → slim rows (patient NAME never kept; the code in parentheses is) ──
 function ppuClientCode(p){ const m=String(p||'').match(/\(([^()]+)\)\s*$/); return m?m[1].trim():''; }
+// Supervision rows (Nov 23 2026): in Valant the supervisee is booked as the "client" (often with "Supervision" in the name).
+// Match that name to a staff member at upload time and keep ONLY the staff id — the name is never stored.
+function ppuSupMatch(patient,tx){
+  try{ const p=String(patient||''); if(!/supervis/i.test(p)&&!/^\s*SUP\b/i.test(String(tx||''))) return '';
+    let nm=p.replace(/\([^()]*\)\s*$/,'').replace(/\b(clinical\s+)?supervis\w*\b/ig,' ').replace(/\bsup\b/ig,' ').replace(/[-–—:|\/]+/g,' ').replace(/\s+/g,' ').trim();
+    const cm=nm.match(/^([^,]+),\s*([A-Za-z][A-Za-z'.\- ]+)$/); if(cm&&!/^[A-Z.]{2,6}$/.test(cm[2].trim())) nm=cm[2].trim()+' '+cm[1].trim();   // "Smith, Jane" → "Jane Smith"
+    if(!nm) return ''; const m=ppuMatchStaff(nm,''); return m&&m.sid?m.sid:'';
+  }catch(e){ return ''; } }
+function ppuSupIsInterim(sid){ try{ const st=(STAFF||[]).find(function(x){ return x._id===sid; }); if(!st) return false;
+    return staffRolesOf(st).indexOf('Interim Hourly Supervisor')>=0 && !/\bSAL/i.test(String(st['Employee Category']||'')); }catch(e){ return false; } }
 function ppuParseUpload(text){
   const parsed=PR.toRecords(text);
   const need=['Provider','ProviderID','Date','AppointmentStartTime','PrimaryTransactionID'];
@@ -19119,7 +19225,8 @@ function ppuParseUpload(text){
   const rows=parsed.records.map(function(r,i){
     return {i:i+2, pid:String(r.ProviderID||'').trim(), prov:String(r.Provider||'').trim(), date:PR.isoDate(r.Date), st:PR.minutes(r.AppointmentStartTime), en:PR.minutes(r.AppointmentEndTime),
       tx:String(r.PrimaryTransactionID||'').trim()||String(r.PrimaryCPTCode||'').trim(), cpt:String(r.PrimaryCPTCode||'').trim(), addons:addCols.map(function(h){ return String(r[h]||'').trim(); }).filter(Boolean),
-      cc:ppuClientCode(r.Patient), fac:String(r.FacilityID||'').trim(), docStatus:String(r.DocumentStatus||'').trim(), signed:PR.isoDate(r.DocumentSignedDate)||'', signedTime:String(r.DocumentSignedDate1||'').trim()};
+      cc:ppuClientCode(r.Patient), fac:String(r.FacilityID||'').trim(), docStatus:String(r.DocumentStatus||'').trim(), signed:PR.isoDate(r.DocumentSignedDate)||'', signedTime:String(r.DocumentSignedDate1||'').trim(),
+      supTxt:/supervis/i.test(String(r.Patient||''))?1:0, supSid:ppuSupMatch(r.Patient,r.PrimaryTransactionID)};
   }).filter(function(r){ return r.pid||r.tx||r.date; });
   return {rows:rows};
 }
@@ -19129,7 +19236,7 @@ function ppuParseUpload(text){
 // links: {ProviderID: staff id} · mtgs: meeting entries · pp: ALL_PPS entry
 function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
   const map=ppuRuleMap(rules), S=ppuSettings(rules), eve=PR.minutes(S.eveStart)||1020;
-  const emps={}, lines=[], exc=[], seen={};
+  const emps={}, lines=[], exc=[], seen={}, supRecs=[];
   const block=function(type,prov,detail,key){ exc.push({level:'block',type:type,prov:prov,detail:detail,key:key||null}); };
   const warn=function(type,prov,detail,key){ exc.push({level:'warn',type:type,prov:prov,detail:detail,key:key||null}); };
   const empOf=function(pid,prov){ return emps[pid]=emps[pid]||{pid:pid,prov:prov,sid:links[pid]||null,cats:{},pns:0,nsu:0,sup:0,supU:0,other:{},clin:0,diff:0,addN:0,addC:0,mtg:{flatMins:0,flatC:0,ffsMins:0,otherMins:0,items:[]},rows:0,flags:0}; };
@@ -19163,6 +19270,16 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
     if(rule.clin==null||rule.ffs==null){ L.status='rule'; L.why='Rule is missing clinical hours or % of FFS'; block('Incomplete rule',r.prov,tx+' — fill in Clinical Hours and % of FFS in the Service Code Workbook (Payroll Settings)',key); E.flags++; return; }
     if([PPU_NOSHOW_PAID,PPU_NOSHOW_UNPAID,PPU_SUP_PAID,PPU_SUP_UNPAID].indexOf(rule.head)>=0 && +rule.clin>0){ L.status='rule'; L.why=rule.head+' code gives clinical hours'; block(rule.head+' rule gives clinical hours',r.prov,tx+' — no-shows and supervision must be 0 clinical hours',key); E.flags++; return; }
     L.head=rule.head||''; L.dElig=!!rule.diff;
+    if(r.supTxt&&rule.head!==PPU_SUP_PAID&&rule.head!==PPU_SUP_UNPAID) warn('Client name says supervision',r.prov,usDate(r.date)+' '+PR.hhmm(r.st)+' · code '+tx+' — the client name mentions supervision but the code isn’t SUP PAID / SUP UNPAID',key);
+    // Supervision: the PROVIDER gets credit for supervision provided (paid only if an Interim Hourly Supervisor, not salaried);
+    // the therapist named as the client gets the SUP PAID hour / the SUP UNPAID count.
+    if(rule.head===PPU_SUP_PAID||rule.head===PPU_SUP_UNPAID){ const SL=(typeof PPU!=='undefined'&&PPU.supLinks)||{};
+      const rec=c.supSid||(r.cc&&SL[r.cc])||SL['row:'+(pp&&pp.id||'')+':'+key]||r.supSid||'';
+      const mins=(r.en!=null&&r.st!=null&&r.en>r.st)?r.en-r.st:60, paid=rule.head===PPU_SUP_PAID;
+      const sp=E.supProv=E.supProv||{n:0,paid:0,unpaid:0,mins:0,intMins:0}; sp.n++; sp[paid?'paid':'unpaid']++; sp.mins+=mins;
+      L.supFor=rec; L.supMins=mins; L.supPaid=paid; L.ffs=0; L.clin=0;
+      if(!rec){ L.status='suplink'; L.why='Supervision — pick the therapist who received it'; block('Supervision row not linked',r.prov,usDate(r.date)+' '+PR.hhmm(r.st)+' · '+tx+(r.cc?' · client code '+r.cc:'')+' — pick who received the supervision in step ②',key); E.flags++; return; }
+      supRecs.push({sid:rec,ffs:ppuH(rule.ffs),paid:paid,mins:mins}); return; }
     const d=PR.dow(r.date); L.timing=!!rule.diffAny||(S.weekends!==false&&(d===0||d===6))||(r.st!=null&&r.st>=eve);
     if(L.dElig&&L.timing){ L.diff=1; E.diff++; }                     // one differential per appointment
     addRule(E,rule,L,false);
@@ -19176,6 +19293,11 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
     const m=ppuMatchStaff(E.prov,E.pid); if(m.sid){ E.sid=m.sid; E.autoMatched=true; E.how='matched by name ('+m.how+')'; } else if(m.cands.length) E.cands=m.cands; });
   // Meeting and Admin Time: unpaid entries dated on/before period end, plus ones already paid in this period
   const bySid={}, grpRecs=[]; let grpPend=0, mtgPend=0; Object.keys(emps).forEach(function(k){ if(emps[k].sid) bySid[emps[k].sid]=emps[k]; });
+  // supervision received → the therapist (SUP PAID = 1 FFS hr paid, SUP UNPAID = tracked count)
+  supRecs.forEach(function(x){ let E=bySid[x.sid]; if(!E){ const st=(STAFF||[]).find(function(z){ return z._id===x.sid; })||{}; E=empOf('staff:'+x.sid,st['Clinician']||''); E.sid=x.sid; bySid[x.sid]=E; }
+    if(x.paid) E.sup+=x.ffs; else E.supU++; const sr=E.supRecv=E.supRecv||{n:0,paid:0,unpaid:0,mins:0,paidMins:0,unpaidMins:0}; sr.n++; sr[x.paid?'paid':'unpaid']++; sr.mins+=x.mins; sr[x.paid?'paidMins':'unpaidMins']+=x.mins; });
+  // supervision provided → paid as interim supervision only for Interim Hourly Supervisors who aren't salaried
+  Object.keys(emps).forEach(function(k){ const E=emps[k]; if(E.supProv&&E.sid&&ppuSupIsInterim(E.sid)) E.supProv.intMins=E.supProv.mins; });
   (mtgs||[]).forEach(function(m){
     try{
       if(!m||!m.sid||!m.date) return; const d=String(m.date).slice(0,10);
@@ -19240,6 +19362,24 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
       addRule(E,rule,L,false);
     }catch(e){}
   });
+  // Manual payroll adjustments on this pay period (paid here; capacity here only when they belong here — else kv app_clinical_adj)
+  try{ const P0=(typeof PPU!=='undefined'&&pp&&PPU.periods)?PPU.periods[pp.id]:null;
+    ((P0&&P0.adj)||[]).forEach(function(a){
+      if(!a||!a.sid) return; let E=bySid[a.sid]; if(!E){ const st=(STAFF||[]).find(function(z){ return z._id===a.sid; })||{}; E=empOf('staff:'+a.sid,st['Clinician']||''); E.sid=a.sid; bySid[a.sid]=E; }
+      const here=!a.belongs||a.belongs===pp.id, d=padjDesc(a,S); E.adjItems=(E.adjItems||[]).concat({kind:a.kind,reason:a.reason||'',note:a.note||'',belongs:a.belongs||pp.id,what:d.what,pay:d.pay,cap:d.cap});
+      if(a.kind==='group'){ const x=a.group||{}, hc=x.hc||0, per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, c=Math.round(hc*(+S.groupRate||0)*100);
+        E.grpHeadC=(E.grpHeadC||0)+c; E.grpHeadN=(E.grpHeadN||0)+hc; E.grpN=(E.grpN||0)+1;
+        if(here){ const cl=ppuH(hc*per); E.clin+=cl; E.grpClin=(E.grpClin||0)+cl; } return; }
+      if(a.kind==='mtg'){ const x=a.mtg||{}, r=prMtgRate({type:x.type}), mins=+x.mins||0;
+        E.mtg.items.push({id:a.id,date:x.date||'',start:x.start||'',end:'',type:x.type||'',mins:mins,notes:a.reason||'',group:'',early:x.date<pp.startISO,kind:r===25?'flat':r==='FFS'?'ffs':r==='interim'?'interim':'none',src:'adjustment'});
+        if(r===25){ E.mtg.flatMins+=mins; E.mtg.flatC+=Math.round(mins*2500/60); } else if(r==='FFS') E.mtg.ffsMins+=mins; else if(r==='interim') E.mtg.interimMins=(E.mtg.interimMins||0)+mins; else E.mtg.otherMins+=mins; return; }
+      const x=a.custom||{}, h=+x.hrs||0;
+      if(x.pay==='ffs'){ const v=ppuH(h); if(x.cat==='sup') E.sup+=v; else if(x.cat==='groups') E.adjGrpFfs=(E.adjGrpFfs||0)+v; else E.adjFfs=(E.adjFfs||0)+v; }
+      else if(x.pay==='admin'){ E.mtg.flatMins+=Math.round(h*60); E.mtg.flatC+=Math.round(h*2500); }
+      else if(x.pay==='interim'){ E.mtg.interimMins=(E.mtg.interimMins||0)+Math.round(h*60); }
+      else if(x.pay==='hourly'||x.pay==='flat'){ const c=x.pay==='flat'?(+x.amountC||0):Math.round(h*(+x.rateC||0)); const k={bonus:'adjBonusC',admin:'adjAdminC',grpc:'adjGrpC',prof:'adjProfC',exp:'adjExpC'}[x.cat]||'adjAdminC'; E[k]=(E[k]||0)+c; }
+      if(here&&x.cap&&x.cap!=='none'&&+x.capHrs>0){ const cl=ppuH(+x.capHrs); E.clin+=cl; if(x.cap==='grp') E.grpClin=(E.grpClin||0)+cl; }
+    }); }catch(e){ console.error('adjustments',e); }
   const out=Object.keys(emps).map(function(k){
     const E=emps[k];
     if(!E.sid && k.indexOf('staff:')!==0){ block('Provider not linked',E.prov||k,'ProviderID '+k+' — link to a staff record below'); E.flags++; }
@@ -19250,7 +19390,7 @@ function ppuCompute(rows, rules, corr, links, mtgs, pp, groups){
     E.anniv=null; try{ if(E.sid&&pp) E.anniv=ppuAnnivFor((STAFF||[]).find(function(x){ return x._id===E.sid; }),pp.id,S); }catch(e){}
     const catSum=Object.keys(E.cats).reduce(function(a,h){ return a+E.cats[h]; },0), othSum=Object.keys(E.other).reduce(function(a,h){ return a+E.other[h]; },0);
     E.mtgFfsH=Math.round(E.mtg.ffsMins*100/60);
-    E.ffsSessions=catSum+othSum; E.ffsTot=catSum+othSum+E.pns+E.sup+E.mtgFfsH;
+    E.ffsSessions=catSum+othSum; E.ffsTot=catSum+othSum+E.pns+E.sup+E.mtgFfsH+(E.adjFfs||0)+(E.adjGrpFfs||0);
     E.name=E.sid?((STAFF.find(function(s){ return s._id===E.sid; })||{})['Clinician']||E.prov):E.prov;
     return E; }).sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   let annivs=[]; try{ annivs=pp?ppuAnnivList(pp.id,S):[]; }catch(e){}
@@ -19430,9 +19570,15 @@ function ppuStepsHtml(R,p,pp,closed){
     const x=(un.length&&!closed?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">'+un.map(row).join('')+'</div>':'')
       +(PPU.showLinks?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb">'+prov.filter(function(E){ return E.sid; }).map(row).join('')+'</div>':'');
     const auto=prov.filter(function(E){ return E.autoMatched; }).length;
-    h+=step(2,un.length?'todo':'done','Verify or correct staff links',un.length?'<b style="color:#b91c1c">'+un.length+' Valant provider'+(un.length===1?'':'s')+' not matched to staff</b> — pick each one below.'
+    const supL=(R.lines||[]).filter(function(L){ return L.supMins; }), supUn=supL.filter(function(L){ return !L.supFor; });
+    const supRow=function(L){ return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="min-width:240px">'+ppuEsc(usDate(L.date))+' '+PR.hhmm(L.st)+' · <b>'+ppuEsc(L.tx)+'</b> · supervisor '+ppuEsc(L.prov||'')+(L.cc?' · client code '+ppuEsc(L.cc):'')+'</span>'
+      +(closed?'<span>→ '+ppuEsc(((STAFF||[]).find(function(x){ return x._id===L.supFor; })||{})['Clinician']||'—')+'</span>':ppuSupSelect(L))+(L.supFor?'':' <span class="pill bad">pick who received it</span>')+'</div>'; };
+    const supX=supL.length?'<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #e5e7eb"><b style="color:#122B67">Supervision rows</b> <span class="muted">— the therapist named as the client receives SUP PAID / SUP UNPAID; the provider gets credit for supervision provided.</span>'
+      +(supUn.length&&!closed?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">'+supUn.map(supRow).join('')+'</div>':'')
+      +(PPU.showLinks?'<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">'+supL.filter(function(L){ return L.supFor; }).map(supRow).join('')+'</div>':(supUn.length?'':'<div class="muted" style="margin-top:4px">All '+supL.length+' supervision row'+(supL.length===1?' is':'s are')+' matched — “Check links” to review.</div>'))+'</div>':'';
+    h+=step(2,(un.length||supUn.length)?'todo':'done','Verify or correct staff links',(supUn.length?'<b style="color:#b91c1c">'+supUn.length+' supervision row'+(supUn.length===1?'':'s')+' need the therapist who received it.</b> ':'')+un.length?'<b style="color:#b91c1c">'+un.length+' Valant provider'+(un.length===1?'':'s')+' not matched to staff</b> — pick each one below.'
         :'All '+prov.length+' Valant providers are matched to staff'+(auto?' ('+auto+' matched by name — check them with “Check links”)':'')+'.',
-      '<button class="btn btn-secondary" style="font-size:12.5px;white-space:nowrap" onclick="PPU.showLinks=!PPU.showLinks;renderPPU()">'+(PPU.showLinks?'Hide links':'Check links')+'</button>',x);
+      '<button class="btn btn-secondary" style="font-size:12.5px;white-space:nowrap" onclick="PPU.showLinks=!PPU.showLinks;renderPPU()">'+(PPU.showLinks?'Hide links':'Check links')+'</button>',x+supX);
   }
   // 3 · review & approve
   const gPend=closed?0:ppuGroupRecs().filter(function(m){ return m.approved===false&&m.enteredBy!=='payroll'; }).length;
@@ -19493,7 +19639,7 @@ async function renderPPU(){
       +'<a href="#" class="ppu-setlink" onclick="showPage(\'coderules\');return false">⚙ Payroll Settings</a></div></div>';
     // upload / status card
     h+=ppuStepsHtml(R,p,pp,closed);
-    if(!R){ if(!closed){ if(PPU.view!=='groups'&&PPU.view!=='mtg'&&PPU.view!=='reimb'){ PPU.view='groups'; PPU.gForced=true; } h+=ppuTabsHtml(null,false)+(PPU.view==='mtg'?ppuMtgImportHtml(false)+ppuMtgFormHtml(false)+'<div class="ppu-card muted">No meeting &amp; admin time for this pay period yet.</div>':PPU.view==='reimb'?ppuReimbImportHtml(false)+ppuReimbHtml(false):ppuGroupsHtml(false)); } body.innerHTML=h+(closed?'<div class="ppu-card">⚠ The snapshot for this period could not be loaded.</div>':'')+'</div>'; return; }
+    if(!R){ if(!closed){ if(PPU.view!=='groups'&&PPU.view!=='mtg'&&PPU.view!=='reimb'&&PPU.view!=='adj'){ PPU.view='groups'; PPU.gForced=true; } h+=ppuTabsHtml(null,false)+(PPU.view==='adj'?padjHtml(false):PPU.view==='mtg'?ppuMtgImportHtml(false)+'<div class="ppu-card muted">No meeting &amp; admin time for this pay period yet.</div>':PPU.view==='reimb'?ppuReimbImportHtml(false)+ppuReimbHtml(false):ppuGroupsHtml(false)); } body.innerHTML=h+(closed?'<div class="ppu-card">⚠ The snapshot for this period could not be loaded.</div>':'')+'</div>'; return; }
     // remember name matches straight away, so next period they're already linked
     if(!closed){ const auto=R.emps.filter(function(E){ return E.autoMatched && E.sid && !PPU.links[E.pid]; });
       if(auto.length){ auto.forEach(function(E){ PPU.links[E.pid]=E.sid; }); payStore.setCfgDoc('ppuProviders',{map:PPU.links,updatedAt:ppuNow(),updatedBy:ppuWho()}).catch(function(){}); } }
@@ -19504,7 +19650,8 @@ async function renderPPU(){
     h+=ppuTabsHtml(R,closed);
     if(PPU.view==='groups'){ h+=ppuGroupsHtml(closed); body.innerHTML=h+'</div>'; return; }
     if(PPU.view==='reimb'){ h+=ppuReimbImportHtml(closed)+ppuReimbHtml(closed); body.innerHTML=h+'</div>'; return; }
-    if(PPU.view==='mtg'){ h+=ppuMtgImportHtml(closed)+ppuMtgFormHtml(closed)+ppuMtgMasterHtml(R,pp,closed); body.innerHTML=h+'</div>'; return; }
+    if(PPU.view==='mtg'){ h+=ppuMtgImportHtml(closed)+ppuMtgMasterHtml(R,pp,closed); body.innerHTML=h+'</div>'; return; }
+    if(PPU.view==='adj'){ h+=padjHtml(closed); body.innerHTML=h+'</div>'; return; }
     h+=ppuTableHtml(R,closed);
     h+='<div id="ppu-drill"></div>';
     body.innerHTML=h+'</div>';
@@ -19546,18 +19693,18 @@ function ppuPaychexRows(R){
     const groups=+E.grpFfs||0, sess=Math.max(0,all-groups), grpC=+E.grpHeadC||0;
     const mtg=E.mtg||{};
     const adminFlatH=Math.round((mtg.flatMins||0)*100/60), adminFfsH=Math.round((mtg.ffsMins||0)*100/60), adminC=mtg.flatC||0;
-    const interimH=Math.round((mtg.interimMins||0)*100/60);
-    const parts={diff:+E.diffC||0,over:+E.bonusC||0,anniv:E.anniv?(+E.anniv.c||0):0};
-    const bonus=parts.diff+parts.over+parts.anniv, addC=+E.addC||0;
-    const r={name:E.name||E.prov||'',sid:E.sid,ffs:sess,bonus:bonus,parts:parts,adminH:adminFlatH+adminFfsH,adminFlatH:adminFlatH,adminFfsH:adminFfsH,adminC:adminC+addC,adminFlatC:adminC,addC:addC,
-      groups:groups,grpC:grpC,grpHeadN:+E.grpHeadN||0,pns:+E.pns||0,sup:(+E.sup||0)+interimH,supValant:+E.sup||0,interimH:interimH,linked:!!E.sid};
-    if(!r.ffs&&!r.bonus&&!r.adminH&&!r.adminC&&!r.groups&&!r.grpC&&!(RBX[r.sid])&&!r.pns&&!r.sup) return;
+    const interimH=Math.round(((mtg.interimMins||0)+((E.supProv&&E.supProv.intMins)||0))*100/60);
+    const parts={diff:+E.diffC||0,over:+E.bonusC||0,anniv:E.anniv?(+E.anniv.c||0):0,adj:+E.adjBonusC||0};
+    const bonus=parts.diff+parts.over+parts.anniv+parts.adj, addC=(+E.addC||0)+(+E.adjAdminC||0);
+    const r={name:E.name||E.prov||'',sid:E.sid,ffs:sess+(+E.adjFfs||0),adjProf:+E.adjProfC||0,adjExp:+E.adjExpC||0,bonus:bonus,parts:parts,adminH:adminFlatH+adminFfsH,adminFlatH:adminFlatH,adminFfsH:adminFfsH,adminC:adminC+addC,adminFlatC:adminC,addC:addC,
+      groups:groups+(+E.adjGrpFfs||0),grpC:grpC+(+E.adjGrpC||0),grpHeadN:+E.grpHeadN||0,pns:+E.pns||0,sup:(+E.sup||0)+interimH,supValant:+E.sup||0,interimH:interimH,linked:!!E.sid};
+    if(!r.ffs&&!r.bonus&&!r.adminH&&!r.adminC&&!r.groups&&!r.grpC&&!(RBX[r.sid])&&!r.pns&&!r.sup&&!r.adjProf&&!r.adjExp) return;
     rows.push(r);
   });
   const inUp={}; rows.forEach(function(r){ if(r.sid) inUp[r.sid]=1; });
   (R.annivs||[]).forEach(function(a){ if(inUp[a.sid]) return; rows.push({name:a.name,sid:a.sid,ffs:0,bonus:+a.c||0,parts:{diff:0,over:0,anniv:+a.c||0},adminH:0,adminFlatH:0,adminFfsH:0,adminC:0,adminFlatC:0,addC:0,groups:0,grpC:0,grpHeadN:0,pns:0,sup:0,supValant:0,interimH:0,linked:true,annivOnly:true}); });
   const RB=(function(){ try{ return ppuReimbBySid('prof'); }catch(e){ return {}; } })(), RBE=(function(){ try{ return ppuReimbBySid('exp'); }catch(e){ return {}; } })();
-  rows.forEach(function(r){ r.prof=r.sid?(RB[r.sid]||0):0; r.expR=r.sid?(RBE[r.sid]||0):0; if(r.sid){ delete RB[r.sid]; delete RBE[r.sid]; } });
+  rows.forEach(function(r){ r.prof=(r.sid?(RB[r.sid]||0):0)+(+r.adjProf||0); r.expR=(r.sid?(RBE[r.sid]||0):0)+(+r.adjExp||0); if(r.sid){ delete RB[r.sid]; delete RBE[r.sid]; } });
   Object.keys(RBE).forEach(function(sid){ if(RB[sid]==null) RB[sid]=0; });
   Object.keys(RB).forEach(function(sid){ const st=(STAFF||[]).find(function(x){ return x._id===sid; })||{}; rows.push({name:st['Clinician']||sid,sid:sid,ffs:0,bonus:0,parts:{diff:0,over:0,anniv:0},adminH:0,adminFlatH:0,adminFfsH:0,adminC:0,adminFlatC:0,addC:0,groups:0,grpC:0,grpHeadN:0,pns:0,sup:0,supValant:0,interimH:0,linked:true,prof:RB[sid]||0,expR:RBE[sid]||0,reimbOnly:true}); });
   rows.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
@@ -19651,14 +19798,142 @@ function psGuidePaint(){
 // Group sessions don't come over on the Valant export, so payroll enters them here, per pay period:
 // period doc .manualGroups = [{id,sid,date,start:'HH:MM',code,clients,notes,by,at}]. Each entry is
 // scored through the Service Code Workbook like a Valant row (clinical credit, FFS %, differential).
+// ══ Payroll Processing → ✍️ Manual payroll adjustments (Nov 23 2026, Michael picked option A) ══
+// Stored on the PAYING period's doc: p.adj = [{id, kind:'group'|'mtg'|'custom', sid, belongs (ppId the work belongs to), reason, note, by, at,
+//   group:{name, code, date, hc}, mtg:{type, date, start, mins}, custom:{pay, hrs, rateC, amountC, cat, cap, capHrs}}].
+// Pay lands in the period being processed; capacity credit lands in the period it BELONGS to (a past one → kv app_clinical_adj).
+var PADJ={kind:'group'};
+const PADJ_PAY=[['ffs','Hours × their FFS rate'],['admin','Hours × admin rate ($25/hr)'],['interim','Hours × interim supervision rate (1.25× FFS)'],['hourly','Hours × a $ hourly rate'],['flat','Flat $ amount'],['none','Not paid (capacity only)']];
+const PADJ_CAT={ffs:[['ffs','FFS hours (sessions)'],['groups','Groups (FFS group hours)'],['sup','Paid supervision']],admin:[['admin','Admin (meetings & admin time)']],interim:[['sup','Paid supervision (interim)']],
+  hourly:[['admin','Admin $'],['bonus','Bonus $'],['grpc','Groups $'],['prof','Professional reimbursement'],['exp','Expense reimbursement']],flat:[['bonus','Bonus $'],['admin','Admin $'],['grpc','Groups $'],['prof','Professional reimbursement'],['exp','Expense reimbursement']],none:[['','—']]};
+const PADJ_CATLAB={ffs:'FFS hours',groups:'Groups (FFS hrs)',sup:'Paid supervision',admin:'Admin',bonus:'Bonus $',grpc:'Groups $',prof:'Professional reimbursement',exp:'Expense reimbursement','':'—'};
+function padjCss(){ return '<style>.padj-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(270px,1fr);gap:18px;align-items:start}@media(max-width:900px){.padj-wrap{grid-template-columns:1fr}}'
+  +'.padj-g{display:grid;grid-template-columns:1fr 1fr;gap:12px}.padj-g .sp{grid-column:1/-1}.padj-g label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:#334155}.padj-g .hint{font-size:11.5px;font-weight:500;color:#6b7280}'
+  +'.padj-g{min-width:0}.padj-g label{min-width:0}.padj-g input,.padj-g select,.padj-g textarea{width:100%;min-width:0;box-sizing:border-box;font:inherit;font-size:13.5px;border:1px solid #d4dbe6;border-radius:9px;padding:8px 10px;background:#fff}.padj-sub{display:flex;gap:6px;margin:4px 0 14px;flex-wrap:wrap}'
+  +'.padj-sub button{font:inherit;font-size:13px;font-weight:700;border:1px solid #d4dbe6;border-radius:20px;padding:7px 14px;background:#fff;color:#122B67;cursor:pointer}.padj-sub button.on{background:#122B67;color:#fff;border-color:#122B67}'
+  +'.padj-card{border:1px solid #e2e6ee;border-radius:12px;padding:14px;background:#fbfcfe;position:sticky;top:10px}.padj-card h4{margin:0 0 8px;color:#122B67;font-size:14px}.padj-ln{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-top:1px solid #eef1f5}.padj-ln b{color:#122B67;text-align:right}.padj-ln .miss{color:#b45309}'
+  +'.padj-seg{display:inline-flex;flex-wrap:wrap;align-self:flex-start;border:1px solid #d4dbe6;border-radius:9px;overflow:hidden}.padj-seg button{font:inherit;font-size:13px;font-weight:700;border:0;padding:8px 12px;background:#fff;color:#122B67;cursor:pointer}.padj-seg button.on{background:#122B67;color:#fff}</style>'; }
+function padjPPs(){ try{ const cur=ppuPP(PPU.ppId); return ALL_PPS.filter(function(x){ return String(x.id).slice(0,4)===String(CAP_YEAR)&&cur&&x.startISO<=cur.startISO; }).slice().reverse(); }catch(e){ return []; } }
+function padjStaffOpts(sel){ return '<option value="">— choose —</option>'+(STAFF||[]).filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated'||s._id===sel; }).sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); })
+  .map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===sel?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join(''); }
+function padjHtml(closed){
+  try{
+    const p=PPU.periods[PPU.ppId]||{}, list=(p.adj||[]), K=PADJ.kind, pp=ppuPP(PPU.ppId), S=ppuSettings(ppuRulesForPP(PPU.ppId));
+    if(GRPC.items===null||GRPC.items===undefined){ grpLoad().then(function(){ if(PPU.view==='adj') renderPPU(); }); }
+    let h=padjCss()+'<div class="ppu-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><b style="font-size:15px;color:#122B67">✍️ Manual payroll adjustments</b><span class="muted" style="font-size:12.5px">Things that weren’t entered, or corrections for an earlier pay period. Paid in '+ppuEsc(pp?pp.short:PPU.ppId)+'; capacity credit goes to the pay period it belongs to.</span></div>';
+    if(!closed){
+      h+='<div class="padj-sub">'+[['group','👪 Group session'],['mtg','🕒 Admin time & meetings'],['custom','✏️ Custom']].map(function(t){ return '<button class="'+(K===t[0]?'on':'')+'" onclick="PADJ.kind=\''+t[0]+'\';renderPPU()">'+t[1]+'</button>'; }).join('')+'</div>';
+      const pps=padjPPs(), bel='<label>Belongs to pay period<select id="padj-bel" onchange="padjSync()">'+pps.map(function(x){ return '<option value="'+x.id+'"'+(x.id===PPU.ppId?' selected':'')+'>'+ppuEsc(x.short)+' · '+usDate(x.startISO)+' – '+usDate(x.endISO)+(x.id===PPU.ppId?' (this one)':'')+'</option>'; }).join('')+'</select><span class="hint">Can be an earlier pay period — its capacity credit goes there</span></label>'
+        +'<label>Paid in<input value="'+ppuEsc(pp?pp.short:'')+' (this pay period)" disabled style="background:#f8fafc"></label>';
+      const common='<label class="sp">Employee *<select id="padj-sid" onchange="padjSync()">'+padjStaffOpts('')+'</select></label>'
+        +'<label class="sp">What is this for? *<input id="padj-why" maxlength="200" placeholder="e.g. Leader forgot to log the group · Missed CANS unit from PP 18 · Correction" oninput="padjSync()"></label>'+bel;
+      let f='';
+      if(K==='group'){ const gs=(typeof grpCurrent==='function'?grpCurrent():[]);
+        f='<label class="sp">Group<select id="padj-gname" onchange="padjGroupPicked();padjSync()"><option value="">— choose a group —</option>'+gs.map(function(g){ return '<option value="'+ppuEsc(g.name)+'" data-code="'+ppuEsc(grpCodeOf(g))+'">'+ppuEsc(g.name)+'</option>'; }).join('')+'<option value="__other">Other (not listed)</option></select></label>'
+          +'<label class="sp" id="padj-gother-w" style="display:none">Group name<input id="padj-gother" maxlength="80" oninput="padjSync()"></label>'
+          +'<label>Date<input type="date" id="padj-date" onchange="padjSync()"></label><label>Clients who attended<input type="number" id="padj-hc" min="0" step="1" value="0" oninput="padjSync()"></label>'
+          +'<label class="sp">In person or virtual<span class="padj-seg"><button type="button" id="padj-g-p" class="on" onclick="padjCode(\'G 90853\')">In person · 90853</button><button type="button" id="padj-g-v" onclick="padjCode(\'GV 90853\')">Virtual · 90853</button></span><input type="hidden" id="padj-code" value="G 90853"><span class="hint">Pay = attendees × $'+(+S.groupRate||0)+' · capacity = attendees × '+(S.groupClinPer!=null&&S.groupClinPer!==''?S.groupClinPer:0.33)+' (Payroll Settings)</span></label>'; }
+      else if(K==='mtg'){ const types=(CONFIG.meetingTypes||[]).filter(function(t){ return !t.isGroup; });
+        f='<label class="sp">Kind of time<select id="padj-type" onchange="padjSync()">'+types.map(function(t){ const r=t.rate===25||t.rate==='25'?'$25/hr':t.rate==='FFS'?'FFS rate':t.rate==='interim'?'interim rate':'no rate'; return '<option value="'+ppuEsc(t.label)+'">'+ppuEsc(t.label)+' — '+r+'</option>'; }).join('')+'</select></label>'
+          +'<label>Date<input type="date" id="padj-date" onchange="padjSync()"></label><label>Start time <span class="hint">(optional)</span><input type="time" id="padj-start" oninput="padjSync()"></label>'
+          +'<label class="sp">How long<select id="padj-mins" onchange="padjSync()">'+[15,30,45,60,75,90,120,150,180,240,300,360,420,480].map(function(m){ return '<option value="'+m+'"'+(m===60?' selected':'')+'>'+(m<60?m+' min':(m/60)+' hr'+(m===60?'':'s'))+'</option>'; }).join('')+'</select></label>'; }
+      else { f='<label class="sp">How it’s paid<select id="padj-pay" onchange="padjPayChange();padjSync()">'+PADJ_PAY.map(function(o){ return '<option value="'+o[0]+'">'+o[1]+'</option>'; }).join('')+'</select></label>'
+          +'<label id="padj-hrs-w">Hours<input type="number" id="padj-hrs" min="0" step="0.25" value="1" oninput="padjSync()"></label>'
+          +'<label id="padj-rate-w" style="display:none">$ per hour<input type="number" id="padj-rate" min="0" step="0.01" oninput="padjSync()"></label>'
+          +'<label id="padj-amt-w" style="display:none">Amount $<input type="number" id="padj-amt" min="0" step="0.01" oninput="padjSync()"></label>'
+          +'<label>Paychex category<select id="padj-cat" onchange="padjSync()"></select></label>'
+          +'<label class="sp">Capacity<span class="padj-seg"><button type="button" id="padj-cap-none" class="on" onclick="padjCap(\'none\')">No capacity credit</button><button type="button" id="padj-cap-clin" onclick="padjCap(\'clin\')">Clinical hours</button><button type="button" id="padj-cap-grp" onclick="padjCap(\'grp\')">Group credit</button></span><input type="hidden" id="padj-cap" value="none"></label>'
+          +'<label id="padj-caph-w" style="display:none">Capacity hours<input type="number" id="padj-caph" min="0" step="0.25" value="1" oninput="padjSync()"><span class="hint">Shows on their Capacity Dashboard in the pay period it belongs to</span></label>'; }
+      f+='<label class="sp">Note on their Pay Period Snapshot <span class="hint">(optional)</span><input id="padj-note" maxlength="200" oninput="padjSync()"></label>';
+      h+='<div class="padj-wrap"><div class="padj-g">'+common+f+'</div><div class="padj-card"><h4>You’re adding</h4><div id="padj-sum"></div>'
+        +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" id="padj-save" onclick="padjAdd(false)" disabled>Add adjustment</button><button class="btn btn-secondary" onclick="padjAdd(true)">Add &amp; another</button></div>'
+        +'<div class="muted" style="font-size:11.5px;margin-top:8px">Saved as approved (entered by payroll) with who and when.</div></div></div>';
+    }
+    h+='<div style="margin-top:16px"><b style="color:#122B67">Adjustments paid in '+ppuEsc(pp?pp.short:'')+' ('+list.length+')</b>'
+      +(list.length?'<div class="ppu-tw" style="margin-top:6px"><table><thead><tr><th class="l">Employee</th><th class="l">Kind</th><th class="l">For</th><th>Belongs to</th><th class="l">Pay</th><th class="l">Capacity</th><th class="l">By</th><th></th></tr></thead><tbody>'
+        +list.map(function(a){ const st=(STAFF||[]).find(function(x){ return x._id===a.sid; })||{}, d=padjDesc(a,S);
+          return '<tr><td class="l">'+ppuEsc(st['Clinician']||a.sid)+'</td><td class="l">'+({group:'👪 Group',mtg:'🕒 Admin / meeting',custom:'✏️ Custom'}[a.kind]||a.kind)+'</td><td class="l">'+ppuEsc(a.reason||'')+(d.what?'<div class="muted" style="font-size:11.5px">'+ppuEsc(d.what)+'</div>':'')+(a.note?'<div class="muted" style="font-size:11.5px">Note: '+ppuEsc(a.note)+'</div>':'')+'</td>'
+            +'<td>'+ppuEsc((ALL_PPS.find(function(x){ return x.id===a.belongs; })||{}).short||a.belongs)+'</td><td class="l">'+ppuEsc(d.pay)+'</td><td class="l">'+ppuEsc(d.cap)+'</td><td class="l muted" style="font-size:11.5px">'+ppuEsc(a.by||'')+'<br>'+ppuEsc(String(a.at||'').slice(0,10))+'</td>'
+            +'<td>'+(closed?'':'<button class="me-x" style="color:#b91c1c" onclick="padjDel(\''+ppuEsc(a.id)+'\')">Remove</button>')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">None yet.</div>')+'</div></div>';
+    setTimeout(function(){ try{ if(K==='custom') padjPayChange(); padjSync(); }catch(e){} },0);
+    return h;
+  }catch(e){ console.error(e); return '<div class="ppu-card">Couldn’t show manual adjustments.</div>'; }
+}
+function padjGroupPicked(){ try{ const s=document.getElementById('padj-gname'), o=s&&s.options[s.selectedIndex], w=document.getElementById('padj-gother-w'); if(w) w.style.display=s.value==='__other'?'':'none'; const c=o&&o.getAttribute('data-code'); if(c) padjCode(c); }catch(e){} }
+function padjCode(c){ try{ document.getElementById('padj-code').value=c; document.getElementById('padj-g-p').classList.toggle('on',c==='G 90853'); document.getElementById('padj-g-v').classList.toggle('on',c==='GV 90853'); padjSync(); }catch(e){} }
+function padjCap(v){ try{ document.getElementById('padj-cap').value=v; ['none','clin','grp'].forEach(function(k){ document.getElementById('padj-cap-'+k).classList.toggle('on',k===v); }); document.getElementById('padj-caph-w').style.display=v==='none'?'none':''; padjSync(); }catch(e){} }
+function padjPayChange(){ try{ const pay=(document.getElementById('padj-pay')||{}).value||'ffs', cat=document.getElementById('padj-cat'); if(!cat) return;
+    cat.innerHTML=(PADJ_CAT[pay]||[]).map(function(o){ return '<option value="'+o[0]+'">'+o[1]+'</option>'; }).join('');
+    document.getElementById('padj-hrs-w').style.display=pay==='flat'||pay==='none'?'none':''; document.getElementById('padj-rate-w').style.display=pay==='hourly'?'':'none'; document.getElementById('padj-amt-w').style.display=pay==='flat'?'':'none'; }catch(e){} }
+function padjRead(){
+  const g=function(id){ const el=document.getElementById(id); return el?String(el.value||'').trim():''; };
+  const a={id:'adj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),kind:PADJ.kind,sid:g('padj-sid'),belongs:g('padj-bel')||PPU.ppId,reason:g('padj-why'),note:g('padj-note'),by:ppuWho(),at:ppuNow()};
+  if(a.kind==='group'){ const nm=g('padj-gname'); a.group={name:nm==='__other'?g('padj-gother'):nm,code:g('padj-code')||'G 90853',date:g('padj-date'),hc:Math.max(0,parseInt(g('padj-hc'),10)||0)}; }
+  else if(a.kind==='mtg') a.mtg={type:g('padj-type'),date:g('padj-date'),start:g('padj-start'),mins:+g('padj-mins')||60};
+  else a.custom={pay:g('padj-pay')||'ffs',hrs:+g('padj-hrs')||0,rateC:Math.round((+g('padj-rate')||0)*100),amountC:Math.round((+g('padj-amt')||0)*100),cat:g('padj-cat'),cap:g('padj-cap')||'none',capHrs:+g('padj-caph')||0};
+  return a;
+}
+// What an adjustment pays and credits, in words
+function padjDesc(a,S){
+  const f2=function(v){ return (Math.round(v*100)/100).toFixed(2); }, $=function(c){ return '$'+(c/100).toFixed(2); }, per=S&&S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33, rate=+(S&&S.groupRate)||0;
+  if(a.kind==='group'){ const x=a.group||{}; return {what:(x.name||'Group')+' · '+(x.code||'')+(x.date?' · '+usDate(x.date):'')+' · '+x.hc+' attended',pay:x.hc+' × $'+rate+' = '+$(Math.round(x.hc*rate*100)),cap:'+'+f2(x.hc*per)+' group credit'}; }
+  if(a.kind==='mtg'){ const x=a.mtg||{}, r=prMtgRate({type:x.type}), h=(x.mins||0)/60; return {what:(x.type||'')+(x.date?' · '+usDate(x.date):'')+(x.start?' '+x.start:'')+' · '+f2(h)+' hr'+(h===1?'':'s'),pay:r===25?f2(h)+' hrs × $25 = '+$(Math.round(h*2500)):r==='FFS'?f2(h)+' hrs at FFS rate':r==='interim'?f2(h)+' hrs at interim rate':'No rate — not paid',cap:'—'}; }
+  const x=a.custom||{}, cl=PADJ_CATLAB[x.cat]||'';
+  const pay=x.pay==='ffs'?f2(x.hrs)+' hrs at FFS rate':x.pay==='admin'?f2(x.hrs)+' hrs × $25 = '+$(Math.round(x.hrs*2500)):x.pay==='interim'?f2(x.hrs)+' hrs at interim rate':x.pay==='hourly'?f2(x.hrs)+' hrs × '+$(x.rateC)+' = '+$(Math.round(x.hrs*x.rateC)):x.pay==='flat'?$(x.amountC):'Not paid';
+  return {what:'',pay:pay+(cl&&x.pay!=='none'?' · '+cl:''),cap:x.cap==='none'||!x.capHrs?'—':'+'+f2(x.capHrs)+(x.cap==='grp'?' group credit':' clinical hrs')};
+}
+function padjSync(){
+  try{ const a=padjRead(), el=document.getElementById('padj-sum'), btn=document.getElementById('padj-save'); if(!el) return; const S=ppuSettings(ppuRulesForPP(PPU.ppId)), d=padjDesc(a,S);
+    const st=(STAFF||[]).find(function(x){ return x._id===a.sid; }), bel=ALL_PPS.find(function(x){ return x.id===a.belongs; });
+    const miss=[]; if(!a.sid) miss.push('employee'); if(!a.reason) miss.push('what it’s for');
+    if(a.kind==='group'){ if(!a.group.name) miss.push('group'); if(!a.group.date) miss.push('date'); if(!a.group.hc) miss.push('attendees'); }
+    if(a.kind==='mtg'){ if(!a.mtg.date) miss.push('date'); }
+    if(a.kind==='custom'){ const x=a.custom; if((x.pay==='ffs'||x.pay==='admin'||x.pay==='interim'||x.pay==='hourly')&&!(x.hrs>0)) miss.push('hours'); if(x.pay==='hourly'&&!(x.rateC>0)) miss.push('$ per hour'); if(x.pay==='flat'&&!(x.amountC>0)) miss.push('amount'); if(x.pay==='none'&&(x.cap==='none'||!(x.capHrs>0))) miss.push('pay or capacity'); }
+    if((a.kind==='group'&&a.group.date||a.kind==='mtg'&&a.mtg.date)&&bel&&((a.group||a.mtg).date<bel.startISO||(a.group||a.mtg).date>bel.endISO)) miss.push('a date inside '+bel.short);
+    const ln=function(k,v,m){ return '<div class="padj-ln"><span>'+k+'</span><b'+(m?' class="miss"':'')+'>'+v+'</b></div>'; };
+    el.innerHTML=ln('Employee',st?ppuEsc(st['Clinician']):'—',!st)+ln('For',ppuEsc(a.reason||'—'),!a.reason)+(d.what?ln('What',ppuEsc(d.what)):'')+ln('Belongs to',ppuEsc(bel?bel.short:a.belongs))+ln('Paid in',ppuEsc((ppuPP(PPU.ppId)||{}).short||''))
+      +ln('Pay',ppuEsc(d.pay))+ln('Capacity',ppuEsc(d.cap+(d.cap!=='—'&&bel?' · '+bel.short:'')))+(miss.length?'<div style="font-size:12px;color:#b45309;margin-top:8px">Still needed: '+miss.join(', ')+'</div>':'');
+    if(btn) btn.disabled=!!miss.length; PADJ.ok=!miss.length;
+  }catch(e){ console.error(e); }
+}
+async function padjAdd(again){
+  try{ padjSync(); if(!PADJ.ok){ showToast('⚠ Fill in the missing items first'); return; }
+    const a=padjRead(); const pp=ppuPP(PPU.ppId); let p=PPU.periods[PPU.ppId]; if(p&&p.status==='closed') return;
+    if(!p){ p={kind:'ppu',ppId:PPU.ppId,start:pp.startISO,end:pp.endISO,label:pp.short,status:'open',version:1,corrections:{},audit:[]}; }
+    p.adj=(p.adj||[]).concat(a); ppuAudit(p,{act:'adj.add',row:a.kind+' '+a.sid+' · '+a.reason,reason:a.reason});
+    if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; }
+    PPU.periods[PPU.ppId]=p; await capAdjRebuild(); showToast('✍️ Adjustment added'); renderPPU();
+    if(again) setTimeout(function(){ const s=document.getElementById('padj-sid'); if(s) s.focus(); },50);
+  }catch(e){ console.error(e); showToast('⚠ Could not add'); }
+}
+async function padjDel(id){
+  try{ const p=PPU.periods[PPU.ppId]; if(!p||p.status==='closed') return; if(!confirm('Remove this adjustment?')) return;
+    p.adj=(p.adj||[]).filter(function(x){ return x.id!==id; }); ppuAudit(p,{act:'adj.remove',row:id,reason:''});
+    if(!(await payStore.setPeriod('ppu_'+PPU.ppId,p))){ showToast('⚠ Could not save'); return; } await capAdjRebuild(); renderPPU(); }catch(e){ console.error(e); }
+}
+// Capacity credit from adjustments that belong to a DIFFERENT pay period than the one that paid them → kv app_clinical_adj(_YYYY)
+// {byId:{sid:[26 hrs]}, grp:{sid:[26 hrs]}} — rebuilt from scratch from every period's adjustments, so it's always idempotent.
+var CAP_ADJ_DATA={byId:{},grp:{}};
+async function capAdjRebuild(){
+  try{ const o={byId:{},grp:{},at:new Date().toISOString()};
+    Object.keys(PPU.periods||{}).forEach(function(pid){ const p=PPU.periods[pid]; (p&&p.adj||[]).forEach(function(a){ const c=padjCapOf(a); if(!c||!c.hrs||a.belongs===pid) return;
+        if(String(a.belongs).slice(0,4)!==String(CAP_YEAR)) return; const i=+String(a.belongs).slice(5)-1; if(!(i>=0&&i<26)) return;
+        (o.byId[a.sid]=o.byId[a.sid]||new Array(26).fill(0))[i]+=c.hrs; if(c.grp) (o.grp[a.sid]=o.grp[a.sid]||new Array(26).fill(0))[i]+=c.hrs; }); });
+    CAP_ADJ_DATA=o; await window.storage.set(capStoreKey('app_clinical_adj'),JSON.stringify(o));
+  }catch(e){ console.error(e); }
+}
+function padjCapOf(a){ try{ if(a.kind==='group'){ const S=ppuSettings(ppuRulesForPP(a.belongs)), per=S.groupClinPer!=null&&S.groupClinPer!==''?+S.groupClinPer:0.33; return {hrs:(a.group.hc||0)*per,grp:true}; }
+    if(a.kind==='custom'&&a.custom.cap!=='none') return {hrs:+a.custom.capHrs||0,grp:a.custom.cap==='grp'}; }catch(e){} return null; }
+async function capAdjLoad(){ try{ const r=await window.storage.get(capStoreKey('app_clinical_adj')); const d=r&&r.value?JSON.parse(r.value):null; if(d&&d.byId) CAP_ADJ_DATA=d; }catch(e){} }
 function ppuTabsHtml(R,closed){
   const p=PPU.periods[PPU.ppId]||{}, nG=(p.manualGroups||[]).length, nM=R?R.emps.reduce(function(a,E){ return a+E.mtg.items.length; },0):0;
   const t=function(k,ic,l,n,note){ return '<button class="ppu-bigtab'+(PPU.view===k?' on':'')+'" onclick="PPU.view=\''+k+'\';PPU.sel=null;renderPPU()"><span class="ic">'+ic+'</span><span class="tx"><b>'+l+'</b><small>'+note+'</small></span>'+(n!=null?'<span class="n">'+n+'</span>':'')+'</button>'; };
   return '<div class="ppu-bigtabs">'
     +t('emps','👥','Employees',R?R.emps.length:null,'Valant results per person')
-    +t('mtg','🕒','Meeting & Admin Time',nM,mtgSelfOpen()?'Staff entries + payroll additions':'Enter by hand until '+MTG_SELF_OPENS.slice(5).replace('-','/'))
+    +t('mtg','🕒','Meeting & Admin Time',nM,'Staff entries — review & approve')
     +t('groups','👪','Group sessions',nG+ppuGroupRecs().length,'Logged by clinicians — approve here')
-    +t('reimb','🎓','Reimbursements',(p.reimb||[]).length,'Training, licensure & expenses to pay back')+'</div>';
+    +t('reimb','🎓','Reimbursements',(p.reimb||[]).length,'Training, licensure & expenses to pay back')
+    +t('adj','✍️','Manual payroll adjustments',(p.adj||[]).length,'Missed entries & corrections')+'</div>';
 }
 function ppuGroupRecs(){
   const pp=ppuPP(PPU.ppId);
@@ -20176,6 +20451,15 @@ async function ppuMtgDel(id){
     try{ PPU.meetings=(await window.mtgStore.all())||PPU.meetings; MTG_ALL=null; MTG_MINE=null; MTG_BYSID={}; }catch(e){} renderPPU(); }catch(e){ console.error(e); }
 }
 
+// Supervision row → who received it. Saved by client code (remembered for later uploads), else for that row only.
+function ppuSupSelect(L){ const ppl=(STAFF||[]).filter(function(s){ return normStatus(s['Employee Status'])!=='Terminated'||s._id===L.supFor; }).sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
+  return '<select onchange="ppuSupLink(\''+ppuEsc(L.key)+'\',\''+ppuEsc(L.cc||'')+'\',this.value)" style="font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;max-width:240px"><option value="">— who received it? —</option>'
+    +ppl.map(function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===L.supFor?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+'</option>'; }).join('')+'</select>'; }
+async function ppuSupLink(key,cc,sid){
+  try{ PPU.supLinks=PPU.supLinks||{}; const k=cc?cc:'row:'+PPU.ppId+':'+key; if(sid) PPU.supLinks[k]=sid; else delete PPU.supLinks[k];
+    if(!(await payStore.setCfgDoc('ppuSupLinks',{map:PPU.supLinks,updatedAt:ppuNow(),updatedBy:ppuWho()}))) throw new Error('save');
+    showToast(cc?'✓ Saved — client code '+cc+' will match this person next time':'✓ Saved'); renderPPU(); }catch(e){ console.error(e); showToast('⚠ Could not save the link'); }
+}
 function ppuStaffSelect(E){
   const ppl=(STAFF||[]).slice().sort(function(a,b){ return String(a['Clinician']||'').localeCompare(String(b['Clinician']||'')); });
   const opt=function(s){ return '<option value="'+ppuEsc(s._id)+'"'+(s._id===E.sid?' selected':'')+'>'+ppuEsc(s['Clinician']||s._id)+(normStatus(s['Employee Status'])==='Terminated'?' (former)':'')+'</option>'; };
@@ -20474,7 +20758,7 @@ async function ppuReopen(){
 function ppuStatement(E,R,pp,v,at){
   const lines=R.lines.filter(function(L){ return L.pid===E.pid && L.status!=='excluded'; }).map(function(L){ return {cc:L.cc||'',date:L.date,st:L.st,tx:L.tx,head:L.head,clin:L.clin,ffs:L.ffs,diff:L.diff,status:L.status,signed:L.signed||'',doc:L.docStatus||''}; });
   return {kind:'ppu',sid:E.sid,pid:E.pid,name:E.name||E.prov,periodId:'ppu_'+pp.id,ppId:pp.id,version:v,label:pp.short,start:pp.startISO,end:pp.endISO,closedAt:at,
-    summary:{elig:E.elig!==false,clin:E.clin,cats:E.cats,nsu:E.nsu,pns:E.pns,sup:E.sup,supU:E.supU,other:E.other,ffsTot:E.ffsTot,diff:E.diff,bonus:E.bonus,threshold:R.settings.threshold,addN:E.addN,anniv:E.anniv||null,diffC:E.diffC,bonusC:E.bonusC,addC:E.addC,diffRate:R.settings.diffRate,bonusRate:R.settings.bonusRate,
+    summary:{elig:E.elig!==false,clin:E.clin,cats:E.cats,nsu:E.nsu,pns:E.pns,sup:E.sup,supU:E.supU,supProv:E.supProv||null,supRecv:E.supRecv||null,adjItems:E.adjItems||null,adjFfs:E.adjFfs||0,other:E.other,ffsTot:E.ffsTot,diff:E.diff,bonus:E.bonus,threshold:R.settings.threshold,addN:E.addN,anniv:E.anniv||null,diffC:E.diffC,bonusC:E.bonusC,addC:E.addC,diffRate:R.settings.diffRate,bonusRate:R.settings.bonusRate,
       mtgFlatMins:E.mtg.flatMins,mtgInterimMins:E.mtg.interimMins||0,mtgFlatC:E.mtg.flatC,mtgFfsMins:E.mtg.ffsMins,grpN:E.grpN||0,grpHeadN:E.grpHeadN||0,grpHeadC:E.grpHeadC||0,groupRate:R.settings.groupRate},
     meetings:E.mtg.items.map(function(m){ return {date:m.date,start:m.start,end:m.end,type:m.type,mins:m.mins,kind:m.kind,notes:m.notes,early:m.early}; }),
     lines:lines};
@@ -20712,12 +20996,31 @@ function ppuStatementHtml(st,opt){
     +'</div>';
   h+='</div></div>';
   }
+  // ── Supervision provided (Nov 23 2026) — credit for every supervisor; paid only for interim, non-salaried supervisors ──
+  if(S.supProv&&S.supProv.n){ const sp=S.supProv;
+    h+='<div class="ps-band paid"><div class="ps-bh">🧑‍🏫 Supervision you provided <small>Credit for supervision hours you gave this pay period</small></div><div class="ps-bb"><div class="ps-g4">'
+      +sm('Supervision hours provided',hrs(Math.round(sp.mins*100/60)),sp.n+' session'+(sp.n===1?'':'s'))
+      +sm('Paid supervision (SUP PAID)',cnt(sp.paid,'session','sessions'),'Supervisee paid at their FFS rate')
+      +sm('Unpaid supervision (SUP UNPAID)',cnt(sp.unpaid,'session','sessions'),'Tracked')
+      +(sp.intMins?sm('Paid to you as interim supervision',hrs(Math.round(sp.intMins*100/60)),'Interim Hourly Supervisor · 1.25× your FFS rate'):'')+'</div></div></div>'; }
+  // ── Manual payroll adjustments paid this pay period (Nov 23 2026) ──
+  if(S.adjItems&&S.adjItems.length){ const KL={group:'👪 Group session',mtg:'🕒 Admin time / meeting',custom:'✏️ Adjustment'};
+    h+='<div class="ps-band paid"><div class="ps-bh">✍️ Payroll adjustments <small>Added by payroll — missed entries or corrections</small></div><div class="ps-bb"><div style="background:#fff;border:1px solid #cfe6e4;border-radius:10px;padding:4px 10px">'
+      +S.adjItems.map(function(a){ const bel=(ALL_PPS.find(function(x){ return x.id===a.belongs; })||{}).short||a.belongs;
+        return '<div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid #eef1f5;font-size:13px"><div><b style="color:#122B67">'+(KL[a.kind]||'Adjustment')+'</b> · '+ppuEsc(a.reason||'')+(a.what?'<div style="color:#6b7280;font-size:12px">'+ppuEsc(a.what)+'</div>':'')+(a.note?'<div style="color:#6b7280;font-size:12px">'+ppuEsc(a.note)+'</div>':'')+'</div>'
+          +'<div style="text-align:right;font-size:12.5px;color:#374151">'+(nm?'':ppuEsc(a.pay)+'<br>')+(a.cap&&a.cap!=='—'?'<span style="color:#0b4f56">'+ppuEsc(a.cap)+' · '+ppuEsc(bel)+'</span>':'<span style="color:#9ca3af">for '+ppuEsc(bel)+'</span>')+'</div></div>'; }).join('').replace('border-top:1px solid #eef1f5','border-top:0')+'</div></div></div>'; }
+  // ── Supervision received (Psych I = unpaid, Psych II = paid) — shown to everyone ──
+  if(S.supRecv&&S.supRecv.n){ const sr=S.supRecv;
+    h+='<div class="ps-band paid"><div class="ps-bh">🎓 Supervision you received <small>From your supervisor this pay period</small></div><div class="ps-bb"><div class="ps-g4">'
+      +sm('Supervision hours received',hrs(Math.round(sr.mins*100/60)),sr.n+' session'+(sr.n===1?'':'s'))
+      +(sr.paid?sm('Paid to you (SUP PAID)',hrs(Math.round(sr.paidMins*100/60)),sr.paid+' session'+(sr.paid===1?'':'s')+' · '+hrs(n(S.sup))+' paid at your FFS rate'):'')
+      +(sr.unpaid?sm('Unpaid (SUP UNPAID)',hrs(Math.round(sr.unpaidMins*100/60)),sr.unpaid+' session'+(sr.unpaid===1?'':'s')+' · tracked, not paid'):'')+'</div></div></div>'; }
   // ── 3. Paid Time and Meetings ── (not shown at all to payHideMoney staff)
   if(nm) return h+'</div>';
   const mFlat=Math.round(n(S.mtgFlatMins)*100/60), mFfs=Math.round(n(S.mtgFfsMins)*100/60);
   h+='<div class="ps-band paid"><div class="ps-bh">💵 Paid Time, Supervision and Meetings <small>Doesn’t count toward capacity</small></div><div class="ps-bb"><div class="ps-g4">'
-    +sm('Supervision — Paid',hrs(n(S.sup)),'Paid at FFS rate')
-    +sm('Supervision — Unpaid',cnt(n(S.supU),'session','sessions'),'Not paid')
+    +sm('Supervision you received — Paid',hrs(n(S.sup)),'Paid at FFS rate (SUP PAID)')
+    +sm('Supervision you received — Unpaid',cnt(n(S.supU),'session','sessions'),'Not paid (SUP UNPAID)')
     +(opt.noMoney?sm('Meetings & Admin — Hourly',hrs(mFlat),'Paid at the admin hourly rate'):sm('Meetings & Admin — $25/hr',hrs(mFlat),ppuUsd(n(S.mtgFlatC))+' paid'))
     +sm('Meetings & Admin — FFS Rate',hrs(mFfs),'Paid at FFS rate')
     +(opt.noMoney?sm('CANS & Additional Comp (admin pay)',cnt(n(S.addN),'unit','units'),'Paid as admin pay'):sm('CANS & Additional Comp (admin pay)',usd(M.add),n(S.addN)+' unit'+(n(S.addN)===1?'':'s')+(M.add==null?' · $ not recorded for this period':'')))
@@ -20773,6 +21076,70 @@ function rcDates(){
 function rcRange(){ const D=rcDates(); return ALL_PPS.filter(function(x){ return x.endISO>=D.start&&x.startISO<=D.end; }); }
 function rcInDates(iso){ const D=rcDates(); return iso>=D.start&&iso<=D.end; }
 function rcSA(){ try{ return isSuperAdminView(); }catch(e){ return false; } }
+// ── Practice-wide Capacity Dashboard (Nov 23 2026) — the clinician dashboard, summed over every clinician (or one site) ──
+var CAPP={site:'',view:'goalpp'};
+function capPracBuild(site){
+  const id='__prac:'+(site||''), list=capClinicians().filter(function(x){ return !site||String(x['Team']||'').trim()===site; });
+  const data=CLINICAL_HOURS_DATA, n=data&&data.periodQuarter?data.periodQuarter.length:26, per=new Array(n).fill(null);
+  let adj=null, raw=null; const c={P:capPeriodInfo(),weekly:0,adjWeekly:0,annual:0,ytd:0,expectedToDate:0,deficit:0,deficitPerWeek:0,catchUpTotal:0,catchUpPerWeek:0,normalPerWeek:0,qtd:0,hasData:false,n:0,nBehind:0,
+    benchmarks:[0,1,2,3].map(function(i){ return {key:['q1','mid','q3','eoy'][i],label:['End of Q1','Mid-Year (end Q2)','End of Q3','Year-End'][i],range:CAP_QUARTER_RANGES_SHORT[i],goal:0}; })};
+  list.forEach(function(st){ let ci=null; try{ ci=capCompute(st); }catch(e){} if(!ci) return; c.n++;
+    if(ci.attainPct!=null&&ci.attainPct<90) c.nBehind++;
+    ['weekly','adjWeekly','annual','ytd','expectedToDate','deficit','deficitPerWeek','catchUpTotal','catchUpPerWeek','normalPerWeek','qtd'].forEach(function(k){ c[k]+=+ci[k]||0; });
+    if(ci.hasData) c.hasData=true; ci.benchmarks.forEach(function(b,i){ c.benchmarks[i].goal+=b.goal||0; });
+    const A=capActualPeriods(st); for(let i=0;i<n;i++){ const v=(data.byId[st._id]||[])[i]; if((v!==null&&v!==undefined)||A.per[i]) per[i]=(per[i]||0)+(A.per[i]||0); }
+    const T=capGoalTables(st); if(!adj){ adj=new Float64Array(T.adj.length); raw=new Float64Array(T.raw.length); } for(let j=0;j<adj.length;j++){ adj[j]+=T.adj[j]||0; raw[j]+=T.raw[j]||0; } });
+  ['weekly','adjWeekly','annual','ytd','expectedToDate','deficit','deficitPerWeek','catchUpTotal','catchUpPerWeek','normalPerWeek'].forEach(function(k){ c[k]=Math.round(c[k]*10)/10; });
+  c.attainPct=c.expectedToDate>0?Math.round(c.ytd/c.expectedToDate*100):null; c.nextBenchmark=c.benchmarks[Math.min(c.P.quarter,3)]; c.ytdPct=c.nextBenchmark.goal>0?Math.round(c.ytd/c.nextBenchmark.goal*100):null;
+  CAP_SYN[id]=per; CAP_SYN_GOAL[id]={key:'syn',adj:adj||new Float64Array(CAP_GOAL_DAYS+1),cum:adj||new Float64Array(CAP_GOAL_DAYS+1),raw:raw||new Float64Array(CAP_GOAL_DAYS+1),forg:[]};
+  const S={_id:id,_prac:true,_members:list.map(function(x){ return x._id; }),Clinician:site?rcTeamLab(site):'Entire practice','Weekly Capacity':String(c.weekly),Team:site||''};
+  return {S:S,c:c,list:list};
+}
+async function capPracVLoad(S){
+  try{ const sid=S._id, site=S.Team||''; const base=await capVFetch(sid,site); const D={pp:{},ok:false,prac:base.prac,site:site?base.site:null,team:site};
+    CAPV.raw=CAPV.raw||{}; const ids=S._members.slice(); let i=0;
+    async function worker(){ while(i<ids.length){ const id=ids[i++]; if(!CAPV.raw[id]) CAPV.raw[id]=await capVFetch(id); } }
+    await Promise.all([worker(),worker(),worker(),worker(),worker(),worker()]);
+    ids.forEach(function(id){ const d=CAPV.raw[id]; if(!d||!d.ok) return; D.ok=true;
+      Object.keys(d.pp).forEach(function(k){ const a=d.pp[k], o=D.pp[k]=D.pp[k]||{ind:0,cpl:0,grp:0,nsPaid:0,nsUnpaid:0,byHead:{},k5:{},c5:{},dl:{},int:{},prog:{signed:0,late24:0,daysSum:0}};
+        ['ind','cpl','grp','nsPaid','nsUnpaid'].forEach(function(f){ o[f]+=a[f]||0; }); ['byHead','k5','c5','dl','int'].forEach(function(f){ Object.keys(a[f]||{}).forEach(function(x){ o[f][x]=(o[f][x]||0)+a[f][x]; }); });
+        ['signed','late24','daysSum'].forEach(function(f){ o.prog[f]+=(a.prog&&a.prog[f])||0; }); }); });
+    if(!D.ok&&!site) capPracFromStats(D);
+    CAPV.data[sid]=D; if(CAPV.sid!==sid) return; capSessPane(sid); capNsPane(sid); const vv=capCurView(); if(vv!=='cum'&&vv!=='goalpp'&&vv!=='team'&&vv!=='teamhrs') capAltChart(vv);
+  }catch(e){ console.error(e); }
+}
+// Fallback when pay statements can't be read (not a Super Admin): practice-wide counts from kv app_practice_stats
+function capPracFromStats(D){ try{ window.storage.get('app_practice_stats').then(function(){}); }catch(e){}
+  try{ const d=CAPV._pst||{}; Object.keys(d).forEach(function(k){ if(k.slice(0,4)!==String(CAP_YEAR)) return; const a=d[k]||{}, i=+k.slice(5)-1, o={ind:0,cpl:0,grp:0,nsPaid:+a.paidNS||0,nsUnpaid:(+a.noShows||0)-(+a.paidNS||0),byHead:{},k5:{},c5:{},dl:{},int:{u:+((a.byHead||{})['Intake Session']||{}).n||0},prog:{signed:+a.signed||0,late24:+a.late24||0,daysSum:+a.daysSum||0}};
+      Object.keys(a.byHead||{}).forEach(function(h){ const b=a.byHead[h]||{}, kk=hrgHeadCat(h), k3=kk==='grp'?'grp':kk==='cpl'?'cpl':'ind'; o[k3]+=b.n||0; o.byHead[h]=(o.byHead[h]||0)+(b.n||0); const k5=kk==='grp'?'grp':kk==='cpl'?'cpl':kk==='oth'?'oth':'i60'; o.k5[k5]=(o.k5[k5]||0)+(b.n||0); o.c5[k5]=(o.c5[k5]||0)+(b.clin||0); });
+      D.pp[i]=o; D.ok=true; D.approx=true; }); }catch(e){}
+}
+// "How the goal is figured" for the practice: every clinician in view with their goal and attainment
+// Pay-period axis label: "PP7" with the month (and start day) under it, e.g. PP7 / Mar 30
+function capPPAxisLab(x,y,i,sz){ let m=''; try{ const d=capParseDate(CLINICAL_HOURS_DATA.periods[i]); m=d.toLocaleDateString('en-US',{month:'short'})+' '+d.getDate(); }catch(e){}
+  return '<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+sz+'" fill="#6b7280">PP'+(i+1)+'</text>'+(m?'<text x="'+x+'" y="'+(y+sz+2)+'" text-anchor="middle" font-size="'+(sz-1)+'" fill="#9ca3af">'+m+'</text>':''); }
+// Sites for the practice dashboard: every open location in Homebase Control Panel → Locations (locOpenCodes), plus any
+// clinician Team that isn't a location, in the Locations order.
+function capSiteList(){ const out=[]; try{ locOpenCodes().forEach(function(k){ if(out.indexOf(k)<0) out.push(k); }); }catch(e){}
+  try{ capClinicians().forEach(function(x){ const t=String(x['Team']||'').trim(); if(t&&out.indexOf(t)<0) out.push(t); }); }catch(e){} return out; }
+function capPracGoalHtml(S,c){
+  try{ const rows=(S._members||[]).map(function(id){ const st=(STAFF||[]).find(function(x){ return x._id===id; }); let ci=null; try{ ci=capCompute(st); }catch(e){} return {st:st,c:ci}; }).filter(function(r){ return r.st&&r.c; })
+      .sort(function(a,b){ return (a.c.attainPct==null?999:a.c.attainPct)-(b.c.attainPct==null?999:b.c.attainPct); });
+    return '<div class="cdx-say">This goal is the sum of <b>'+rows.length+' clinicians’</b> own goals — each one already includes their ramp, leave, capacity changes and First Client Day. Year goal <b>'+Math.round(c.annual).toLocaleString('en-US')+' hrs</b> · '+Math.round(c.weekly).toLocaleString('en-US')+' hrs/wk combined capacity. Lowest attainment first.</div>'
+      +'<div class="cdx-card" style="padding:4px 12px"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f9e"><th style="text-align:left;padding:7px 6px">Clinician</th><th style="text-align:left;padding:7px 6px">Site</th><th style="text-align:right;padding:7px 6px">Hrs/wk</th><th style="text-align:right;padding:7px 6px">So far</th><th style="text-align:right;padding:7px 6px">Expected</th><th style="text-align:right;padding:7px 6px">Attainment</th></tr>'
+      +rows.map(function(r){ const p=r.c.attainPct; return '<tr style="border-top:1px solid #f1f2f4;cursor:pointer" onclick="showPage(\'capacity\',document.getElementById(\'nav-capacity\'));setTimeout(function(){ capOpenDetail(\''+hesc(r.st._id)+'\'); },60)" title="Open their Capacity Dashboard"><td style="padding:7px 6px;color:#122B67;font-weight:700">'+hesc(r.st['Clinician']||'')+'</td><td style="padding:7px 6px">'+hesc(rcTeamLab(r.st['Team']||'')||'')+'</td><td style="padding:7px 6px;text-align:right">'+(r.c.weekly||0)+'</td><td style="padding:7px 6px;text-align:right">'+Math.round(r.c.ytd)+'</td><td style="padding:7px 6px;text-align:right">'+Math.round(r.c.expectedToDate)+'</td><td style="padding:7px 6px;text-align:right;font-weight:800;color:'+capStatusColor(p)+'">'+(p==null?'—':p+'%')+'</td></tr>'; }).join('')+'</table></div>';
+  }catch(e){ return ''; }
+}
+async function capPracHtml(){
+  try{ try{ const r=await window.storage.get('app_practice_stats'); CAPV._pst=r&&r.value?JSON.parse(r.value):{}; }catch(e){ CAPV._pst={}; }
+    const sites=[]; try{ capClinicians().forEach(function(x){ const t=String(x['Team']||'').trim(); if(t&&sites.indexOf(t)<0) sites.push(t); }); }catch(e){}
+    const B=capPracBuild(CAPP.site); CAPV.S=B.S; CAPV.C=B.c;
+    const chips='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><span style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8f9e;margin-right:4px">Site</span>'
+      +[['','Entire practice']].concat(sites.sort().map(function(t){ return [t,rcTeamLab(t)]; })).map(function(o){ const on=CAPP.site===o[0]; return '<button onclick="CAPP.site=\''+hesc(o[0])+'\';renderReportCenter()" style="font:inherit;font-size:12.5px;font-weight:700;border-radius:20px;padding:5px 12px;cursor:pointer;border:1px solid '+(on?'#122B67':'#d4dbe6')+';background:'+(on?'#122B67':'#fff')+';color:'+(on?'#fff':'#122B67')+'">'+hesc(o[1])+'</button>'; }).join('')+'</div>';
+    const head='<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 8px"><b style="font-size:17px;color:#122B67">Capacity dashboard · '+hesc(B.S.Clinician)+'</b><span style="font-size:12.5px;color:#6b7280">'+B.c.n+' clinicians · '+CAP_YEAR+' · the same dashboard each clinician sees, added up</span></div>';
+    return '<div class="rc-card" style="padding:14px 16px;margin-bottom:16px">'+head+'<div style="border:1px solid #e8e8e8;border-radius:12px;overflow:hidden">'+capDrillHTML(B.S,B.c)+'</div></div>';
+  }catch(e){ console.error(e); return ''; }
+}
 // ── Practice clinical-hours goal per pay period (Nov 23 2026) ──
 // kv app_clinical_goal = {years:{YYYY:{cats:{ind,cpl,grp,oth}, at, by}}}; the pay-period goal = the sum of the category goals.
 // Edited in Homebase Control Panel → 🎯 Clinical hours goal (Insights & Reports = Manage; Admins in the old roles).
@@ -20791,14 +21158,14 @@ async function hrgActuals(){
       Object.keys(bh).forEach(function(h){ o[hrgHeadCat(h)]+=((bh[h]||{}).clin||0)/100; }); cats[i]=o; }); }catch(e){}
   return {tot:tot,has:has,cats:cats,prov:(data&&data.prov)||{}};
 }
-async function hrgChartHtml(){
+async function hrgChartHtml(bare){
   try{ await hrgLoad(); const G=hrgYear(CAP_YEAR), A=await hrgActuals(), data=CLINICAL_HOURS_DATA;
     const idx=[]; for(let i=0;i<A.tot.length;i++){ if(data.periodQuarter[i]<0) continue; if(A.has[i]&&A.tot[i]>0) idx.push(i); }
     if(HRG.sel==null||idx.indexOf(HRG.sel)<0) HRG.sel=idx.length?idx[idx.length-1]:null;
-    const W=1000,H=300,top=30,bot=44,L=50,Rr=20,N=26,bw=(W-L-Rr)/N, mx=Math.max(G.total*1.25,...A.tot.map(function(v){ return v*1.1; })), y=function(v){ return top+(H-top-bot)*(1-v/mx); };
+    const W=1000,H=312,top=30,bot=56,L=50,Rr=20,N=26,bw=(W-L-Rr)/N, mx=Math.max(G.total*1.25,...A.tot.map(function(v){ return v*1.1; })), y=function(v){ return top+(H-top-bot)*(1-v/mx); };
     let svg='';
     for(let i=0;i<N&&i<A.tot.length;i++){ if(data.periodQuarter[i]<0) continue; const x=L+i*bw, cx=x+bw/2, st=capParseDate(data.periods[i]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13);
-      if(i%2===0) svg+='<text x="'+cx+'" y="'+(H-bot+16)+'" text-anchor="middle" font-size="11" fill="#6b7280">PP'+(i+1)+'</text>';
+      if(i%2===0) svg+=capPPAxisLab(cx,H-bot+16,i,11);
       if(!A.has[i]||!A.tot[i]) continue; const v=A.tot[i], ok=v>=G.total, col=ok?'#16a34a':'#122B67', sel=i===HRG.sel;
       svg+='<g style="cursor:pointer" onclick="HRG.sel='+i+';renderReportCenter()"><title>PP'+(i+1)+' · '+(st.getMonth()+1)+'/'+st.getDate()+'–'+(en.getMonth()+1)+'/'+en.getDate()+': '+Math.round(v).toLocaleString('en-US')+' of '+G.total.toLocaleString('en-US')+' hrs ('+Math.round(v/G.total*100)+'%)'+(A.prov[i]?' · not closed yet':'')+'</title>'
         +'<rect x="'+(x+bw*.15)+'" y="'+y(v)+'" width="'+(bw*.7)+'" height="'+(y(0)-y(v))+'" rx="3" fill="'+col+'"'+(A.prov[i]?' fill-opacity=".45" stroke="'+col+'" stroke-dasharray="3 2"':'')+(sel?' stroke="#F2A54B" stroke-width="3"':'')+'/>'
@@ -20814,6 +21181,10 @@ async function hrgChartHtml(){
             return '<tr><td>'+k[1]+'</td><td>'+Math.round(a).toLocaleString('en-US')+'</td><td>'+g.toLocaleString('en-US')+'</td><td><span class="hrg-bar"><i style="width:'+Math.min(100,p||0)+'%;background:'+(p!=null&&p>=100?'#16a34a':'#122B67')+'"></i></span> '+(p==null?'—':p+'%')+'</td></tr>'; }).join('')+'</table>'
           :'<div class="cdx-muted" style="margin-top:6px">The category breakdown appears once this pay period is closed.</div>')+'</div>'; }
     const done=idx.filter(function(i){ return !A.prov[i]; }), met=done.filter(function(i){ return A.tot[i]>=G.total; }).length;
+    if(bare) return '<style>.hrg-sel{border-top:1px solid #eef1f5;margin-top:10px;padding-top:12px}.hrg-selh{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap}.hrg-lab{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#8a8f9e}.hrg-big{font-size:28px;font-weight:800;color:#122B67}.hrg-big small{font-size:14px;color:#6b7280;font-weight:600}.hrg-pct{font-size:20px;font-weight:800;text-align:right}.hrg-pct small{display:block;font-size:12.5px;font-weight:600}.hrg-t{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}.hrg-t th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#8a8f9e;padding:6px 8px;border-bottom:1px solid #e8ecf3}.hrg-t td{padding:7px 8px;border-bottom:1px solid #f1f2f4}.hrg-bar{display:inline-block;width:90px;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:6px}.hrg-bar i{display:block;height:100%}</style>'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:#6b7280;margin-bottom:4px"><span><span style="color:#16a34a">■</span> met the goal · <span style="color:#122B67">■</span> under · dashed bar = uploaded, not closed yet · click a bar for its session-category breakdown'+(done.length?' · goal met in <b>'+met+' of '+done.length+'</b> closed pay periods':'')+'</span>'
+      +(hbmSections().some(function(x){ return x[0]==='hrgoal'; })?'<button class="hs-link" style="margin:0 0 0 auto" onclick="HBM.sec=\'hrgoal\';showPage(\'admin\',document.getElementById(\'nav-admin\'))">⚙ Change the goal</button>':'')+'</div>'
+      +(idx.length?'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block">'+svg+'</svg>':'<div class="cdx-muted" style="padding:24px 0;text-align:center">No pay periods with hours yet this year.</div>')+det;
     return '<style>.hrg{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;margin-bottom:16px}.hrg-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}.hrg-h b{font-size:16px;color:#122B67}.hrg-h span{font-size:12.5px;color:#6b7280}'
       +'.hrg-sel{border-top:1px solid #eef1f5;margin-top:10px;padding-top:12px}.hrg-selh{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap}.hrg-lab{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#8a8f9e}'
       +'.hrg-big{font-size:28px;font-weight:800;color:#122B67}.hrg-big small{font-size:14px;color:#6b7280;font-weight:600}.hrg-pct{font-size:20px;font-weight:800;text-align:right}.hrg-pct small{display:block;font-size:12.5px;font-weight:600}'
@@ -20848,7 +21219,7 @@ async function hrgSave(){
 // ── Insights & Reports → 🎯 Clinical Hours & Attainment Tracking (Nov 16; renamed + pay-period goal graph Nov 23) ──
 // Replaces the Clinical Hours Analysis tab: attainment (year to date, capCompute) on top — practice tiles, the site
 // leaderboard (from the archived Leadership Dashboard), every clinician's catch-up hours, capacity/tier changes and a
-// cross-check against their New Client Request in Intake Birdseye — then the clinical-hours charts (rcHoursHtml) below.
+// cross-check against their New Client Request in Intake Client — then the clinical-hours charts (rcHoursHtml) below.
 var RCA={site:'', view:'all', sort:'behind'};
 function rcaRows(){
   const out=[];
@@ -20888,7 +21259,7 @@ async function rcAttainHtml(){
   const nBehind=rows.filter(function(r){ return r.pct!=null&&r.pct<90; }).length, nTier=rows.filter(function(r){ return r.c.tierReview; }).length;
   const nMis=rows.filter(function(r){ return r.flags.some(function(f){ return /not taking|below catch-up|no Clinical Profile|no spots/.test(f.t); }); }).length;
   const tile=function(v,l,sub,col){ return '<div class="rca-tile"><b style="color:'+(col||'#122B67')+'">'+v+'</b><span>'+l+'</span>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
-  let h=(RCA.site?'':await hrgChartHtml());
+  let h=(RCA.site?'':await capPracHtml());
   h+=rcHead('Attainment tracking · '+P.year+' year to date', RCA.site?rcEsc(rcTeamLab(RCA.site)):'Entire practice', ['% = clinical hours so far ÷ hours expected by today (ramp, leave and capacity changes included)'],
     RCA.site?'<button class="btn btn-secondary" style="font-size:12px" onclick="RCA.site=\'\';renderReportCenter()">← All sites</button>':'');
   h+='<div class="rca-tiles">'+tile(score==null?'—':score+'%','attainment',Math.round(ytd)+' of '+Math.round(exp)+' hrs expected',capStatusColor(score))

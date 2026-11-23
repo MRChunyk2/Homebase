@@ -494,7 +494,7 @@ service cloud.firestore {
     // New permissions: the area that edits each kv key (Manage writes it; '' = Super Admin only)
     function kvArea(key) {
       return key.matches('app_office_hist_.*') ? 'ob'
-        : key.matches('app_(clinical_hours|group_hours|group_credit)(_[0-9]{4})?') ? 'ppu'
+        : key.matches('app_(clinical_hours|group_hours|group_credit|clinical_adj)(_[0-9]{4})?') ? 'ppu'
         : key.matches('app_payroll_detail(_[0-9]{4})?') ? 'ppu'
         : {'app_config': 'loc', 'app_events': 'cal', 'app_news': 'news', 'app_practice_alerts': 'pnot',
            'app_office_rooms': 'obs', 'app_office_cfg': 'obs', 'app_safety_doc': 'safety', 'app_perm_v2': 'perm',

@@ -1083,3 +1083,108 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - Goal: kv **app_clinical_goal** = {years:{YYYY:{cats:{ind,cpl,grp,oth}, at, by}}}; pay-period goal = sum of categories (default
   1,500 / 200 / 150 / 150 = 2,000; `HRG_DEFAULT`). Edited in Homebase Control Panel → Insights & goals → **🎯 Clinical hours goal**
   (`hrgRender`, `hrgSave`; Insights & Reports = Manage, or Admins in the old roles). firestore.rules kvArea maps app_clinical_goal → 'rc'.
+
+## Nov 23 2026 — Intake Birdseye → Intake Client; catch-up need + spots beside names
+- Page renamed **Intake Client** everywhere it shows (page id still `intake-finder`, code `if*`/`ifb*`, permission area `birds`).
+- Beside every clinician's name (`ifName` → `ifAtt`): instead of attainment %, the **extra clinical hrs/week needed to get back on
+  track** (Capacity Dashboard `deficitPerWeek`, next 90 days; "on track" when not behind, "no hours yet" without data) + the **spots
+  they're requesting** (`ifSpotsTag`; "not taking" when their request isn't open). ✓ = asking for enough (spots ≥ ceil(hrs/wk),
+  assuming 1 new weekly client ≈ 1 clinical hr/week), ⚠ red = not enough / behind and not taking. Toolbar key explains it; table
+  headers read "Clinician · needs / spots". Cache `IF_ATT[sid]` = {need}.
+
+## Nov 23 2026 — Practice-wide Capacity Dashboard (Insights & Reports → Clinical Hours & Attainment Tracking)
+- Second card on the tab (after "Clinical hours by pay period"; both hidden while a site is focused in the attainment section below):
+  **Capacity dashboard · Entire practice / <site>** (`capPracHtml`) with site chips (`CAPP.site`). It is the clinician dashboard
+  (`capDrillHTML`) run on a synthetic record `{_id:'__prac:<site>', _prac:true, _members}` built by `capPracBuild(site)`:
+  - every clinician in view (`capClinicians()`, filtered by Team) → their `capCompute` numbers are summed (ytd, expected, annual,
+    weekly, deficit, catch-up, quarter benchmarks); attainment recomputed from the sums; `c.n` / `c.nBehind`.
+  - hours per pay period = sum of `capActualPeriods` → `CAP_SYN[id]`; goal tables = sum of each person's `capGoalTables` adj/raw →
+    `CAP_SYN_GOAL[id]`. `capActualPeriods`, `capGoalTables`, `capPeriodRows` and the chart builder read these first. They are
+    in-memory only — never written to CLINICAL_HOURS_DATA or storage.
+  - details data: `capPracVLoad` fetches each member's pay statements (`capVFetch`, split out of `capVLoad`; 6 at a time, cached in
+    `CAPV.raw`) and adds them up; site / practice comparisons from kv app_practice_stats (`bySite`). If statements can't be read
+    (not a Super Admin / no Pay Period Snapshot "all"), the whole-practice view falls back to app_practice_stats (`capPracFromStats`:
+    no 60/45-min split, no in person / virtual).
+  - wording via `capWho(sid)` ("Practice" / "<site>" instead of "You / your"); hours-to-add card rewritten for the practice; "How the goal
+    is figured" = `capPracGoalHtml` (sum of N clinicians' goals + table of each clinician, lowest attainment first, click → their dashboard);
+    no graph notes; pay-period clicks do nothing (`capPPAsk` ignores `__prac` ids). `CAPV.S` / `CAPV.C` hold the synthetic record for
+    `capAltChart`.
+- Nov 23 (later): **One graph for the practice dashboard.** The separate "Clinical hours by pay period" card is folded into the practice
+  dashboard's chart; the site chips are now a **Site** dropdown on the graph (`CAPP.site`). Practice views (`CAPP.view`, default
+  `goalpp`; the clinician dashboard keeps `CAPV.view`; `capCurView()`): Clinical hours each pay period vs goal (practice: the 2,000-hr
+  goal graph `hrgChartHtml(true)` with the category breakdown on click; a site: bars vs that pay period's summed clinicians' goal) ·
+  Year to date · Over / under by pay period · **By team** (`capAltChartPrac('team')`: attainment per site, 100% line, practice tick,
+  click = filter) · No-shows · Groups · Session types · **In person vs virtual** (also added to the clinician dashboard; stacked
+  per pay period from statement `dl`). Titles in `CAP_VIEW_TITLES`. `capDrillHTML` removes any other `.cdx` in the page first (the
+  practice and clinician dashboards share element ids).
+- Nov 23 (later): **By team** is now a line graph (`capAltChartPrac('team')`): one line per site = cumulative attainment (summed
+  `capActualPeriods` ÷ summed `capGoalTables().adj` at each pay-period end) through the last pay period with hours, dotted black =
+  entire practice, dashed = 100%, end labels, hover per point; site buttons above it filter (selected site bold, others faded).
+- Intakes: each statement line that's an intake (`capIsIntake`: "Intake" heading or 90791; individual-kind only) is counted by
+  delivery in `pp[i].int` {p,v,u} (`capVFetch`; merged for the practice; app_practice_stats fallback = "not marked").
+  **Session types** view now shows individual (minus intakes) · couples/family · groups · intakes in person · intakes virtual.
+  New view **All sessions & intakes** (`sessint`, both dashboards): sessions bar with the intake share in orange, total on top,
+  tooltip with intakes in person / virtual, and a year line (sessions · intakes · in person · virtual).
+- Nov 23 (later): Every graph axis that shows pay-period labels also shows the month under them (`capPPAxisLab(x,y,i,size)`:
+  "PP7" + "Mar 30" = the pay period's start date) — practice goal graph, a site's goal graph and the by-team line graph.
+  Rule going forward: PP labels on a graph always carry the month.
+- Nov 23 (later): **Session types** shows intakes as one segment ("intakes", total) — the in person / virtual split lives in its own view.
+  The "All sessions & intakes" view is now **Intakes** (`sessint`): intakes only per pay period, stacked in person / virtual (/ not
+  marked), count on top of each bar, year line "N intakes — X in person · Y virtual".
+- Nov 23 (later): In person vs virtual (graph view + Sessions & clients card) and the Intakes view show **only in person and virtual** —
+  no "not marked" bucket. Hours from service codes whose workbook Delivery is "Not specified" are left out of those two views (today:
+  COLLCONT EXT, COLLCONT FAM (0.25 hrs each) and Medicare In Kind (1 hr); pro bono/in-kind, no-shows and supervision have 0 clinical
+  hrs). Setting Delivery on those codes in Payroll Settings brings them in. Valant codes missing from the workbook are already flagged
+  in Payroll Processing.
+- Nov 23 (later): practice graph views renamed/added — **Attainment by site** (was "By team", `team`) and new **Clinical hours by site**
+  (`teamhrs`): same line-chart engine (`capAltChartPrac`, `HRS` flag) with one line per site of credited clinical hours each pay
+  period (sum of members' `capActualPeriods().per`), hours axis, end labels "Northampton 154 hrs", site buttons highlight + filter.
+- Nov 23 (later): Session types legend reads "intakes (90791)"; an intake is now ONLY a 90791 code (`capIsIntake` checks the code, not
+  the heading) — intakes have nothing to do with in person / virtual in that view.
+- Sites on the practice dashboard (Site dropdown, Attainment by site, Clinical hours by site) = every **open location** in Homebase
+  Control Panel → Locations (`capSiteList` = `locOpenCodes()` in Locations order, plus any clinician Team that isn't a location). A site
+  with no clinicians (e.g. RSTI today) still shows ("RSTI Team · 0 clinicians"; no line until it has clinicians with hours). Line
+  colours are brand only (navy, teal, orange, aqua, dark teal, dark orange).
+
+## Nov 23 2026 — Supervision rows (SUP PAID / SUP UNPAID) in Payroll Processing
+- In Valant the supervisee is booked as the "client". On upload (`ppuParseUpload`) a row whose code starts SUP or whose client name says
+  "supervision" gets `supTxt` and `supSid` = the staff member matched from the client name (`ppuSupMatch`: drops the "(code)", the words
+  supervision/sup and dashes, flips "Last, First", then `ppuMatchStaff`). Only the staff id is kept — never the name.
+- Engine (`ppuCompute`): for SUP PAID / SUP UNPAID rows the **provider (supervisor)** gets credit only — `E.supProv`
+  {n, paid, unpaid, mins (appointment length, 60 if no end time), intMins} — and is paid for it ONLY when they're an **Interim Hourly
+  Supervisor and not salaried** (`ppuSupIsInterim`: role + Employee Category not SAL) → `intMins`, paid like interim supervision
+  (Paychex "Paid supervision" interim hours, 1.25× FFS). The **therapist who received it** (row correction `supSid` → remembered client-code
+  link `PPU.supLinks[cc]` → row link `row:<pp>:<key>` → name match) gets SUP PAID's 1 FFS hr (`E.sup`, paid) or a SUP UNPAID count (`E.supU`).
+  No receiver → blocking "Supervision row not linked" until payroll picks one in step ② ("Supervision rows", `ppuSupSelect`/`ppuSupLink`,
+  saved to payrollConfig `ppuSupLinks` {map:{clientCode|row:… : staffId}}). A non-SUP code whose client name says supervision → warning.
+- Statement summary gains `supProv`; Pay Period Snapshot shows a **"🧑‍🏫 Supervision you provided"** band to everyone (incl. staff who don't
+  see $): hours provided, SUP PAID / UNPAID sessions, and interim pay when it applies. The old tiles now read "Supervision you received — Paid / Unpaid".
+- Closed pay periods are unchanged (they paid SUP PAID to the provider); new rule applies to periods closed from now on. Rows uploaded
+  before this change have no name match — link them once by client code in step ② (or re-upload).
+- Nov 23 (later): Supervision **received** is tracked too — `E.supRecv` {n, paid, unpaid, mins, paidMins, unpaidMins} on the therapist
+  (statement summary `supRecv`) and the snapshot shows a **"🎓 Supervision you received"** band to everyone (Psych II: SUP PAID hours,
+  paid at their FFS rate; Psych I: SUP UNPAID hours, tracked). Valant format confirmed by Michael: code SUP PAID / SUP UNPAID, client =
+  the employee, provider = the supervisor.
+- Fixing closed pay periods: link each supervision client code once (step ② of any period — links are by client code, so they carry to every
+  period), then Payroll Settings → ↻ Re-close pay periods. Periods with an unlinked supervision code stay open and are listed. Re-closing
+  makes new snapshot/statement versions; money already sent through Paychex isn't changed — adjust those by hand.
+- flows test fixture (/tmp/claude-0/test_valant.csv) now gives its SUP rows a client ("Supervision - Sample Clinician A (SUPA01)").
+
+## Nov 23 2026 — Payroll Processing → ✍️ Manual payroll adjustments ⚠ rules
+- The Meeting & Admin Time tab no longer has a hand-entry form (review / approve / CSV import only; `ppuMtgFormHtml` unused). All hand
+  entries go in the new **Manual payroll adjustments** tab (`PPU.view='adj'`, `padjHtml`; Michael picked option A: sub-tabs + "You're
+  adding" card). Kinds (`PADJ.kind`): 👪 Group session (group from the Group control panel or Other, date, attendees, in person/virtual
+  90853 → pay attendees × groupRate, capacity attendees × groupClinPer) · 🕒 Admin time & meetings (any non-group meeting type → its
+  rate: $25/hr, FFS, interim) · ✏️ Custom (how it's paid: hours × FFS rate / × admin $25 / × interim rate / × $ hourly / flat $ / not
+  paid; Paychex category by pay type (FFS hours, Groups, Paid supervision, Admin, Bonus $, Groups $, Professional / Expense
+  reimbursement); capacity: none / clinical hours / group credit + hours). Every entry: employee, "what is this for" (required),
+  **belongs to pay period** (this or an earlier one this year), optional note shown on the snapshot. Saved approved, with by/at, audited.
+- Stored on the paying period doc: `p.adj=[{id,kind,sid,belongs,reason,note,by,at,group|mtg|custom}]`. `ppuCompute` applies them for the
+  period being processed (pay: grpHeadC/grpHeadN, mtg items/flat/ffs/interim mins, `adjFfs`, `adjGrpFfs`, `sup`, `adjBonusC`,
+  `adjAdminC`, `adjGrpC`, `adjProfC`, `adjExpC` → Paychex rows; `E.adjItems` → statement summary `adjItems` → snapshot band
+  "✍️ Payroll adjustments", $ hidden for payHideMoney staff).
+- Capacity: an adjustment that belongs to THIS period adds to E.clin (written at close as usual). One that belongs to an EARLIER period
+  goes to kv **app_clinical_adj(_YYYY)** {byId:{sid:[26]}, grp:{sid:[26]}} — rebuilt from scratch from every period's `adj`
+  (`capAdjRebuild`, idempotent) on add/remove; loaded with the hours (`capAdjLoad`) and added in `capActualPeriods` / `capRealHours`
+  (group part to the group share). firestore.rules kvArea maps app_clinical_adj → 'ppu'. **Rules deploy needed.**
+- Assumption (unanswered): no second approval — payroll-entered adjustments are approved like other payroll entries.
