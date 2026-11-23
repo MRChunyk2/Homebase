@@ -500,7 +500,7 @@ service cloud.firestore {
            'app_office_rooms': 'obs', 'app_office_cfg': 'obs', 'app_safety_doc': 'safety', 'app_perm_v2': 'perm',
            'app_rc_facmap': 'rc', 'app_code_guide': 'ppu', 'app_practice_stats': 'ppu', 'app_team_stats': 'ppu',
            'app_recruit': 'rec', 'app_comp_checklist': 'npd', 'app_comp_data': 'comp',
-           'app_groups': 'mtg', 'app_mtg_recurring': 'mtg'}.get(key, '');
+           'app_groups': 'mtg', 'app_mtg_recurring': 'mtg', 'app_clinical_goal': 'rc'}.get(key, '');
     }
     match /kv/{key} {
       // app_payroll_detail_YYYY = later capacity years' Payroll Processing breakdown (same tier as 2026's)

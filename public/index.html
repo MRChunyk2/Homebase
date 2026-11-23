@@ -12312,7 +12312,7 @@ function rtDelete(kind,from){
 function renderAdmin(){
   const outer=document.getElementById('admin-body'); if(!outer) return;
   const sec=hbmShell(outer); if(!sec) return;
-  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='groups'){ hbmRenderGroups(sec); return; } if(HBM.sec==='mtgset'){ hbmRenderMtgSet(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
+  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='groups'){ hbmRenderGroups(sec); return; } if(HBM.sec==='mtgset'){ hbmRenderMtgSet(sec); return; } if(HBM.sec==='hrgoal'){ hrgRender(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
   renderAdminRoles(sec);
 }
 function renderAdminRoles(body){
@@ -12546,7 +12546,7 @@ async function capAdjAddChange(id){ capDlgOpen(id); }
 // Dashboard → Capacity adjustments. Every change is dated (hire date = starting capacity with the ramp,
 // this pay period, or a date after the ramp), recorded on the capacity timeline, and the goal is
 // recalculated day by day from that date (a lower capacity lowers the goal from then on).
-var CAPDLG={id:null,hire:null};
+var CAPDLG={id:null,hire:null,fcd:null};   // fcd = First Client Day typed in this dialog (ISO; '' = cleared → hire date)
 // If this person's Employee File edit form is open with a different Date of Hire typed in (not saved yet),
 // the capacity dialog uses THAT date (Nov 16) — it's saved together with the capacity change.
 function capDlgPendingHire(id){
@@ -12560,10 +12560,10 @@ function capDlgPendingHire(id){
   }catch(e){ return null; }
 }
 // The record as the dialog should see it (pending hire date applied to a copy).
-function capDlgView(s){ return CAPDLG.hire?Object.assign({},s,{'Date of Hire':CAPDLG.hire}):s; }   // (ramp uses First Office Date when it's set)
+function capDlgView(s){ let v=CAPDLG.hire?Object.assign({},s,{'Date of Hire':CAPDLG.hire}):s; if(CAPDLG.fcd!==null) v=Object.assign({},v,{'First Office Date':CAPDLG.fcd}); return v; }   // (ramp uses First Office Date when it's set)
 function capDlgOpen(id){
   try{
-    const s0=capAdjStaff(id); if(!s0) return; CAPDLG.id=id; CAPDLG.hire=capDlgPendingHire(id);
+    const s0=capAdjStaff(id); if(!s0) return; if(CAPDLG.id!==id||!document.getElementById('capdlg')) CAPDLG.fcd=null; CAPDLG.id=id; CAPDLG.hire=capDlgPendingHire(id);
     const s=capDlgView(s0);
     let ov=document.getElementById('capdlg'); if(ov) ov.remove();
     ov=document.createElement('div'); ov.id='capdlg';
@@ -12575,6 +12575,19 @@ function capDlgOpen(id){
     capDlgSync();
   }catch(e){ console.error(e); showToast('⚠ Could not open the capacity change'); }
 }
+// First Client Day typed in the capacity dialog: re-render with it applied (other inputs kept)
+function capDlgFcd(v){
+  try{ const keep={w:(document.getElementById('capdlg-w')||{}).value, tier:(document.getElementById('capdlg-tier')||{}).value, note:(document.getElementById('capdlg-note')||{}).value,
+      when:(document.querySelector('input[name=capdlg-when]:checked')||{}).value, d:(document.getElementById('capdlg-d')||{}).value};
+    CAPDLG.fcd=v?String(v):''; const s0=capAdjStaff(CAPDLG.id); if(!s0) return; const box=document.querySelector('#capdlg [role=dialog]'); if(!box) return;
+    box.innerHTML=capDlgBody(capDlgView(s0));
+    const set=function(id,val){ const el=document.getElementById(id); if(el&&val!=null) el.value=val; }; set('capdlg-w',keep.w); set('capdlg-tier',keep.tier); set('capdlg-note',keep.note); set('capdlg-d',keep.d);
+    if(keep.when){ const r=document.querySelector('input[name=capdlg-when][value="'+keep.when+'"]'); if(r) r.checked=true; }
+    capDlgSync(); }catch(e){ console.error(e); }
+}
+// A new First Client Day can't put an existing capacity change inside the 90-day ramp
+function capFcdConflict(s0,sv){ try{ const ramp=capRampStartRaw(sv); const bad=(Array.isArray(s0._capHist)?s0._capHist:[]).find(function(h){ return h.from&&capRampCheck(sv,h.from,ramp).kind==='inside'; });
+    return bad?'With this First Client Day, the capacity change on <b>'+capUS(capDateOf(bad.from))+'</b> would fall inside the 90-day ramp. Remove that change first, or pick another date.':null; }catch(e){ return null; } }
 function capDlgClose(){ const ov=document.getElementById('capdlg'); if(ov) ov.remove(); }
 function capDlgBody(s){
   const hire=capDateOf(capRampStartRaw(s)), pp=capPPStartFor(), cur=parseFloat(s['Weekly Capacity'])||0;
@@ -12582,8 +12595,11 @@ function capDlgBody(s){
   const tl=capTimeline(s);
   const hist=tl.hist.length>1?'<div style="font-size:12.5px;margin-top:4px">'+tl.hist.map(function(h,i){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid #f1f2f4"><span><b>'+h.weekly+'</b> hrs/wk '+(i===0?(h.from?'from '+capUS(h.from):'to start'):'from '+capUS(h.from))+capHistExtra(h)+'</span>'+(i>0?'<button class="me-x" style="color:#b91c1c" onclick="capDlgDel('+i+')">Remove</button>':'')+'</div>'; }).join('')+'</div>':'<div class="muted" style="font-size:12.5px;margin-top:4px">'+cur+' hrs/wk — no changes recorded.</div>';
   return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="capdlg-h" style="margin:0;font-size:17px;color:#122B67">📈 Change capacity — '+hesc(s['Clinician']||'')+'</h3><button class="pr-x" onclick="capDlgClose()" aria-label="Close" style="font-size:20px;background:none;border:0;cursor:pointer">×</button></div>'
-    +'<div style="font-size:12.5px;color:#475569;margin-top:4px">Currently <b>'+cur+' hrs/wk</b>'+(hire?' · hired '+capUS(hire):'')+(hire&&capUsesRamp(s)?' · new-hire ramp '+capUS(hire)+' – '+capUS(new Date(capRampEnd(hire).getTime()-CAP_DAY_MS)):'')+'</div>'
+    +'<div style="font-size:12.5px;color:#475569;margin-top:4px">Currently <b>'+cur+' hrs/wk</b>'+(capDateOf(s['Date of Hire'])?' · hired '+capUS(capDateOf(s['Date of Hire'])):'')+(hire?' · first client day '+capUS(hire):'')+(hire&&capUsesRamp(s)?' · new-hire ramp '+capUS(hire)+' – '+capUS(new Date(capRampEnd(hire).getTime()-CAP_DAY_MS)):'')+'</div>'
     +(CAPDLG.hire?'<div style="font-size:12.5px;background:#fff8ee;border:1px solid #F2A54B;border-radius:8px;padding:7px 10px;margin-top:8px">Using the new hire date from the edit form (<b>'+capUS(capDateOf(CAPDLG.hire))+'</b>). It’s saved along with this change.</div>':'')
+    +(function(){ const fd=capDateOf(s['First Office Date']); return '<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:12px;background:#f4f7fb;border-radius:10px;padding:10px 12px">'
+        +'<label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">First Client Day<input id="capdlg-fcd" type="date" value="'+(fd?capISO(fd):'')+'" onchange="capDlgFcd(this.value)" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d4ddd7;border-radius:8px"></label>'
+        +'<div style="font-size:12px;color:#475569;flex:1;min-width:200px;padding-bottom:4px">The goal starts here and the 90-day new-hire ramp counts from this date. '+(fd?'':'<b>Not set — using the Date of Hire.</b> ')+'<button class="hs-link" style="margin:0" onclick="capDlgFcd(\'\')">'+(fd?'Clear (use hire date)':'')+'</button></div></div>'; })()
     +'<div style="display:flex;gap:12px;align-items:flex-end;margin-top:14px"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">New Weekly Capacity (hrs/week)<input id="capdlg-w" type="number" min="0" step="0.5" value="'+cur+'" oninput="capDlgSync()" style="font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d1d5db;border-radius:8px;width:150px"></label><span id="capdlg-bw" class="muted" style="font-size:12px;padding-bottom:9px"></span></div>'
     +(function(){ const ct=String(s['Capacity Tier']||''); return '<div style="display:flex;gap:12px;align-items:flex-end;margin-top:12px;flex-wrap:wrap"><label style="font-size:12px;font-weight:700;color:#334155;display:flex;flex-direction:column;gap:4px">Capacity tier <span style="font-weight:500;color:#6b7280">now: '+hesc(capTierLabel(ct)||'not set')+'</span>'
         +'<select id="capdlg-tier" onchange="capDlgSync()" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d4ddd7;border-radius:8px">'+(CONFIG.capacityOpts||[]).map(function(o){ return '<option value="'+hesc(o)+'"'+(o===ct?' selected':'')+'>'+(o?hesc(capTierLabel(o))+(o===ct?' (no tier change)':''):'— not set —')+'</option>'; }).join('')+'</select></label>'
@@ -12603,14 +12619,21 @@ function capDlgRead(){
   const from=when==='hire'?capISO(capDateOf(capRampStartRaw(s))):when==='pp'?capISO(capPPStartFor()):when==='date'?((document.getElementById('capdlg-d')||{}).value||''):'';
   const tier=(document.getElementById('capdlg-tier')||{}).value, oldT=String(s['Capacity Tier']||'');
   const note=String((document.getElementById('capdlg-note')||{}).value||'').trim();
-  return {s:s,s0:s0,w:w,when:when,from:from,tier:tier==null?oldT:tier,oldT:oldT,note:note,tierChg:tier!=null&&tier!==oldT};
+  const f0=capDateOf(s0['First Office Date']), fcdChg=CAPDLG.fcd!==null&&(CAPDLG.fcd||'')!==(f0?capISO(f0):'');
+  return {s:s,s0:s0,w:w,when:when,from:from,tier:tier==null?oldT:tier,oldT:oldT,note:note,tierChg:tier!=null&&tier!==oldT,fcdChg:fcdChg};
 }
 function capDlgSync(){
   try{
     const x=capDlgRead(); if(!x) return; const eff=document.getElementById('capdlg-eff'), btn=document.getElementById('capdlg-save'), bw=document.getElementById('capdlg-bw');
     if(bw) bw.textContent=isNaN(x.w)?'':'= '+Math.round(x.w*2)+' hrs per pay period';
     let msg='', ok=false, bad=false;
-    if(isNaN(x.w)||x.w<0){ msg='Enter the new weekly capacity.'; }
+    const cur0=parseFloat(x.s['Weekly Capacity'])||0, onlyFcd=x.fcdChg&&!x.when&&(isNaN(x.w)||x.w===cur0)&&!x.tierChg;
+    const fcdBad=x.fcdChg?capFcdConflict(x.s0,x.s):null;
+    if(fcdBad){ msg=fcdBad; bad=true; }
+    else if(onlyFcd){ const h=capDateOf(capRampStartRaw(x.s)); const now=new Date(), ye=new Date(CAP_YEAR_START.getFullYear(),CAP_YEAR_START.getMonth(),CAP_YEAR_START.getDate()+Math.round(CAP_YEAR_WEEKS*7)-1), r=function(v){ return Math.round(v).toLocaleString('en-US'); };
+      let eff=''; try{ eff='Goal to date '+r(capGoalTo(x.s0,now))+' → <b>'+r(capGoalTo(x.s,now))+'</b> hrs · '+CAP_YEAR+' goal '+r(capGoalTo(x.s0,ye))+' → <b>'+r(capGoalTo(x.s,ye))+'</b> hrs'; }catch(e){}
+      msg='First Client Day → <b>'+(h?capUS(h):'—')+'</b> · ramp '+(h?capUS(h)+' – '+capUS(new Date(capRampEnd(h).getTime()-CAP_DAY_MS)):'—')+'<div style="margin-top:4px">'+eff+'</div><div style="margin-top:4px">Save to recalculate the goal and the ramp.</div>'; ok=true; }
+    else if(isNaN(x.w)||x.w<0){ msg='Enter the new weekly capacity.'; }
     else if(!x.when){ msg='Choose when it starts.'; }
     else if(!x.from){ msg='Pick the start date.'; }
     else { const rc=capRampCheck(x.s,x.from);
@@ -12626,9 +12649,16 @@ function capDlgSync(){
 }
 async function capDlgSave(){
   try{
-    const x=capDlgRead(); if(!x||isNaN(x.w)||x.w<0||!x.from) return;
+    const x=capDlgRead(); if(!x) return;
+    const cur0=parseFloat(x.s0['Weekly Capacity'])||0, onlyFcd=x.fcdChg&&!x.when&&(isNaN(x.w)||x.w===cur0)&&!x.tierChg;
+    if(x.fcdChg){ const bad=capFcdConflict(x.s0,x.s); if(bad){ showToast('⚠ '+bad.replace(/<[^>]+>/g,'')); return; } }
+    if(onlyFcd){ const S=x.s0; if(CAPDLG.fcd) S['First Office Date']=CAPDLG.fcd; else delete S['First Office Date'];
+      delete CAP_GOAL_CACHE[S._id]; try{ await persistStaff(); }catch(e){}
+      capDlgClose(); capEfSyncAfterDlg(S); capRefreshViews(S._id); showToast('✅ First Client Day saved — goal and ramp recalculated'); return; }
+    if(isNaN(x.w)||x.w<0||!x.from) return;
     const rc=capRampCheck(x.s,x.from); if(rc.kind==='inside'){ showToast(capRampMsg(rc)); return; }
     const S=x.s0;
+    if(x.fcdChg){ if(CAPDLG.fcd) S['First Office Date']=CAPDLG.fcd; else delete S['First Office Date']; }
     if(CAPDLG.hire){
       const bad=(Array.isArray(S._capHist)?S._capHist:[]).find(function(h){ return h.from&&capRampCheck(S,h.from,CAPDLG.hire).kind==='inside'; });
       if(bad&&rc.kind!=='start'){ showToast('⚠ With the new hire date, the capacity change on '+capUS(capDateOf(bad.from))+' would fall inside the new-hire ramp. Remove it first.'); return; }
@@ -12665,7 +12695,7 @@ function capEfSyncAfterDlg(S){
   try{
     const grid=document.getElementById('m-edit-grid'); if(!grid||typeof currentId==='undefined'||currentId!==S._id) return;
     const set=function(id,v){ const el=grid.querySelector('#'+id); if(el) el.value=v; };
-    set('ef-weekly',String(S['Weekly Capacity']||'')); set('ef-biweekly',String(S['Biweekly Capacity']||'')); set('ef-hire',String(S['Date of Hire']||''));
+    set('ef-weekly',String(S['Weekly Capacity']||'')); set('ef-biweekly',String(S['Biweekly Capacity']||'')); set('ef-hire',String(S['Date of Hire']||'')); try{ const fd=capDateOf(S['First Office Date']); set('ef-office',fd?capISO(fd):''); }catch(e){}
     const hx=grid.querySelector('[data-caphist]'); if(hx) hx.innerHTML=capEfHistHtml(S);
     if(typeof capEfSync==='function') capEfSync();
   }catch(e){ console.error('capEfSyncAfterDlg',e); }
@@ -15386,7 +15416,7 @@ const PV2_CAT=[
   ['ben','Benefits & premiums',['See benefit plans and premiums.','Change plans, premiums and the practice’s share for full- and part-time staff.'],['none','view','manage'],0,1],
  ]],
  ['📊 Reports',[
-  ['rc','Insights & Reports',['See Attainment Tracking, Sessions & Peak Times, Office Utilization, Workforce Analysis and KPIs, and download CSVs.','Also rebuild report history from closed pay periods.'],['none','view','manage'],1],
+  ['rc','Insights & Reports',['See Clinical Hours & Attainment Tracking, Sessions & Peak Times, Office Utilization, Workforce Analysis and KPIs, and download CSVs.','Also rebuild report history from closed pay periods.'],['none','view','manage'],1],
   ['revn','Projected Revenue',['See projected revenue.','Change the revenue assumptions.'],['none','view','manage'],0,1],
  ]],
  ['⚙ Homebase Control Panel',[
@@ -16595,10 +16625,11 @@ async function renderAnnouncements(){
     +(v.length?v.map(function(n){ return '<div class="hn-card">'+newsCardHtml(n,true)+'</div>'; }).join(''):'<div class="hs-none" style="text-align:center;padding:30px">No announcements yet.</div>');
 }
 // ══ the page ══
-function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; try{ if(isAdminView()) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings']); }catch(e){} if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
+function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; try{ if(isAdminView()) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings'],['hrgoal','🎯 Clinical hours goal']); }catch(e){} if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
 // New permissions: one area per Homebase Control Panel section (Nov 18 2026)
 function pvHbmSections(){ const s=[], C=function(k,l){ return pvCan(k,l||'manage'); };
   if(C('mtg')) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings']);
+  if(C('rc')) s.push(['hrgoal','🎯 Clinical hours goal']);
   if(C('pnot')) s.push(['alerts','🔔 Practice notifications']); if(C('news')) s.push(['news','📣 News & announcements']); if(C('cal')) s.push(['events','📅 Events calendar']);
   if(C('loc')) s.push(['locations','📍 Locations']); if(C('obs')) s.push(['offices','🚪 Office settings']);
   if(C('perm','view')) s.push(['perm2','🔐 Roles & permissions']); if(pvIsSA()) s.push(['roles','🗂 Access levels (old system)']);
@@ -16609,7 +16640,7 @@ function hbmShell(body){
   const secs=hbmSections(); if(!secs.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Homebase Control Panel is for Admins.</div>'; return null; }
   if(!HBM.sec||!secs.some(function(x){ return x[0]===HBM.sec; })) HBM.sec=secs[0][0];
   // Side navigation (Nov 2026): sections grouped down the left instead of rows of tabs across the top.
-  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['Groups & meetings',['groups','mtgset']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
+  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['Groups & meetings',['groups','mtgset']],['Insights & goals',['hrgoal']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
   const by={}; secs.forEach(function(x){ by[x[0]]=x[1]; });
   const item=function(k){ const lab=by[k]; const m=String(lab).match(/^(\S+)\s+(.*)$/)||[0,'',lab];
     return '<button class="hbm-nl'+(HBM.sec===k?' on':'')+'" aria-current="'+(HBM.sec===k?'page':'false')+'" onclick="hbmGoSec(\''+k+'\')"><span class="ic" aria-hidden="true">'+m[1]+'</span><span>'+hesc(m[2])+'</span></button>'; };
@@ -20742,7 +20773,79 @@ function rcDates(){
 function rcRange(){ const D=rcDates(); return ALL_PPS.filter(function(x){ return x.endISO>=D.start&&x.startISO<=D.end; }); }
 function rcInDates(iso){ const D=rcDates(); return iso>=D.start&&iso<=D.end; }
 function rcSA(){ try{ return isSuperAdminView(); }catch(e){ return false; } }
-// ── Insights & Reports → 🎯 Attainment Tracking (Nov 16) ──
+// ── Practice clinical-hours goal per pay period (Nov 23 2026) ──
+// kv app_clinical_goal = {years:{YYYY:{cats:{ind,cpl,grp,oth}, at, by}}}; the pay-period goal = the sum of the category goals.
+// Edited in Homebase Control Panel → 🎯 Clinical hours goal (Insights & Reports = Manage; Admins in the old roles).
+const HRG_CATS=[['ind','Individual sessions','Individual, EMDR, crisis, intern, in-kind'],['cpl','Couples / family','90846 · 90847 · private-pay couples/family'],['grp','Groups','90853 — credited at attendees × .33'],['oth','Intake & other','Intakes, CANS, collateral, screening']];
+const HRG_DEFAULT={ind:1500,cpl:200,grp:150,oth:150};
+var HRG={doc:null,draft:null,sel:null};
+async function hrgLoad(){ if(HRG.doc) return HRG.doc; try{ const r=await window.storage.get('app_clinical_goal'); HRG.doc=r&&r.value?JSON.parse(r.value):{years:{}}; }catch(e){ HRG.doc={years:{}}; } if(!HRG.doc.years) HRG.doc.years={}; return HRG.doc; }
+function hrgYear(y){ const d=(HRG.doc&&HRG.doc.years&&HRG.doc.years[String(y)])||null; const c=Object.assign({},HRG_DEFAULT,(d&&d.cats)||{}); let t=0; HRG_CATS.forEach(function(k){ c[k[0]]=+c[k[0]]||0; t+=c[k[0]]; }); return {cats:c,total:t,saved:!!d,at:d&&d.at,by:d&&d.by}; }
+function hrgHeadCat(h){ h=String(h||''); if(/group/i.test(h)) return 'grp'; if(/couples|family/i.test(h)) return 'cpl'; if(/intake|cans|collat|screening/i.test(h)) return 'oth'; return 'ind'; }
+// Credited clinical hours per pay period for the whole practice (same numbers as the Capacity Dashboards) + category split from closed periods
+async function hrgActuals(){
+  const data=(typeof CLINICAL_HOURS_DATA!=='undefined')?CLINICAL_HOURS_DATA:null, n=data&&data.periodQuarter?data.periodQuarter.length:26, tot=new Array(n).fill(0), has=new Array(n).fill(false);
+  (STAFF||[]).forEach(function(st){ try{ const A=capActualPeriods(st); A.per.forEach(function(v,i){ if(i<=A.last&&(data.byId[st._id]||[])[i]!=null){ has[i]=true; } tot[i]+=v||0; }); }catch(e){} });
+  const cats={}; try{ const r=await window.storage.get('app_practice_stats'); const d=r&&r.value?JSON.parse(r.value):{};
+    Object.keys(d||{}).forEach(function(k){ if(k.slice(0,4)!==String(CAP_YEAR)) return; const i=+k.slice(5)-1, bh=(d[k]||{}).byHead||{}, o={ind:0,cpl:0,grp:0,oth:0};
+      Object.keys(bh).forEach(function(h){ o[hrgHeadCat(h)]+=((bh[h]||{}).clin||0)/100; }); cats[i]=o; }); }catch(e){}
+  return {tot:tot,has:has,cats:cats,prov:(data&&data.prov)||{}};
+}
+async function hrgChartHtml(){
+  try{ await hrgLoad(); const G=hrgYear(CAP_YEAR), A=await hrgActuals(), data=CLINICAL_HOURS_DATA;
+    const idx=[]; for(let i=0;i<A.tot.length;i++){ if(data.periodQuarter[i]<0) continue; if(A.has[i]&&A.tot[i]>0) idx.push(i); }
+    if(HRG.sel==null||idx.indexOf(HRG.sel)<0) HRG.sel=idx.length?idx[idx.length-1]:null;
+    const W=1000,H=300,top=30,bot=44,L=50,Rr=20,N=26,bw=(W-L-Rr)/N, mx=Math.max(G.total*1.25,...A.tot.map(function(v){ return v*1.1; })), y=function(v){ return top+(H-top-bot)*(1-v/mx); };
+    let svg='';
+    for(let i=0;i<N&&i<A.tot.length;i++){ if(data.periodQuarter[i]<0) continue; const x=L+i*bw, cx=x+bw/2, st=capParseDate(data.periods[i]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13);
+      if(i%2===0) svg+='<text x="'+cx+'" y="'+(H-bot+16)+'" text-anchor="middle" font-size="11" fill="#6b7280">PP'+(i+1)+'</text>';
+      if(!A.has[i]||!A.tot[i]) continue; const v=A.tot[i], ok=v>=G.total, col=ok?'#16a34a':'#122B67', sel=i===HRG.sel;
+      svg+='<g style="cursor:pointer" onclick="HRG.sel='+i+';renderReportCenter()"><title>PP'+(i+1)+' · '+(st.getMonth()+1)+'/'+st.getDate()+'–'+(en.getMonth()+1)+'/'+en.getDate()+': '+Math.round(v).toLocaleString('en-US')+' of '+G.total.toLocaleString('en-US')+' hrs ('+Math.round(v/G.total*100)+'%)'+(A.prov[i]?' · not closed yet':'')+'</title>'
+        +'<rect x="'+(x+bw*.15)+'" y="'+y(v)+'" width="'+(bw*.7)+'" height="'+(y(0)-y(v))+'" rx="3" fill="'+col+'"'+(A.prov[i]?' fill-opacity=".45" stroke="'+col+'" stroke-dasharray="3 2"':'')+(sel?' stroke="#F2A54B" stroke-width="3"':'')+'/>'
+        +'<text x="'+cx+'" y="'+(y(v)-5)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="'+col+'">'+(v>=1000?(Math.round(v/100)/10)+'k':Math.round(v))+'</text></g>'; }
+    svg+='<line x1="'+L+'" y1="'+y(G.total)+'" x2="'+(W-Rr)+'" y2="'+y(G.total)+'" stroke="#F2A54B" stroke-width="2.5" stroke-dasharray="7 5"/><text x="'+(W-Rr)+'" y="'+(y(G.total)-7)+'" text-anchor="end" font-size="12.5" font-weight="800" fill="#b45309" stroke="#fff" stroke-width="4" paint-order="stroke">Goal '+G.total.toLocaleString('en-US')+' hrs / pay period</text>'
+      +'<line x1="'+L+'" y1="'+y(0)+'" x2="'+(W-Rr)+'" y2="'+y(0)+'" stroke="#cbd5e1"/>';
+    // the selected pay period, broken down by category
+    let det='';
+    if(HRG.sel!=null){ const i=HRG.sel, v=A.tot[i], c=A.cats[i], st=capParseDate(data.periods[i]), en=new Date(st.getFullYear(),st.getMonth(),st.getDate()+13), pc=Math.round(v/G.total*100), col=v>=G.total?'#16a34a':'#b45309';
+      det='<div class="hrg-sel"><div class="hrg-selh"><div><div class="hrg-lab">PP'+(i+1)+' · '+(st.getMonth()+1)+'/'+st.getDate()+' – '+(en.getMonth()+1)+'/'+en.getDate()+(A.prov[i]?' · <span style="color:#b45309">not closed yet</span>':'')+'</div><div class="hrg-big">'+Math.round(v).toLocaleString('en-US')+' <small>of '+G.total.toLocaleString('en-US')+' hrs</small></div></div>'
+        +'<div class="hrg-pct" style="color:'+col+'">'+pc+'% of goal<small>'+(v>=G.total?'+'+Math.round(v-G.total).toLocaleString('en-US')+' hrs over':Math.round(G.total-v).toLocaleString('en-US')+' hrs short')+'</small></div></div>'
+        +(c?'<table class="hrg-t"><tr><th>Session category</th><th>Hours</th><th>Goal</th><th>% of goal</th></tr>'+HRG_CATS.map(function(k){ const a=c[k[0]]||0, g=G.cats[k[0]]||0, p=g>0?Math.round(a/g*100):null;
+            return '<tr><td>'+k[1]+'</td><td>'+Math.round(a).toLocaleString('en-US')+'</td><td>'+g.toLocaleString('en-US')+'</td><td><span class="hrg-bar"><i style="width:'+Math.min(100,p||0)+'%;background:'+(p!=null&&p>=100?'#16a34a':'#122B67')+'"></i></span> '+(p==null?'—':p+'%')+'</td></tr>'; }).join('')+'</table>'
+          :'<div class="cdx-muted" style="margin-top:6px">The category breakdown appears once this pay period is closed.</div>')+'</div>'; }
+    const done=idx.filter(function(i){ return !A.prov[i]; }), met=done.filter(function(i){ return A.tot[i]>=G.total; }).length;
+    return '<style>.hrg{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;margin-bottom:16px}.hrg-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}.hrg-h b{font-size:16px;color:#122B67}.hrg-h span{font-size:12.5px;color:#6b7280}'
+      +'.hrg-sel{border-top:1px solid #eef1f5;margin-top:10px;padding-top:12px}.hrg-selh{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap}.hrg-lab{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#8a8f9e}'
+      +'.hrg-big{font-size:28px;font-weight:800;color:#122B67}.hrg-big small{font-size:14px;color:#6b7280;font-weight:600}.hrg-pct{font-size:20px;font-weight:800;text-align:right}.hrg-pct small{display:block;font-size:12.5px;font-weight:600}'
+      +'.hrg-t{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}.hrg-t th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#8a8f9e;padding:6px 8px;border-bottom:1px solid #e8ecf3}.hrg-t td{padding:7px 8px;border-bottom:1px solid #f1f2f4}'
+      +'.hrg-bar{display:inline-block;width:90px;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:6px}.hrg-bar i{display:block;height:100%}</style>'
+      +'<div class="hrg"><div class="hrg-h"><b>Clinical hours by pay period · '+CAP_YEAR+'</b><span>whole practice · credited hours (same as the Capacity Dashboards) · goal '+G.total.toLocaleString('en-US')+' hrs per pay period'+(done.length?' · goal met in '+met+' of '+done.length+' closed pay periods':'')+'</span>'
+      +(hbmSections().some(function(x){ return x[0]==='hrgoal'; })?'<button class="hs-link" style="margin:0 0 0 auto" onclick="HBM.sec=\'hrgoal\';showPage(\'admin\',document.getElementById(\'nav-admin\'))">⚙ Change the goal</button>':'')+'</div>'
+      +'<div style="font-size:12px;color:#6b7280;margin-bottom:4px"><span style="color:#16a34a">■</span> met the goal · <span style="color:#122B67">■</span> under · dashed bar = uploaded, not closed yet · click a bar for its category breakdown</div>'
+      +(idx.length?'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block">'+svg+'</svg>':'<div class="cdx-muted" style="padding:24px 0;text-align:center">No pay periods with hours yet this year.</div>')+det+'</div>';
+  }catch(e){ console.error(e); return ''; }
+}
+// Homebase Control Panel → 🎯 Clinical hours goal
+async function hrgRender(sec){
+  try{ await hrgLoad(); const G=hrgYear(CAP_YEAR); if(!HRG.draft) HRG.draft=Object.assign({},G.cats);
+    const t=HRG_CATS.reduce(function(a,k){ return a+(+HRG.draft[k[0]]||0); },0);
+    sec.innerHTML='<div style="max-width:720px"><h2 style="margin:0 0 4px;color:#122B67;font-size:19px">🎯 Clinical hours goal · '+CAP_YEAR+'</h2>'
+      +'<div style="font-size:13px;color:#4b5563;margin-bottom:14px">The practice’s clinical-hours goal for <b>each pay period</b>, set by session category. The total is the sum of the categories. It drives the “Clinical hours by pay period” graph in Insights &amp; Reports → Clinical Hours &amp; Attainment Tracking. Hours are credited clinical hours (groups at attendees × .33).</div>'
+      +'<div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:6px 16px">'+HRG_CATS.map(function(k){ return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f2f4"><div style="flex:1"><b style="color:#122B67">'+k[1]+'</b><div style="font-size:12px;color:#6b7280">'+k[2]+'</div></div>'
+          +'<input type="number" min="0" step="10" value="'+(+HRG.draft[k[0]]||0)+'" oninput="HRG.draft[\''+k[0]+'\']=+this.value||0;hrgTotal()" style="width:110px;font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d4dbe6;border-radius:8px;text-align:right"><span style="font-size:12.5px;color:#6b7280;width:120px">hrs / pay period</span></div>'; }).join('')
+      +'<div style="display:flex;align-items:center;gap:12px;padding:12px 0"><div style="flex:1;font-weight:800;color:#122B67">Total goal per pay period</div><b id="hrg-total" style="font-size:20px;color:#122B67;width:110px;text-align:right">'+t.toLocaleString('en-US')+'</b><span style="font-size:12.5px;color:#6b7280;width:120px">hrs / pay period</span></div></div>'
+      +'<div style="display:flex;gap:10px;align-items:center;margin-top:14px"><button class="btn btn-primary" onclick="hrgSave()">Save goal</button><button class="btn btn-secondary" onclick="HRG.draft=Object.assign({},HRG_DEFAULT);hrgRender(document.getElementById(\'hbm-sec\'))">Reset to default (2,000)</button>'
+      +'<span style="font-size:12px;color:#6b7280">'+(G.saved?'Last saved '+(G.at?usDate(String(G.at).slice(0,10)):'')+(G.by?' by '+hesc(G.by):''):'Not saved yet — using the default 2,000 hrs per pay period.')+'</span></div></div>';
+  }catch(e){ console.error(e); sec.innerHTML='<div class="cdx-muted">Couldn’t load the clinical hours goal.</div>'; }
+}
+function hrgTotal(){ try{ const t=HRG_CATS.reduce(function(a,k){ return a+(+HRG.draft[k[0]]||0); },0); const el=document.getElementById('hrg-total'); if(el) el.textContent=t.toLocaleString('en-US'); }catch(e){} }
+async function hrgSave(){
+  try{ await hrgLoad(); const me=homeMe(); const cats={}; HRG_CATS.forEach(function(k){ cats[k[0]]=Math.max(0,+HRG.draft[k[0]]||0); });
+    const doc=JSON.parse(JSON.stringify(HRG.doc||{years:{}})); doc.years[String(CAP_YEAR)]={cats:cats,at:new Date().toISOString(),by:(me&&me['Clinician'])||''};
+    await window.storage.set('app_clinical_goal',JSON.stringify(doc)); HRG.doc=doc; HRG.draft=null; showToast('✓ Clinical hours goal saved'); hrgRender(document.getElementById('hbm-sec'));
+  }catch(e){ console.error(e); showToast('⚠ Could not save the goal'); }
+}
+// ── Insights & Reports → 🎯 Clinical Hours & Attainment Tracking (Nov 16; renamed + pay-period goal graph Nov 23) ──
 // Replaces the Clinical Hours Analysis tab: attainment (year to date, capCompute) on top — practice tiles, the site
 // leaderboard (from the archived Leadership Dashboard), every clinician's catch-up hours, capacity/tier changes and a
 // cross-check against their New Client Request in Intake Birdseye — then the clinical-hours charts (rcHoursHtml) below.
@@ -20785,7 +20888,8 @@ async function rcAttainHtml(){
   const nBehind=rows.filter(function(r){ return r.pct!=null&&r.pct<90; }).length, nTier=rows.filter(function(r){ return r.c.tierReview; }).length;
   const nMis=rows.filter(function(r){ return r.flags.some(function(f){ return /not taking|below catch-up|no Clinical Profile|no spots/.test(f.t); }); }).length;
   const tile=function(v,l,sub,col){ return '<div class="rca-tile"><b style="color:'+(col||'#122B67')+'">'+v+'</b><span>'+l+'</span>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
-  let h=rcHead('Attainment tracking · '+P.year+' year to date', RCA.site?rcEsc(rcTeamLab(RCA.site)):'Entire practice', ['% = clinical hours so far ÷ hours expected by today (ramp, leave and capacity changes included)'],
+  let h=(RCA.site?'':await hrgChartHtml());
+  h+=rcHead('Attainment tracking · '+P.year+' year to date', RCA.site?rcEsc(rcTeamLab(RCA.site)):'Entire practice', ['% = clinical hours so far ÷ hours expected by today (ramp, leave and capacity changes included)'],
     RCA.site?'<button class="btn btn-secondary" style="font-size:12px" onclick="RCA.site=\'\';renderReportCenter()">← All sites</button>':'');
   h+='<div class="rca-tiles">'+tile(score==null?'—':score+'%','attainment',Math.round(ytd)+' of '+Math.round(exp)+' hrs expected',capStatusColor(score))
     +tile(def>0.5?'+'+Math.round(def):'0','hrs to catch up',def>0.5?'over 90 days · ~'+defWk+'/wk':'on or ahead of pace',def>0.5?'#b45309':'#15803d')
@@ -20831,7 +20935,7 @@ async function renderReportCenter(){
   const body=document.getElementById('report-center-body'); if(!body) return;
   body.style.maxWidth='1240px';
   try{
-    const tabs='<div class="hb-tabs" style="margin-bottom:14px"><button class="hb-tab'+(RC.tab==='hours'?' on':'')+'" onclick="RC.tab=\'hours\';renderReportCenter()">🎯 Attainment Tracking</button><button class="hb-tab'+(RC.tab==='sessions'?' on':'')+'" onclick="RC.tab=\'sessions\';renderReportCenter()">📈 Sessions &amp; Peak Times</button><button class="hb-tab'+(RC.tab==='office'?' on':'')+'" onclick="RC.tab=\'office\';renderReportCenter()">🚪 Office Utilization</button><button class="hb-tab'+(RC.tab==='workforce'?' on':'')+'" onclick="RC.tab=\'workforce\';renderReportCenter()">👥 Workforce Analysis</button><button class="hb-tab'+(RC.tab==='kpi'?' on':'')+'" onclick="RC.tab=\'kpi\';renderReportCenter()">✅ KPIs</button>'+(rcSA()?'<button class="hb-tab'+(RC.tab==='revenue'?' on':'')+'" onclick="RC.tab=\'revenue\';renderReportCenter()">💲 Projected Revenue</button>':'')+'</div>';
+    const tabs='<div class="hb-tabs" style="margin-bottom:14px"><button class="hb-tab'+(RC.tab==='hours'?' on':'')+'" onclick="RC.tab=\'hours\';renderReportCenter()">🎯 Clinical Hours &amp; Attainment Tracking</button><button class="hb-tab'+(RC.tab==='sessions'?' on':'')+'" onclick="RC.tab=\'sessions\';renderReportCenter()">📈 Sessions &amp; Peak Times</button><button class="hb-tab'+(RC.tab==='office'?' on':'')+'" onclick="RC.tab=\'office\';renderReportCenter()">🚪 Office Utilization</button><button class="hb-tab'+(RC.tab==='workforce'?' on':'')+'" onclick="RC.tab=\'workforce\';renderReportCenter()">👥 Workforce Analysis</button><button class="hb-tab'+(RC.tab==='kpi'?' on':'')+'" onclick="RC.tab=\'kpi\';renderReportCenter()">✅ KPIs</button>'+(rcSA()?'<button class="hb-tab'+(RC.tab==='revenue'?' on':'')+'" onclick="RC.tab=\'revenue\';renderReportCenter()">💲 Projected Revenue</button>':'')+'</div>';
     if(RC.tab==='workforce'){ body.innerHTML=rcCss()+tabs+rcWorkforceHtml(); return; }
     if(RC.tab==='kpi'){ body.innerHTML=rcCss()+tabs+'<div class="hs-none">Loading KPIs…</div>'; const kh=await rcKpiHtml(); if(RC.tab==='kpi') body.innerHTML=rcCss()+tabs+kh; return; }
     if(rcSA()&&!(await rcEnsure(body,tabs))) return;

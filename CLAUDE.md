@@ -1061,3 +1061,25 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
   Re-saving Payroll Settings republishes the guide with delivery.
 - Nov 22 (later): the in person vs virtual card moved to the **Sessions & clients** tab (under the pie card; `capSessPane` appends
   `capDelCard(t)`); the No-shows tab is back to its two cards.
+
+## Nov 23 2026 — First Client Day in the Change capacity window
+- Confirmed: the capacity goal starts on the **First Client Day** (`First Office Date`) and the 90-day new-hire ramp counts from it
+  (`capRampStartRaw` → `capHireDate` → `capTimeline.hire` → `capDayGoal` = 0 before it); the Date of Hire is used only when First
+  Client Day is blank.
+- Change capacity dialog (`capDlgBody`) has a **First Client Day** date field (+ "Clear (use hire date)"). `capDlgFcd` re-renders the
+  dialog with it applied (`CAPDLG.fcd`, `capDlgView`), keeping typed values; the effect box shows the new ramp window and goal to date /
+  year goal before → after. It can be saved on its own (no capacity change needed) or together with a capacity change (`capDlgSave`).
+  Blocked if an existing capacity change would land inside the new ramp (`capFcdConflict`). An open Employee File edit form is updated
+  (`capEfSyncAfterDlg` sets `ef-office`). Header line now reads "hired … · first client day … · new-hire ramp …".
+
+## Nov 23 2026 — Clinical Hours & Attainment Tracking + practice clinical-hours goal ⚠ rules
+- Insights & Reports tab renamed **🎯 Clinical Hours & Attainment Tracking** (tab key still `hours`). Its first card is
+  **Clinical hours by pay period** (`hrgChartHtml`, practice-wide; hidden when a site is focused): one bar per pay period = the
+  practice's credited clinical hours (sum of `capActualPeriods` over all staff — same numbers as the Capacity Dashboards; open
+  uploaded periods drawn dashed "not closed yet"), dashed orange goal line, green = met. Click a bar (`HRG.sel`) → that pay period's
+  total vs goal and a table by session category (actual from kv app_practice_stats[ppId].byHead clin, closed periods only; heading →
+  category `hrgHeadCat`: group → Groups, couples/family → Couples/family, intake/CANS/collateral/screening → Intake & other, else
+  Individual) vs each category goal.
+- Goal: kv **app_clinical_goal** = {years:{YYYY:{cats:{ind,cpl,grp,oth}, at, by}}}; pay-period goal = sum of categories (default
+  1,500 / 200 / 150 / 150 = 2,000; `HRG_DEFAULT`). Edited in Homebase Control Panel → Insights & goals → **🎯 Clinical hours goal**
+  (`hrgRender`, `hrgSave`; Insights & Reports = Manage, or Admins in the old roles). firestore.rules kvArea maps app_clinical_goal → 'rc'.
