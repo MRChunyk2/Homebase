@@ -1198,3 +1198,32 @@ for it (Valant rows, manual groups, or meeting time), so these tabs work before 
 - Shown to Roles & permissions = View (manage to change) when the new permissions are on, and to Admins when they're off (with a note that
   they take effect when switched on). The old access-level dropdown stays below as **Sign-in level** (Super Admins only).
 - Blocked while Roles & permissions has unsaved staged changes (save/discard there first).
+
+## Nov 24 2026 — Roster search fix
+- `renderRoster` search was a raw substring of every value joined together: a name stored with a non-breaking or double space (common
+  from spreadsheet imports) never matched what people type, and a supervisor was buried under every supervisee whose "Supervisor" field
+  holds their name. Now (`rosterNorm`, `rosterNameText`, `rosterHay`): text is normalised (case, accents, non-breaking/double spaces,
+  punctuation), every typed word must appear (any order), legal/preferred/display names are searched, phone digits match without
+  formatting, the old raw match still works as a fallback, and people whose NAME matches are listed first.
+
+## Clinical profile questions editor (Nov 24 2026, c87)
+- **Homebase Control Panel → Intake → 🗂 Clinical profile questions** (`HBM.sec='ipq'`, `ipcRender`). Edits every list on the
+  Clinical Profile for Intake — ages, preferred client types, modalities (groups), client identities, life circumstances (groups),
+  diagnostic realms, therapist identities (groups) — plus **Wording & scales** (section titles, help text, scale labels/descriptions).
+- Who can edit (`ipcCanEdit`): new permissions = Manage on Clinical Profile for Intake (`ip`) or Intake Client (`birds`), or Super Admin;
+  old roles = Admins. Rules: kvArea `app_ip_config` → `ip`, plus `pvLv('birds') >= 2`.
+- Stored in kv **`app_ip_config`** = `{v, lists:{ages,prefTypes,mods:[[g,[..]]],cid,circ:[[g,[..]]],dx:[[realm,[..]]],idents:[[g,[..]]]},
+  txt:{key}, scale, idScale, renames:{sec:{old:new}}, retired:{sec:[..]}, added:{name:{at,sec}}, at, by}`. Missing parts fall back to
+  the built-in `IP_*` lists (snapshotted once in `ipcDefaults`). `ipcLoad()` runs in `ipLoad`, `ifLoad` and `loadHomeIpAlert`;
+  `ipcApply` reassigns IP_AGES, IP_PREF_TYPES, IP_MOD_GROUPS/IP_MODALITIES, IP_DX, IP_CLIENT_IDS (= IP_NO_DECLINE), IP_CIRC_GROUPS,
+  IP_POPS (circ items + identities not in a realm), IP_IDENTS, IP_LEVELS/IP_LV_DESC/IP_ID_LEVELS, IP_RENAMED, IP_RETIRED and IF_CLIENTS.
+- **Renames carry answers over** and are per section (renaming "Couples" in ages doesn't touch preferred types). Marks use IP_RENAMED;
+  arrays (ages, prefTypes, modalities, modCert, ident.list) use `ipcNormMore` (called from `ipNormMarks`), which also moves an
+  answer between `pop` and `dx` when an item lives in the other place now. Deleting an item retires it for that section (answers dropped).
+  Names are cleaned on save (`'` → `’`, no `\ < >`). Validation: no blanks/duplicates; an item can't be in both circ and dx, or cid and circ.
+- **New items** (`added`) → `ipcNewFor(p)`: items added after the clinician's `ipcSeen` (or `firstAt`, set on their first save).
+  Shown as a 🆕 row in Needs your attention (`loadHomeIpAlert`), an orange banner + NEW tags on their profile (`ipcNewBanner`,
+  `ipNewTag`, "✓ I’ve reviewed these" → `ipcReviewed` sets `ipcSeen`), a "Partly out of date" warning on Intake Client cards and a
+  "Partly out of date" table under Profiles to update (`ifNewRevHtml`).
+- **Intake Client**: search covers every list incl. preferred client types (`ifConcernKind` → "pref", boost only); new
+  "Browse every profile item" expander under Needs help with (`ifBrowseHtml`, `ifBrowseTog`); "Who" choices follow the ages list.

@@ -2721,6 +2721,10 @@ function srt(which,field){
 }
 
 // ── RENDER ROSTER ──
+function rosterNorm(v){ try{ return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[\u00a0\u2000-\u200b\u202f\u3000]/g,' ').replace(/[.,;:()'"“”‘’\/|_-]+/g,' ').replace(/\s+/g,' ').trim(); }catch(e){ return String(v||'').toLowerCase(); } }
+function rosterNameText(p){ try{ return (typeof staffNameKeys==='function'?staffNameKeys(p):[]).concat([p['Clinician'],p['Legal Name'],p['Preferred Name']]).filter(Boolean).join(' '); }catch(e){ return String(p['Clinician']||''); } }
+// every searchable value on the record (strings/numbers, one level into arrays) — not internal objects
+function rosterHay(p){ const out=[]; Object.keys(p||{}).forEach(function(k){ const v=p[k]; if(v==null) return; if(typeof v==='string'||typeof v==='number') out.push(v); else if(Array.isArray(v)) v.forEach(function(x){ if(typeof x==='string'||typeof x==='number') out.push(x); }); }); return out.join(' '); }
 function renderRoster(){
   // Add Employee is admin-only, and only meaningful on the full roster view.
   const _addBtn=document.getElementById('add-emp-btn');
@@ -2739,13 +2743,23 @@ function renderRoster(){
       : role==='supervisor' ? 'You and your supervisees' : role==='scoped' ? 'People you can see'
       : 'All clinicians and team members';
   }
-  const q=document.getElementById('roster-search').value.toLowerCase();
+  // Search (Nov 24 2026 fix): normalised (case, accents, non-breaking/double spaces, punctuation), every typed word must
+  // match somewhere (any order — "tower katelyn" works), and people whose NAME matches come first, so a supervisor isn't
+  // buried under all the supervisees whose "Supervisor" field also contains their name.
+  const qRaw=String(document.getElementById('roster-search').value||'').toLowerCase().trim(), qWords=rosterNorm(qRaw).split(' ').filter(Boolean), qDig=qRaw.replace(/\D/g,'');
+  const nameScore={};
   let data=STAFF.filter(p=>{
     if(vis && !vis.has(p._id)) return false;   // role scoping
     for(const {field} of ROSTER_F)if(rSel[field]&&p[field]!==rSel[field])return false;
-    if(q&&!Object.values(p).join(' ').toLowerCase().includes(q))return false;
+    if(qWords.length){
+      const nm=rosterNorm(rosterNameText(p)), all=nm+' '+rosterNorm(rosterHay(p));
+      const hay=rosterHay(p);
+      if(!qWords.every(w=>all.indexOf(w)>=0) && !hay.toLowerCase().includes(qRaw) && !(qDig.length>=4&&qDig.length===qRaw.replace(/[\s().+-]/g,'').length&&hay.replace(/\D/g,'').indexOf(qDig)>=0)) return false;
+      nameScore[p._id]=qWords.every(w=>(' '+nm).indexOf(' '+w)>=0)?2:qWords.every(w=>nm.indexOf(w)>=0)?1:0;
+    }
     return true;
-  }).sort((a,b)=>{const av=a[rSort.f]||'',bv=b[rSort.f]||'';return rSort.d==='asc'?av.localeCompare(bv,undefined,{numeric:true}):bv.localeCompare(av,undefined,{numeric:true});});
+  }).sort((a,b)=>{ if(qWords.length){ const d=(nameScore[b._id]||0)-(nameScore[a._id]||0); if(d) return d; }
+    const av=String(a[rSort.f]||''),bv=String(b[rSort.f]||'');return rSort.d==='asc'?av.localeCompare(bv,undefined,{numeric:true}):bv.localeCompare(av,undefined,{numeric:true});});
   const cc=document.getElementById('count-chip');
   cc.textContent=data.length+' records';
   cc.style.display = singleRecord ? 'none' : '';
@@ -3963,9 +3977,138 @@ function ipNormMarks(doc){
         if(!ipIsId(nk)&&v==="sf") v="exp";
         if(v) m[nk]=v; else delete m[nk]; }); });
   }catch(e){}
+  ipcNormMore(doc);
+  return doc;
+}
+// Control Panel list changes (Nov 24): renamed / deleted ages, preferred types, modalities and therapist identities,
+// and answers for items moved between Life Circumstances (pop) and a Diagnostic Realm (dx).
+function ipcNormMore(doc){
+  try{ if(!doc||typeof doc!=="object") return doc;
+    const fix=function(a,sec){ if(!Array.isArray(a)) return a; const M=IPC_REN[sec]||{}, R=IPC_RET[sec]||[], out=[];
+      a.forEach(function(x){ if(R.indexOf(x)>=0) return; const n=ipcRenIn(M,x); if(out.indexOf(n)<0) out.push(n); }); return out; };
+    doc.ages=fix(doc.ages,"ages"); doc.prefTypes=fix(doc.prefTypes,"prefTypes"); doc.modalities=fix(doc.modalities,"mods"); doc.modCert=fix(doc.modCert,"mods");
+    if(doc.ident&&Array.isArray(doc.ident.list)) doc.ident.list=fix(doc.ident.list,"idents");
+    const P=doc.pop, X=doc.dx; if(P&&X&&typeof P==="object"&&typeof X==="object"){
+      const inDx=function(n){ return Object.keys(IP_DX).some(function(r){ return IP_DX[r].indexOf(n)>=0; }); };
+      Object.keys(P).forEach(function(k){ if(IP_POPS.indexOf(k)<0&&inDx(k)){ if(!X[k]) X[k]=P[k]; delete P[k]; } });
+      Object.keys(X).forEach(function(k){ if(IP_POPS.indexOf(k)>=0&&!inDx(k)){ if(!P[k]) P[k]=X[k]; delete X[k]; } }); }
+  }catch(e){ console.error("ipcNormMore",e); }
   return doc;
 }
 function ipMarked(doc,v){ const out=[]; ["pop","dx"].forEach(function(g){ const m=(doc&&doc[g])||{}; Object.keys(m).forEach(function(k){ if(m[k]===v&&!ipIsId(k)) out.push(k); }); }); return out; }
+// ── Clinical profile questions: editable lists & wording (Nov 24 2026) ──
+// kv app_ip_config = {v:1, lists:{ages:[], prefTypes:[], mods:[[group,[items]]], cid:[], circ:[[group,[items]]], dx:[[realm,[items]]], idents:[[group,[items]]]},
+//   txt:{key:text}, scale:{low|""|exp|no:{l,d}}, idScale:{""|exp|sf:{l,d}}, renames:{sec:{old:new}}, retired:{sec:[names]},
+//   added:{name:{at,sec}}, at, by}. Edited in Homebase Control Panel → 🗂 Clinical profile questions (ipcRender).
+// Anything missing falls back to the built-in lists above. Renames carry clinicians' answers over (ipNormMarks);
+// deleted items drop their answers; added items show as NEW to each clinician until they review them (ipcNewFor).
+var IPC={doc:null, loaded:false, def:null, draft:null, sec:'ages', dirty:false, usage:null};
+var IPC_REN={}, IPC_RET={}, IPC_NEWSET={};
+var IPC_SECS=[['ages','🧩','Ages & client types','Clinical profile → Ages & Modalities. Also the “Who” choices in Intake Client.'],
+  ['prefTypes','📣','Preferred client types','New Client Request → “Client types you’d prefer right now”. Searchable in Intake Client.'],
+  ['mods','🛠','Modalities','Grouped. Clinicians mark “I use this” and “Hold certification or credentials”.'],
+  ['cid','🤝','Client identities','Rated Affirming / Experienced / Specialty focus. These can’t be declined.'],
+  ['circ','🧭','Life circumstances & special populations','Grouped. Rated Low / Moderate / High / Prefer not to treat.'],
+  ['dx','🎯','Diagnostic realms','Each realm is a group of diagnoses. Rated Low / Moderate / High / Prefer not to treat.'],
+  ['idents','🌈','Therapist identities (optional)','What therapists can choose to share about themselves. Intake can filter on these.'],
+  ['txt','✏️','Wording & scales','Section titles, help text and the rating scale labels.']];
+var IPC_TXT=[ // [key, where it shows, default]
+  ['t_ages','Section title · Ages & Modalities','Ages & Modalities'],
+  ['p_ages','Help text under that title','Your standing profile. Intake uses it to judge clinical fit for any referral.'],
+  ['h_ages','Heading · ages question','Ages and client types you see'],
+  ['h_mods','Heading · modalities question','Modalities you use or specialize in'],
+  ['s_mods','Help text · modalities','Check “I use this” for each approach you practice. Also check “Hold certification or credentials” when you’re formally trained or certified in it — Intake can match on that.'],
+  ['t_cid','Section title · Client identities','Client Identities'],
+  ['p_cid','Help text under that title','Every clinician gives affirming care. Mark where you go deeper. These can’t be declined.'],
+  ['t_circ','Section title · Life circumstances','Life Circumstances & Special Populations'],
+  ['p_circ','Help text under that title','How much experience and confidence you have with each one. “Prefer not” keeps these clients out of your Intake matches.'],
+  ['t_spec','Section title · Diagnostic realms','Diagnostic Realms & Exclusions'],
+  ['p_spec','Help text under that title','Your standing profile. Intake uses it to judge clinical fit for any referral.'],
+  ['t_ident','Section title · Therapist identities (menu)','Your Identities'],
+  ['h_ident','Page heading · Therapist identities','Identities you’d like to share'],
+  ['p_ident','Help text under that heading','Completely optional and never required. Some clients ask to work with a therapist who shares part of their identity — if you’d like intake to know about any of these as part of your clinical practice, choose them here. You can change or remove them any time.'],
+  ['h_pref','Heading · preferred client types (New Client Request)','Client types you’d prefer right now'],
+  ['s_pref','Help text · preferred client types','Preferences, not limits. Intake may still place a good fit for your clinical profile.']];
+function ipTxt(k){ try{ const t=IPC.doc&&IPC.doc.txt&&IPC.doc.txt[k]; if(t&&String(t).trim()) return String(t); }catch(e){} const d=IPC_TXT.find(function(x){ return x[0]===k; }); return d?d[2]:''; }
+// Default wording may carry bold; a custom version is plain text.
+function ipTxtH(k,html){ try{ const t=IPC.doc&&IPC.doc.txt&&IPC.doc.txt[k]; if(t&&String(t).trim()) return hesc(String(t)); }catch(e){} return html; }
+function ipLvLab(k){ const x=IP_LEVELS.find(function(o){ return o[0]===k; }); return x?x[1]:k; }
+function ipLvShort(o){ return (o[0]==="no"&&o[1]==="Prefer not to treat")?"Prefer not":o[1]; }
+function ipcRenIn(M,n){ let k=n, i=0; while(M&&M[k]&&M[k]!==k&&i<12){ k=M[k]; i++; } return k; }
+function ipcGroupsArr(o){ return Object.keys(o).map(function(k){ return [k,o[k].slice()]; }); }
+function ipcDefaults(){
+  if(IPC.def) return IPC.def;
+  IPC.def={ages:IP_AGES.slice(), prefTypes:IP_PREF_TYPES.slice(), mods:ipcGroupsArr(IP_MOD_GROUPS), cid:IP_CLIENT_IDS.slice(), circ:ipcGroupsArr(IP_CIRC_GROUPS), dx:ipcGroupsArr(IP_DX),
+    idents:IP_IDENTS.map(function(g){ return [g[0],g[1].slice()]; }), levels:JSON.parse(JSON.stringify(IP_LEVELS)), lvDesc:Object.assign({},IP_LV_DESC),
+    idLevels:JSON.parse(JSON.stringify(IP_ID_LEVELS)), levelLong:Object.assign({},IP_LEVEL_LONG), renamed:Object.assign({},IP_RENAMED), retired:IP_RETIRED.slice(),
+    clients:JSON.parse(JSON.stringify(IF_CLIENTS))};
+  return IPC.def;
+}
+// Every item name in one section of the current lists.
+function ipcNames(sec){ try{ const fl=function(o){ return [].concat.apply([],Object.keys(o).map(function(k){ return o[k]; })); };
+  return sec==='ages'?IP_AGES.slice():sec==='prefTypes'?IP_PREF_TYPES.slice():sec==='mods'?IP_MODALITIES.slice():sec==='cid'?IP_CLIENT_IDS.slice()
+    :sec==='circ'?fl(IP_CIRC_GROUPS):sec==='dx'?fl(IP_DX):sec==='idents'?[].concat.apply([],IP_IDENTS.map(function(g){ return g[1]; })):[]; }catch(e){ return []; } }
+function ipcApply(cfg){
+  try{
+    const D=ipcDefaults(), L=(cfg&&cfg.lists)||{};
+    const arr=function(a,d){ return (Array.isArray(a)?a:d).filter(function(x){ return typeof x==='string'&&x.trim(); }).map(function(x){ return x.trim(); }); };
+    const grp=function(a,d){ return (Array.isArray(a)?a:d).filter(function(g){ return Array.isArray(g)&&g[0]; }).map(function(g){ return [String(g[0]),arr(g[1],[])]; }); };
+    IP_AGES=arr(L.ages,D.ages); IP_PREF_TYPES=arr(L.prefTypes,D.prefTypes);
+    const mods=grp(L.mods,D.mods); IP_MOD_GROUPS={}; mods.forEach(function(g){ IP_MOD_GROUPS[g[0]]=g[1]; });
+    IP_MODALITIES=[].concat.apply([],mods.map(function(g){ return g[1]; }));
+    const dx=grp(L.dx,D.dx); IP_DX={}; dx.forEach(function(g){ IP_DX[g[0]]=g[1]; });
+    IP_CLIENT_IDS=arr(L.cid,D.cid); IP_NO_DECLINE=IP_CLIENT_IDS.slice();
+    const circ=grp(L.circ,D.circ); IP_CIRC_GROUPS={}; circ.forEach(function(g){ IP_CIRC_GROUPS[g[0]]=g[1]; });
+    // answers for identities that also sit in a diagnostic realm stay with the realm (e.g. Gender Identity Exploration)
+    const inDx=function(n){ return dx.some(function(g){ return g[1].indexOf(n)>=0; }); }, pops=[];
+    circ.forEach(function(g){ g[1].forEach(function(n){ if(pops.indexOf(n)<0) pops.push(n); }); });
+    IP_CLIENT_IDS.forEach(function(n){ if(!inDx(n)&&pops.indexOf(n)<0) pops.push(n); });
+    IP_POPS=pops;
+    IP_IDENTS=grp(L.idents,D.idents);
+    const sc=(cfg&&cfg.scale)||{}, is=(cfg&&cfg.idScale)||{}, s=function(o,f){ return o&&typeof o[f]==='string'?o[f].trim():''; };
+    IP_LEVELS=D.levels.map(function(x){ return [x[0], s(sc[x[0]],'l')||x[1]]; });
+    IP_LV_DESC={}; D.levels.forEach(function(x){ IP_LV_DESC[x[0]]=s(sc[x[0]],'d')||D.lvDesc[x[0]]; });
+    IP_LEVEL_LONG=Object.assign({},D.levelLong); D.levels.forEach(function(x){ if(s(sc[x[0]],'l')) IP_LEVEL_LONG[x[0]]=s(sc[x[0]],'l'); });
+    IP_ID_LEVELS=D.idLevels.map(function(x){ return [x[0], s(is[x[0]],'l')||x[1], s(is[x[0]],'d')||x[2]]; });
+    const R=(cfg&&cfg.renames)||{}, T=(cfg&&cfg.retired)||{};
+    IPC_REN={}; IPC_RET={};
+    IPC_SECS.forEach(function(x){ const k=x[0]; if(k==='txt') return; IPC_REN[k]=Object.assign({},R[k]||{}); const now=ipcNames(k); IPC_RET[k]=(Array.isArray(T[k])?T[k]:[]).filter(function(n){ return now.indexOf(n)<0; }); });
+    IP_RENAMED=Object.assign({},D.renamed,IPC_REN.cid,IPC_REN.circ,IPC_REN.dx);
+    const live=ipcNames('cid').concat(ipcNames('circ'),ipcNames('dx'));
+    IP_RETIRED=D.retired.concat(IPC_RET.cid,IPC_RET.circ,IPC_RET.dx).filter(function(n){ return live.indexOf(n)<0; });
+    // Intake Client "Who" choices follow the ages list; each keeps its preferred-type pairing
+    IF_CLIENTS=IP_AGES.map(function(a,i){ const d=D.clients.find(function(c){ return ipcRenIn(IPC_REN.ages,c.l)===a; });
+      const pref=d?ipcRenIn(IPC_REN.prefTypes,d.pref):(IP_PREF_TYPES.indexOf(a)>=0?a:'');
+      return {k:d?d.k:'a'+i+String(a).replace(/[^a-z0-9]/gi,'').slice(0,14), l:a, ages:[a], pref:pref}; });
+  }catch(e){ console.error('ipcApply',e); }
+}
+async function ipcLoad(force){
+  if(IPC.loaded&&!force) return IPC.doc;
+  try{ const r=window.storage?await window.storage.get('app_ip_config'):null; IPC.doc=r&&r.value?JSON.parse(r.value):null; }catch(e){ IPC.doc=null; }
+  IPC.loaded=true; ipcApply(IPC.doc); return IPC.doc;
+}
+// Items added in the Control Panel that this clinician hasn't reviewed yet.
+// Reviewed = they clicked "I've reviewed these" (ipcSeen) or first set up their profile after the item was added (firstAt).
+var IPC_TAB_OF={ages:'ages',mods:'ages',prefTypes:'req',cid:'cid',circ:'circ',dx:'spec',idents:'ident'};
+function ipcNewFor(p){
+  try{ if(!p||!p.updatedAt) return [];
+    const A=(IPC.doc&&IPC.doc.added)||{}, ref=String(p.ipcSeen||p.firstAt||'');
+    return Object.keys(A).filter(function(n){ const a=A[n]; return a&&a.at&&(!ref||a.at>ref)&&ipcNames(a.sec).indexOf(n)>=0; })
+      .map(function(n){ return {n:n, sec:A[n].sec, at:A[n].at}; });
+  }catch(e){ return []; }
+}
+function ipNewTag(n){ return IPC_NEWSET&&IPC_NEWSET[n]?' <span class="ip-newtag">NEW</span>':''; }
+function ipcSecLabel(k){ const x=IPC_SECS.find(function(s){ return s[0]===k; }); return x?x[2]:k; }
+function ipcNewBanner(ro){
+  try{ const nw=ipcNewFor(IP_DOC); if(!nw.length) return '';
+    return '<div class="ip-newban" role="status"><div style="flex:1;min-width:0"><b>🆕 '+nw.length+' new item'+(nw.length===1?'':'s')+' on the Clinical Profile for Intake.</b> Set your level for each one (or leave the default), then mark them reviewed.'
+      +'<div class="ip-newlist">'+nw.map(function(x){ const q=hesc(x.n);
+        const go=(x.sec==='cid'||x.sec==='circ'||x.sec==='dx')?"ipJump(this.dataset.n)":"ipTab('"+(IPC_TAB_OF[x.sec]||'ages')+"')";
+        return '<button class="ip-newchip" data-n="'+q+'" onclick="'+go+'">'+q+' <small>'+hesc(ipcSecLabel(x.sec))+'</small></button>'; }).join('')+'</div></div>'
+      +(ro?'':'<button class="btn btn-primary" style="white-space:nowrap" onclick="ipcReviewed()">✓ I’ve reviewed these</button>')+'</div>';
+  }catch(e){ console.error('ipcNewBanner',e); return ''; }
+}
+function ipcReviewed(){ try{ if(!ipCanEdit()) return; IP_DOC.ipcSeen=new Date().toISOString(); ipSave(); }catch(e){ console.error('ipcReviewed',e); } }
 var IP_STATUS={
   open:{l:"Taking new clients",     c:"#15803d", bg:"#dcfce7"},
   full:{l:"Not taking new clients", c:"#b91c1c", bg:"#fee2e2"}
@@ -4032,6 +4175,7 @@ async function ipPick(sid){
   IP_SID=sid; IP_DOC=null; renderIntakeProfile();
 }
 async function ipLoad(){
+  try{ await ipcLoad(); }catch(e){}
   if(!window.ipStore){ IP_DOC=ipBlank(); IP_SAVED=JSON.stringify(IP_DOC); return; }
   const d=await window.ipStore.get(IP_SID);
   IP_DOC=Object.assign(ipBlank(), d||{});
@@ -4052,6 +4196,7 @@ async function renderIntakeProfile(){
   if(!IP_DOC){ body.innerHTML='<div class="ip-empty">Loading profile…</div>'; await ipLoad(); }
   const s=STAFF.find(function(x){return x._id===IP_SID;})||{};
   const ro=!ipCanEdit();
+  try{ IPC_NEWSET={}; ipcNewFor(IP_DOC).forEach(function(x){ IPC_NEWSET[x.n]=1; }); }catch(e){ IPC_NEWSET={}; }
   const people=ipPeople();
   const picker=(people.length>1)
     ?'<label class="ip-picker"><span>Clinician</span><select onchange="ipPick(this.value)">'+people.map(function(p){return '<option value="'+hesc(p._id)+'"'+(p._id===IP_SID?' selected':'')+'>'+hesc(p["Clinician"]||p._id)+'</option>';}).join("")+'</select></label>':"";
@@ -4061,11 +4206,11 @@ async function renderIntakeProfile(){
   const reqStatus = age===null?{t:"Not set up yet",k:"never"}:age>=IP_STALE_DAYS?{t:"Updated "+age+" days ago — needs a refresh",k:"stale"}:{t:(age===0?"Updated today":"Updated "+age+" day"+(age===1?"":"s")+" ago"),k:"ok"};
   const sections=[
     {k:"req", ic:"📣", t:"New Client Request", st:reqStatus.t, tone:reqStatus.k},
-    {k:"ages",ic:"🧩", t:"Ages & Modalities",  st:miss.length?"Missing "+miss.join(" & "):IP_DOC.ages.length+" ages · "+IP_DOC.modalities.length+" modalities", tone:miss.length?"warn":"ok"},
-    {k:"cid", ic:"🤝", t:"Client Identities", st:ipIdMarked(IP_DOC,"sf").length+" specialty · "+ipIdMarked(IP_DOC,"exp").length+" experienced", tone:"plain"},
-    {k:"circ",ic:"🧭", t:"Life Circumstances & Special Populations", st:(function(){ const P=IP_DOC.pop||{}, a=IP_POPS.filter(function(n){return !ipIsId(n);}); const f=function(v){return a.filter(function(n){return P[n]===v;}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
-    {k:"spec",ic:"🎯", t:"Diagnostic Realms & Exclusions", st:(function(){ const D=IP_DOC.dx||{}; const f=function(v){return Object.keys(D).filter(function(n){return D[n]===v&&!ipIsId(n);}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
-    {k:"ident",ic:"🌈", t:"Identities (optional)", st:((IP_DOC.ident&&IP_DOC.ident.list)||[]).length?((IP_DOC.ident.list||[]).length+" shared"):"Optional — nothing shared", tone:"plain"}];
+    {k:"ages",ic:"🧩", t:ipTxt("t_ages"),  st:miss.length?"Missing "+miss.join(" & "):IP_DOC.ages.length+" ages · "+IP_DOC.modalities.length+" modalities", tone:miss.length?"warn":"ok"},
+    {k:"cid", ic:"🤝", t:ipTxt("t_cid"), st:ipIdMarked(IP_DOC,"sf").length+" specialty · "+ipIdMarked(IP_DOC,"exp").length+" experienced", tone:"plain"},
+    {k:"circ",ic:"🧭", t:ipTxt("t_circ"), st:(function(){ const P=IP_DOC.pop||{}, a=IP_POPS.filter(function(n){return !ipIsId(n);}); const f=function(v){return a.filter(function(n){return P[n]===v;}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
+    {k:"spec",ic:"🎯", t:ipTxt("t_spec"), st:(function(){ const D=IP_DOC.dx||{}; const f=function(v){return Object.keys(D).filter(function(n){return D[n]===v&&!ipIsId(n);}).length;}; return f("exp")+" high · "+f("low")+" low · "+f("no")+" prefer not"; })(), tone:"plain"},
+    {k:"ident",ic:"🌈", t:ipTxt("t_ident")+" (optional)", st:((IP_DOC.ident&&IP_DOC.ident.list)||[]).length?((IP_DOC.ident.list||[]).length+" shared"):"Optional — nothing shared", tone:"plain"}];
   const nav='<nav class="ip-nav" aria-label="Profile sections">'+sections.map(function(x){
     return '<button class="ip-navi ip-navi-'+x.k+(IP_TAB===x.k?' on':'')+'" aria-current="'+(IP_TAB===x.k)+'" onclick="ipTab(\''+x.k+'\')">'
       +'<span class="ip-navic" aria-hidden="true">'+x.ic+'</span><span class="ip-navtx"><span class="t">'+x.t+'</span>'
@@ -4092,7 +4237,7 @@ async function renderIntakeProfile(){
     +'<div class="ip-spbar"><i style="width:'+Math.round(nDone/req4.length*100)+'%"></i></div>'
     +steps.map(function(x,i){ const d=isDone(x.k), on=IP_TAB===x.k;
       return '<button class="ip-st'+(d?' done':'')+(on?' on':'')+'" aria-current="'+on+'" onclick="ipTab(\''+x.k+'\')"><span class="n">'+(i+1)+'</span><span class="tx"><span class="t">'
-        +(x.k==="ident"?'Your Identities <em>(optional)</em>':hesc(x.t))+'</span><span class="s tone-'+x.tone+'">'+hesc(x.st)+'</span></span></button>'; }).join('')
+        +(x.k==="ident"?hesc(ipTxt("t_ident"))+' <em>(optional)</em>':hesc(x.t))+'</span><span class="s tone-'+x.tone+'">'+hesc(x.st)+'</span></span></button>'; }).join('')
     +'</div></aside>';
   const cur=sections.find(function(x){ return x.k===IP_TAB; })||sections[0];
   const head='<div class="ip-head">'+avatarHtml(s["Clinician"]||"",IP_SID,48)
@@ -4104,25 +4249,25 @@ async function renderIntakeProfile(){
   let content;
   const statusLine='<div class="ip-tabstatus tone-'+cur.tone+'">'+((cur.tone==="stale"||cur.tone==="never"||cur.tone==="warn")?'● ':'')+hesc(cur.st)+'</div>';
   if(IP_TAB==="cid"){
-    content='<div class="ip-mainhead"><h2>🤝 Client Identities</h2><p>Every clinician gives affirming care. Mark where you go deeper. These can’t be declined.</p></div>'
+    content='<div class="ip-mainhead"><h2>🤝 '+hesc(ipTxt("t_cid"))+'</h2><p>'+hesc(ipTxt("p_cid"))+'</p></div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipCidHtml(ro)+ipOtherHtml("cid",ro)+'</div>';
   } else if(IP_TAB==="circ"){
-    content='<div class="ip-mainhead"><h2>🧭 Life Circumstances &amp; Special Populations</h2><p>How much experience and confidence you have with each one. “Prefer not” keeps these clients out of your Intake matches.</p></div>'
+    content='<div class="ip-mainhead"><h2>🧭 '+hesc(ipTxt("t_circ"))+'</h2><p>'+hesc(ipTxt("p_circ"))+'</p></div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipCircHtml(ro)+ipOtherHtml("circ",ro)+'</div>';
   } else if(IP_TAB==="spec"){
-    content='<div class="ip-mainhead"><h2>Diagnostic Realms &amp; Exclusions</h2><p>Your standing profile. Intake uses it to judge clinical fit for any referral.</p>'+statusLine+'</div>'
+    content='<div class="ip-mainhead"><h2>'+hesc(ipTxt("t_spec"))+'</h2><p>'+hesc(ipTxt("p_spec"))+'</p>'+statusLine+'</div>'
       +'<div class="ip-specwrap"><div class="ip-specside">'+ipSpecSummaryHtml(ro)+'</div><div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipSpecHtml(ro)+ipOtherHtml("dx",ro)+'</div></div>';
   } else if(IP_TAB==="ages"){
-    content='<div class="ip-mainhead"><h2>Ages &amp; Modalities</h2><p>Your standing profile. Intake uses it to judge clinical fit for any referral.</p>'+statusLine+'</div>'
+    content='<div class="ip-mainhead"><h2>'+hesc(ipTxt("t_ages"))+'</h2><p>'+hesc(ipTxt("p_ages"))+'</p>'+statusLine+'</div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipAgesHtml(ro)+'</div>';
   } else if(IP_TAB==="ident"){
-    content='<div class="ip-mainhead"><h2>Identities you’d like to share <span class="ip-opt">Optional</span></h2><p>Completely optional and never required. Some clients ask to work with a therapist who shares part of their identity — if you’d like intake to know about any of these as part of your clinical practice, choose them here. You can change or remove them any time.</p></div>'
+    content='<div class="ip-mainhead"><h2>'+hesc(ipTxt("h_ident"))+' <span class="ip-opt">Optional</span></h2><p>'+hesc(ipTxt("p_ident"))+'</p></div>'
       +'<div class="ip-panel ip-panel-solo'+(ro?' ro':'')+'">'+ipIdentHtml(ro)+'</div>';
   } else content=(IP_REQCHG&&ipDirty()&&!ro?'<div class="ip-chg" role="status"><span>You switched to <b>'+(IP_DOC.status==="full"?'Not taking new clients':'Taking new clients')+'</b>. Check the details below, then confirm.</span><button class="btn btn-primary" onclick="ipReqConfirm()">✓ Confirm request</button></div>':'')
       +ipStampHtml(s,ro)+ipRequestHtml(ro);
   const bottomSave=ro?'':'<div class="ip-mainsave"><span class="ip-muted" id="ip-save2-note">'+(ipDirty()?'You have unsaved changes':'All changes saved')+'</span>'
     +'<button class="btn btn-primary" id="ip-save2" onclick="ipSave()"'+(ipDirty()?'':' disabled')+'>💾 Save'+(ipDirty()?' changes':'d')+'</button></div>';
-  body.innerHTML=ipCss()+'<div class="ip-wrap">'+head+'<div class="ip-layout">'+rail+'<div class="ip-main">'+content+bottomSave+'</div></div></div>';
+  body.innerHTML=ipCss()+'<div class="ip-wrap">'+head+'<div class="ip-layout">'+rail+'<div class="ip-main">'+ipcNewBanner(ro)+content+bottomSave+'</div></div></div>';
   ipBindGrid();
 }
 // Big "days since you updated" stamp at the top of the profile.
@@ -4170,7 +4315,7 @@ function ipIdentAdd(){ try{ if(!ipCanEdit()) return; const el=document.getElemen
   a.push(v); renderIntakeProfile(); setTimeout(function(){ const e=document.getElementById('ip-ident-add'); if(e) e.focus(); },30); }catch(e){ console.error('ipIdentAdd',e); } }
 function ipIdentHtml(ro){
   const I=IP_DOC.ident||{list:[],other:''}, on=I.list||[], custom=on.filter(function(v){ return !ipIdentBuiltIn(v); });
-  const chip=function(v,sel){ return '<button class="ip-chip'+(sel?' on':'')+'"'+(ro?' disabled':'')+' aria-pressed="'+sel+'" onclick="ipIdentToggle(\''+hesc(v).replace(/'/g,"&#39;")+'\')">'+(sel?'✓ ':'')+hesc(v)+'</button>'; };
+  const chip=function(v,sel){ return '<button class="ip-chip'+(sel?' on':'')+'"'+(ro?' disabled':'')+' aria-pressed="'+sel+'" onclick="ipIdentToggle(\''+hesc(v).replace(/'/g,"&#39;")+'\')">'+(sel?'✓ ':'')+hesc(v)+ipNewTag(v)+'</button>'; };
   return IP_IDENTS.map(function(g){ return '<div class="ip-sec"><div class="ip-lbl">'+hesc(g[0])+'</div><div class="ip-chips">'+g[1].map(function(v){ return chip(v,on.indexOf(v)>=0); }).join('')+'</div></div>'; }).join('')
     +'<div class="ip-sec"><div class="ip-lbl">Other <span class="ip-muted" style="font-weight:500">(optional — add your own)</span></div><div class="ip-chips">'
       +custom.map(function(v){ return '<button class="ip-chip on"'+(ro?' disabled':'')+' title="Remove" onclick="ipIdentToggle(\''+hesc(v).replace(/'/g,"&#39;")+'\')">✓ '+hesc(v)+' ×</button>'; }).join('')
@@ -4204,10 +4349,10 @@ function ipRequestHtml(ro){
       +'<div class="ip-reqcell ip-opn"><label class="ip-h" for="ip-openings">How many new clients?</label>'
         +'<input id="ip-openings" type="number" min="0" max="40" inputmode="numeric"'+dis+' value="'+hesc(IP_DOC.openings)+'" oninput="ipField(\'openings\',this.value)" class="ip-in"></div>'
       +'</div>')
-    +sec(2,'Who you’d like','<fieldset class="ip-pref"><legend class="ip-h">Client types you’d prefer right now</legend>'
-      +'<div class="ip-sub">Preferences, not limits. Intake may still place a good fit for your clinical profile.</div>'
+    +sec(2,'Who you’d like','<fieldset class="ip-pref"><legend class="ip-h">'+hesc(ipTxt("h_pref"))+'</legend>'
+      +'<div class="ip-sub">'+hesc(ipTxt("s_pref"))+'</div>'
       +'<div class="ip-chipset">'+IP_PREF_TYPES.map(function(t,i){const on=IP_DOC.prefTypes.indexOf(t)>=0;
-        return '<label class="ip-chip ip-pchip'+(on?' on':'')+'"><input type="checkbox" id="ip-pref-'+i+'"'+(on?' checked':'')+dis+' onchange="ipToggle(\'prefTypes\',\''+hesc(t)+'\')">'+(on?'✓ ':'')+hesc(t)+'</label>';}).join("")+'</div></fieldset>'
+        return '<label class="ip-chip ip-pchip'+(on?' on':'')+'"><input type="checkbox" id="ip-pref-'+i+'"'+(on?' checked':'')+dis+' onchange="ipToggle(\'prefTypes\',\''+hesc(t)+'\')">'+(on?'✓ ':'')+hesc(t)+ipNewTag(t)+'</label>';}).join("")+'</div></fieldset>'
       +'<div class="ip-reqcell"><label class="ip-h" for="ip-wants">Anything Intake should know?</label>'
       +'<textarea id="ip-wants" class="ip-in" rows="2" placeholder="Clients you’d like, upcoming leave, a waitlist, scheduling limits… e.g. Teens with anxiety. Out Dec 20–Jan 2."'+dis+' oninput="ipField(\'wants\',this.value)">'+hesc(IP_DOC.wants)+'</textarea></div>')
     +sec(3,'When you’re open','<div class="ip-reqcell">'+ipAvailHtml(ro)+'</div>')
@@ -4345,17 +4490,17 @@ function ipAgesHtml(ro){
         +list.map(function(m){
           const u=IP_DOC.modalities.indexOf(m)>=0, ce=IP_DOC.modCert.indexOf(m)>=0, id="ipm-"+IP_MODALITIES.indexOf(m);
           return '<div class="ip-mrow'+(u?' is-on':'')+'" role="row">'
-            +'<span class="ip-mname" role="cell">'+hesc(m)+(ce?' <span class="ip-cert">Certified</span>':'')+'</span>'
+            +'<span class="ip-mname" role="cell">'+hesc(m)+ipNewTag(m)+(ce?' <span class="ip-cert">Certified</span>':'')+'</span>'
             +'<label class="ip-mcb" role="cell"><input type="checkbox" id="'+id+'-u"'+(u?' checked':'')+dis+' onchange="ipMod(\''+hesc(m)+'\',\'use\',this.checked)"><span class="sr">I use '+hesc(m)+'</span></label>'
             +'<label class="ip-mcb" role="cell"><input type="checkbox" id="'+id+'-c"'+(ce?' checked':'')+dis+' onchange="ipMod(\''+hesc(m)+'\',\'cert\',this.checked)"><span class="sr">Certified in '+hesc(m)+'</span></label>'
             +'</div>';}).join("")
         +'</div>':'')
       +'</div>';
   });
-  return '<div class="ip-sec"><div class="ip-h">Ages and client types you see</div>'
-    +'<div class="ip-chipset">'+IP_AGES.map(function(a){const on=IP_DOC.ages.indexOf(a)>=0;return '<button'+dis+' class="ip-chip'+(on?' on':'')+'" onclick="ipToggle(\'ages\',\''+hesc(a)+'\')">'+hesc(a)+'</button>';}).join("")+'</div></div>'
-    +'<div class="ip-sec"><div class="ip-h">Modalities you use or specialize in</div>'
-    +'<div class="ip-sub">Check <strong>I use this</strong> for each approach you practice. Also check <strong>Hold certification or credentials</strong> when you’re formally trained or certified in it — Intake can match on that.</div>'
+  return '<div class="ip-sec"><div class="ip-h">'+hesc(ipTxt("h_ages"))+'</div>'
+    +'<div class="ip-chipset">'+IP_AGES.map(function(a){const on=IP_DOC.ages.indexOf(a)>=0;return '<button'+dis+' class="ip-chip'+(on?' on':'')+'" onclick="ipToggle(\'ages\',\''+hesc(a)+'\')">'+hesc(a)+ipNewTag(a)+'</button>';}).join("")+'</div></div>'
+    +'<div class="ip-sec"><div class="ip-h">'+hesc(ipTxt("h_mods"))+'</div>'
+    +'<div class="ip-sub">'+ipTxtH("s_mods",'Check <strong>I use this</strong> for each approach you practice. Also check <strong>Hold certification or credentials</strong> when you’re formally trained or certified in it — Intake can match on that.')+'</div>'
     +groups
     +'<div style="margin-top:14px"><label class="ip-h" for="ip-modother" style="font-size:13px">Other modalities or certifications not listed</label>'
     +'<input id="ip-modother" class="ip-in" placeholder="e.g. Certified Clinical Trauma Professional (CCTP), Daring Way facilitator"'+dis+' value="'+hesc(IP_DOC.modOther||"")+'" oninput="ipField(\'modOther\',this.value)"></div>'
@@ -4392,7 +4537,7 @@ function ipSpecSummaryHtml(ro){
     return '<div class="ip-sidebox '+cls+'"><div class="ip-sideh">'+lab+' <span>'+arr.length+'</span></div>'
       +(arr.length?'<ul class="ip-sumlist">'+arr.map(function(n){return sumRow(n,cls);}).join("")+'</ul>':'<div class="ip-none">None marked yet</div>')+'</div>'; };
   const summary='<aside class="ip-dxside" aria-label="Your selections">'
-    +box("exp","exp","▲ High")+box("low","low","▼ Low")+box("no","no","Prefer not to treat")
+    +box("exp","exp","▲ "+hesc(ipLvLab("exp")))+box("low","low","▼ "+hesc(ipLvLab("low")))+box("no","no",hesc(ipLvLab("no")))
     +'</aside>';
   return summary;
 }
@@ -4423,15 +4568,15 @@ function ipSpecHtml(ro){
     title='<div class="ip-realmtitle '+(IP_REALM===IP_POP_REALM?'pop':'dx')+'"><span class="ip-realmeyebrow">'+(IP_REALM===IP_POP_REALM?'👥 Populations':'🧠 Diagnostic realm')+'</span>'+hesc(IP_REALM)+(IP_REALM===IP_POP_REALM?'<small>Populations you specialize in, or circumstances you don’t work with</small>':'')
       +(ro?'':'<button class="ip-linkbtn" onclick="ipRealmReset()" title="Set every item in this realm back to Moderate">Reset realm</button>')+'</div>';
   }
-  const opts=[["low","Low"],["","Moderate"],["exp","High"],["no","Prefer not to treat"]];
+  const opts=IP_LEVELS;
   const list=rows.length?'<div class="ip-dxlist">'+rows.map(function(row,i){
       const g=ipRealmGroup(row.r), v=IP_DOC[g][row.n]||"", nm="ipdx-"+i, canNo=ipCanDecline(row.n);
       return '<div class="ip-lvrow lv-'+(v||"mod")+'">'
-        +'<div class="ip-lvname">'+hesc(row.n)+(IP_DXQ?'<small>'+hesc(row.r)+'</small>':'')+'</div>'
+        +'<div class="ip-lvname">'+hesc(row.n)+ipNewTag(row.n)+(IP_DXQ?'<small>'+hesc(row.r)+'</small>':'')+'</div>'
         +'<div class="ip-lv" role="radiogroup" aria-label="'+hesc(row.n)+' — experience / confidence level">'+opts.map(function(o,j){
           if(o[0]==="no"&&!canNo) return '<span class="ip-lvo ip-lvgap" aria-hidden="true"></span>';
           return '<label class="ip-lvo'+(o[0]?' '+o[0]:' mod')+(v===o[0]?' on':'')+'"><input type="radio" name="'+nm+'" id="'+nm+'-'+j+'"'+(v===o[0]?' checked':'')+(ro?' disabled':'')
-            +' onchange="ipSetDx(\''+g+'\',\''+hesc(row.n).replace(/'/g,"&#39;")+'\',\''+o[0]+'\')"><span>'+(o[0]==="no"?'Prefer not':o[1])+'</span></label>';}).join("")+'</div>'
+            +' onchange="ipSetDx(\''+g+'\',\''+hesc(row.n).replace(/'/g,"&#39;")+'\',\''+o[0]+'\')"><span>'+ipLvShort(o)+'</span></label>';}).join("")+'</div>'
         +'</div>';}).join("")+'</div>'
     :'<div class="ip-none" style="padding:18px 4px">Nothing matches. Try a different word.</div>';
 
@@ -4441,16 +4586,16 @@ function ipSpecHtml(ro){
 }
 // Level descriptions shown above each rating list.
 function ipLvLegend(ids){
-  const L=ids?IP_ID_LEVELS.map(function(x){return [x[0]||"aff",x[1],x[2]];}):IP_LEVELS.map(function(x){return [x[0]||"mod",x[0]==="no"?"Prefer not":x[1],IP_LV_DESC[x[0]]];});
+  const L=ids?IP_ID_LEVELS.map(function(x){return [x[0]||"aff",x[1],x[2]];}):IP_LEVELS.map(function(x){return [x[0]||"mod",ipLvShort(x),IP_LV_DESC[x[0]]];});
   return '<div class="ip-lvlegend">'+L.map(function(x){ return '<div class="ip-lvl '+x[0]+'"><b>'+hesc(x[1])+'</b>'+hesc(x[2])+'</div>'; }).join('')+'</div>';
 }
 function ipLvRow(name,g,v,opts,ro,nm){
   const q=hesc(name).replace(/'/g,"&#39;");
-  return '<div class="ip-lvrow lv-'+(v||(opts.length===3?"aff":"mod"))+'"><div class="ip-lvname">'+hesc(name)+'</div>'
+  return '<div class="ip-lvrow lv-'+(v||(opts.length===3?"aff":"mod"))+'"><div class="ip-lvname">'+hesc(name)+ipNewTag(name)+'</div>'
     +'<div class="ip-lv'+(opts.length===3?' ip-lv3':'')+'" role="radiogroup" aria-label="'+hesc(name)+'">'+opts.map(function(o,j){
       const cls=o[0]||(opts.length===3?"aff":"mod");
       return '<label class="ip-lvo '+cls+(v===o[0]?' on':'')+'"><input type="radio" name="'+nm+'" id="'+nm+'-'+j+'"'+(v===o[0]?' checked':'')+(ro?' disabled':'')
-        +' onchange="ipSetDx(\''+g+'\',\''+q+'\',\''+o[0]+'\')"><span>'+(o[0]==="no"?'Prefer not':o[1])+'</span></label>'; }).join('')+'</div></div>';
+        +' onchange="ipSetDx(\''+g+'\',\''+q+'\',\''+o[0]+'\')"><span>'+ipLvShort(o)+'</span></label>'; }).join('')+'</div></div>';
 }
 function ipCidHtml(ro){
   try{
@@ -4496,7 +4641,7 @@ function ipOtherHtml(k,ro){
         +'<div class="ip-lvname"><input class="ip-in ip-othn" maxlength="80" placeholder="'+ph+'" aria-label="Other — name"'+(ro?' disabled':'')+' value="'+hesc(o.n)+'" oninput="ipOthSet(\''+k+'\','+i+',\'n\',this.value,true)"></div>'
         +'<div class="ip-lv'+(opts.length===3?' ip-lv3':'')+'" role="radiogroup" aria-label="Level">'+opts.map(function(x,j){ const cls=x[0]||(opts.length===3?"aff":"mod");
           return '<label class="ip-lvo '+cls+(o.v===x[0]?' on':'')+'"><input type="radio" name="'+nm+'"'+(o.v===x[0]?' checked':'')+(ro?' disabled':'')
-            +' onchange="ipOthSet(\''+k+'\','+i+',\'v\',\''+x[0]+'\')"><span>'+(x[0]==="no"?'Prefer not':x[1])+'</span></label>'; }).join('')+'</div>'
+            +' onchange="ipOthSet(\''+k+'\','+i+',\'v\',\''+x[0]+'\')"><span>'+ipLvShort(x)+'</span></label>'; }).join('')+'</div>'
         +(ro?'':'<button class="ip-othx" onclick="ipOthDel(\''+k+'\','+i+')" aria-label="Remove" title="Remove">×</button>')+'</div>'; }).join('');
     return '<div class="ip-sec ip-oth" data-k="'+k+'"><div class="ip-cgrp">Other</div>'
       +(rows?'<div class="ip-dxlist">'+rows+'</div>':(ro?'<div class="ip-none">None added.</div>':'<div class="ip-sub" style="margin:0 0 8px">Something not on the list? Add it and set your level.</div>'))
@@ -4521,6 +4666,7 @@ async function ipSave(confirmOnly,confirmReq){
   const reqChanged=ipReqPart(IP_DOC)!==ipReqPart(before);
   try{ const home=ipHomeSite(IP_SID); if(home) data.offices=[home]; }catch(e){}
   data.updatedAt=confirmOnly?(IP_DOC.updatedAt||now):now; data.confirmedAt=now; data.updatedBy=libWhoAmI();
+  if(!before.updatedAt&&!data.firstAt) data.firstAt=now;   // first setup: items added before today aren't "new" to them
   if(reqChanged) data.reqUpdatedAt=now;
   if(reqChanged||confirmReq) data.reqConfirmedAt=now;
   ["ip-save","ip-save2"].forEach(function(id){ const btn=document.getElementById(id); if(btn){ btn.disabled=true; btn.textContent="Saving…"; } });
@@ -4532,6 +4678,10 @@ async function ipSave(confirmOnly,confirmReq){
 function ipConfirm(){ ipSave(!ipDirty(), true); }
 
 function ipCss(){ return '<style>'
+ +'.ip-newtag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.05em;background:#F2A54B;color:#4a2c00;border-radius:999px;padding:1px 6px;margin-left:6px;vertical-align:middle}'
+ +'.ip-newban{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#fff8ee;border:2px solid #F2A54B;border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:#5c3b00}'
+ +'.ip-newlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ip-newchip{font:inherit;font-size:12px;font-weight:700;border:1px solid #f0c98a;background:#fff;color:#122B67;border-radius:999px;padding:4px 10px;cursor:pointer}'
+ +'.ip-newchip small{font-weight:600;color:#8a5208;margin-left:4px}.ip-newchip:hover{border-color:#F2A54B}'
  +'.ip-empty{padding:30px;text-align:center;color:#999;font-size:13px}'
  // Nov 16 layout: rail + main
  +'.ip-layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}.ip-layout>.ip-main{min-width:0}'
@@ -4850,6 +5000,7 @@ function ifSiteName(k){ const d=(typeof CONFIG!=="undefined"&&CONFIG.siteDirecto
 
 async function ifLoad(force){
   if(IF_DATA&&!force) return;
+  try{ await ipcLoad(); }catch(e){}
   if(!window.ipStore){ IF_DATA=[]; return; }
   const docs=await window.ipStore.all()||[];
   const byId={}; docs.forEach(function(d){ byId[d.__id]=d; });
@@ -4883,7 +5034,9 @@ function ifSlotOk(sl,ignoreTime){
   if(!ignoreTime&&IF.cells.length&&IF.cells.indexOf(sl.d+"|"+ifTimeOf(sl.h))<0) return false;
   return true;
 }
-function ifConcernKind(name){ if(IP_POPS.indexOf(name)>=0) return "pop"; if(IP_MODALITIES.indexOf(name)>=0) return "mod"; return "dx"; }
+function ifConcernKind(name){ if(IP_POPS.indexOf(name)>=0) return "pop"; if(IP_MODALITIES.indexOf(name)>=0) return "mod";
+  try{ if(IP_PREF_TYPES.indexOf(name)>=0&&!Object.keys(IP_DX).some(function(r){ return IP_DX[r].indexOf(name)>=0; })) return "pref"; }catch(e){}
+  return "dx"; }
 
 // Score one clinician. Returns {ok, why:[], miss:[], score, slots}
 function ifEvaluate(row,ignoreTime){
@@ -4901,6 +5054,7 @@ function ifEvaluate(row,ignoreTime){
   // concerns
   IF.concerns.forEach(function(c){
     const kind=ifConcernKind(c);
+    if(kind==="pref"){ if((p.prefTypes||[]).indexOf(c)>=0){ r.score+=2; r.why.push({t:"Wants "+c+" referrals",k:"pref"}); } return; }
     if(kind==="mod"){
       if((p.modCert||[]).indexOf(c)>=0){ r.score+=3; r.why.push({t:"Certified: "+c,k:"cert"}); }
       else if((p.modalities||[]).indexOf(c)>=0){ r.score+=1.5; r.why.push({t:"Uses "+c,k:"use"}); }
@@ -4932,6 +5086,7 @@ function ifEvaluate(row,ignoreTime){
   if(age===null||age>=IP_STALE_DAYS){ r.score-=1; r.warn.push(age===null?"Request not set up":"Request not updated in "+age+" days"); }
   const missing=ipMissing(p).filter(function(m){ return !(m==="age groups"&&r.warn.indexOf("Ages not filled in")>=0); });
   if(missing.length) r.warn.push("Profile missing "+missing.join(" & "));
+  try{ const nw=ipcNewFor(p); if(nw.length) r.warn.push("Partly out of date: hasn’t reviewed "+nw.length+" new profile item"+(nw.length===1?"":"s")); }catch(e){}
   return r;
 }
 function ifUniqHours(slots){ const s={}; slots.forEach(function(x){ s[x.d+x.h]=1; }); return Object.keys(s).length; }
@@ -4962,9 +5117,11 @@ async function renderIntakeFinder(){
     const rows=IF_DATA.filter(inTeam);
     const taking=rows.filter(function(r){ return r.p&&r.p.status==="open"; });
     const stale=rows.map(function(r){ return {r:r, age:r.p?ipAge(r.p):null, blank:!r.p}; }).filter(function(x){ return x.age===null||x.age>=IP_STALE_DAYS; });
-    const tabs=[["match","🎯","Match a client",""],["teams","🗺️","Openings by team",String(taking.length)],["cal","🗓️","Openings calendar",""],["stale","⚠️","Profiles to update",stale.length?String(stale.length):""]];
+    let nrev=[]; try{ nrev=rows.filter(function(r){ return r.p&&ipcNewFor(r.p).length; }); }catch(e){}
+    const nUpd=stale.length+nrev.filter(function(r){ return !stale.some(function(x){ return x.r===r; }); }).length;
+    const tabs=[["match","🎯","Match a client",""],["teams","🗺️","Openings by team",String(taking.length)],["cal","🗓️","Openings calendar",""],["stale","⚠️","Profiles to update",nUpd?String(nUpd):""]];
     const rail='<nav class="ifb-rail" aria-label="Intake Client sections"><div class="ifb-rh">Intake Client</div>'+tabs.map(function(t){ const on=IF_TAB===t[0];
-      return '<button class="ifb-tab'+(on?' on':'')+(t[0]==="stale"&&stale.length?' warn':'')+'" aria-current="'+on+'" onclick="ifTab(\''+t[0]+'\')"><span class="ic" aria-hidden="true">'+t[1]+'</span><span class="t">'+t[2]+'</span>'+(t[3]?'<em>'+hesc(t[3])+'</em>':'')+'</button>'; }).join("")
+      return '<button class="ifb-tab'+(on?' on':'')+(t[0]==="stale"&&nUpd?' warn':'')+'" aria-current="'+on+'" onclick="ifTab(\''+t[0]+'\')"><span class="ic" aria-hidden="true">'+t[1]+'</span><span class="t">'+t[2]+'</span>'+(t[3]?'<em>'+hesc(t[3])+'</em>':'')+'</button>'; }).join("")
       +'<div class="ifb-rf"><button class="ifb-link" onclick="ifRefresh()">↻ Refresh profiles</button>'+(IF_LOADED_AT?'<span>Loaded '+IF_LOADED_AT.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+'</span>':'')+'</div></nav>';
     const teams=ifTeamsAll();
     const bar='<div class="ifb-bar"><div class="ifb-chips"><span class="ifb-lab">Team</span>'
@@ -4979,7 +5136,7 @@ async function renderIntakeFinder(){
     let main='';
     if(IF_TAB==="teams") main=ifTeamsTab(rows);
     else if(IF_TAB==="cal") main=ifCalTab(rows);
-    else if(IF_TAB==="stale") main=ifStaleTab(stale);
+    else if(IF_TAB==="stale") main=ifStaleTab(stale)+ifNewRevHtml(nrev);
     else main=ifMatchTab(rows);
     body.innerHTML=ipCss()+ifCss()+ifbCss()+'<div class="ifb">'+rail+'<div class="ifb-main">'+bar+'<div class="ifb-title"><h2>'+T[0]+'</h2><p>'+T[1]+'</p></div>'+main+'</div></div>';
   }catch(e){ console.error("renderIntakeFinder",e); body.innerHTML='<div class="ip-empty">Couldn’t load Intake Client.</div>'; }
@@ -5070,6 +5227,16 @@ function ifCalTab(rows){
 }
 
 // ── Profiles to update ──
+// Clinicians who haven't reviewed items added in Control Panel → Clinical profile questions (partly out of date).
+function ifNewRevHtml(list){
+  try{ if(!list||!list.length) return '';
+    return '<div class="ifb-title" style="margin-top:18px"><h2 style="font-size:17px">Partly out of date</h2><p>New items were added to the Clinical Profile for Intake. These clinicians haven’t reviewed them yet, so their answers for those items are still the default.</p></div>'
+      +'<div class="ifb-team" style="padding:4px 10px"><table class="ifb-t"><thead><tr><th class="l">Clinician · needs / spots</th><th class="l">Team</th><th class="l">Not reviewed yet</th><th></th></tr></thead><tbody>'
+      +list.map(function(r){ const nw=ipcNewFor(r.p);
+        return '<tr><td class="l">'+ifName(r.s)+'</td><td class="l">'+hesc(teamLabel(r.s["Team"])||'')+'</td><td class="l"><span class="ifb-stale">'+nw.length+' new item'+(nw.length===1?'':'s')+'</span> <span class="ifb-sm">'+hesc(nw.slice(0,3).map(function(x){ return x.n; }).join(' · ')+(nw.length>3?' …':''))+'</span></td>'
+          +'<td><button class="ip-linkbtn" onclick="ipOpenFor(\''+r.s._id+'\')">Open profile →</button></td></tr>'; }).join('')+'</tbody></table></div>';
+  }catch(e){ console.error("ifNewRevHtml",e); return ''; }
+}
 function ifStaleTab(stale){
   if(!stale.length) return '<div class="ifb-empty">Everyone’s New Client Request is up to date.</div>';
   stale.sort(function(a,b){ return (b.age===null?9999:b.age)-(a.age===null?9999:a.age); });
@@ -5156,7 +5323,8 @@ function ifFiltersHtml(){
     +row('Needs help with','<div class="if-ta"><input id="if-q" class="ifb-in" autocomplete="off" placeholder="Search diagnoses, identities, life circumstances, modalities…" value="'+hesc(IF.q)+'" oninput="ifQ(this.value)" onkeydown="ifKey(event)">'
       +'<div id="if-sugg" class="if-sugg" role="listbox"></div></div>'
       +(IF.concerns.length?'<div class="if-tokens">'+IF.concerns.map(function(c,i){const k=ifConcernKind(c);
-        return '<span class="if-tok '+k+'">'+hesc(c)+'<button aria-label="Remove '+hesc(c)+'" onclick="ifDrop('+i+')">×</button></span>';}).join("")+'</div>':''))
+        return '<span class="if-tok '+k+'">'+hesc(c)+'<button aria-label="Remove '+hesc(c)+'" onclick="ifDrop('+i+')">×</button></span>';}).join("")+'</div>':'')
+      +'<details class="ifb-more" style="margin-top:8px"'+(IF_BROWSE?' open':'')+' ontoggle="IF_BROWSE=this.open"><summary>Browse every profile item <small>everything on the Clinical Profile for Intake · click to add</small></summary>'+ifBrowseHtml()+'</details>')
     +row('Format',[["any","Either"],["virtual","Virtual"],["inperson","In person"]].map(function(f){return chip(IF.format===f[0],f[1],"ifSet('format','"+f[0]+"')");}).join("")
       +(IF.format==="inperson"?'<span class="ifb-sep"></span>'+sites.map(function(o){return chip(IF.sites.indexOf(o.k)>=0,hesc(o.l),"ifTog('sites','"+o.k+"')");}).join("")+'<small class="ifb-hint">no site = any</small>':''))
     +'<details class="ifb-more"'+(IF.cells.length?' open':'')+'><summary>Days &amp; times'+(IF.cells.length?' <em>'+IF.cells.length+' picked</em>':'')+' <small>numbers = clinicians open then</small></summary>'+ifWhenHtml()+'</details>'
@@ -5231,14 +5399,29 @@ function ifClear(){ IF={client:"",concerns:[],format:"any",sites:[],cells:[],q:"
 function ifDrop(i){ IF.concerns.splice(i,1); renderIntakeFinder(); }
 function ifToggle(id){ IF_OPEN[id]=!IF_OPEN[id]; renderIntakeFinder(); }
 async function ifRefresh(){ await ifLoad(true); renderIntakeFinder(); showToast("↻ Profiles refreshed"); }
-function ifAllTerms(){ return IP_POPS.concat([].concat.apply([],Object.keys(IP_DX).map(function(k){return IP_DX[k];}))).concat(IP_MODALITIES); }
+function ifAllTerms(){ const all=IP_POPS.concat([].concat.apply([],Object.keys(IP_DX).map(function(k){return IP_DX[k];}))).concat(IP_MODALITIES).concat(IP_PREF_TYPES||[]);
+  return all.filter(function(t,i){ return all.indexOf(t)===i; }); }
+// "Browse every profile item" (Nov 24): every list on the Clinical Profile for Intake, click to add to Needs help with.
+var IF_BROWSE=false, IF_BROWSE_SEC={};
+function ifBrowseHtml(){
+  try{ const secs=[["cid","🤝 "+ipTxt("t_cid"),{"":IP_CLIENT_IDS}],["circ","🧭 "+ipTxt("t_circ"),ipCircGroups()],["dx","🎯 Diagnoses",IP_DX],["mods","🛠 Modalities",IP_MOD_GROUPS],["pref","📣 Preferred client types",{"":IP_PREF_TYPES}]];
+    return '<div class="if-br">'+secs.map(function(x){ const G=x[2], n=Object.keys(G).reduce(function(a,g){ return a+G[g].length; },0), on=IF.concerns.filter(function(c){ return Object.keys(G).some(function(g){ return G[g].indexOf(c)>=0; }); }).length;
+      return '<details class="if-brs"'+(IF_BROWSE_SEC[x[0]]?' open':'')+' ontoggle="IF_BROWSE_SEC[\''+x[0]+'\']=this.open"><summary>'+hesc(x[1])+' <small>'+n+(on?' · <b>'+on+' picked</b>':'')+'</small></summary>'
+        +Object.keys(G).map(function(g){ return '<div class="if-brg">'+(g?'<div class="if-brh">'+hesc(g)+'</div>':'')+'<div class="if-brc">'+G[g].map(function(t){ const sel=IF.concerns.indexOf(t)>=0;
+          return '<button class="ifb-chip'+(sel?' on':'')+'" aria-pressed="'+sel+'" data-t="'+hesc(t)+'" onclick="ifBrowseTog(this.dataset.t)">'+(sel?'✓ ':'')+hesc(t)+'</button>'; }).join('')+'</div></div>'; }).join('')+'</details>'; }).join('')+'</div>'
+      +'<style>.if-br{padding-top:6px}.if-brs{border-top:1px solid #eef0f4;padding:6px 0}.if-brs>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#122B67}.if-brs>summary small{font-weight:500;color:#6b7280;margin-left:4px}.if-brs>summary b{color:#0b4f56}'
+      +'.if-brg{margin:6px 0 2px}.if-brh{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:6px 0 4px}.if-brc{display:flex;flex-wrap:wrap;gap:5px}.if-brc .ifb-chip{font-size:12px;padding:3px 9px}'
+      +'.if-tok.pref{background:#fdf1e2;color:#8a5208}</style>';
+  }catch(e){ console.error("ifBrowseHtml",e); return ''; }
+}
+function ifBrowseTog(t){ try{ const i=IF.concerns.indexOf(t); if(i>=0) IF.concerns.splice(i,1); else IF.concerns.push(t); IF_BROWSE=true; renderIntakeFinder(); }catch(e){ console.error(e); } }
 function ifQ(v){
   IF.q=v; const box=document.getElementById("if-sugg"); if(!box) return;
   const q=v.trim().toLowerCase(); IF_SUGG=-1;
   if(!q){ box.innerHTML=""; box.classList.remove("on"); return; }
   const m=ifAllTerms().filter(function(t){return t.toLowerCase().indexOf(q)>=0 && IF.concerns.indexOf(t)<0;}).slice(0,8);
   box.innerHTML=m.length?m.map(function(t,i){const k=ifConcernKind(t);
-    return '<button role="option" class="if-sg" data-t="'+hesc(t)+'" onmousedown="event.preventDefault();ifPick(this.dataset.t)"><span>'+hesc(t)+'</span><em>'+(k==="mod"?"modality":k==="pop"?"population":"diagnosis / concern")+'</em></button>';}).join("")
+    return '<button role="option" class="if-sg" data-t="'+hesc(t)+'" onmousedown="event.preventDefault();ifPick(this.dataset.t)"><span>'+hesc(t)+'</span><em>'+(k==="mod"?"modality":k==="pop"?"population":k==="pref"?"preferred client type":"diagnosis / concern")+'</em></button>';}).join("")
     :'<div class="if-sgnone">No match in the lists</div>';
   box.classList.add("on");
 }
@@ -6386,6 +6569,8 @@ async function loadHomeIpAlert(){
       +(age!==null?'<button class="hs-abtn ghost" onclick="ipHomeConfirm()">✓ Still accurate</button>':'')
       +'<button class="hs-abtn" onclick="ipOpenTab(\''+sid+'\',\'req\')">'+(age===null?'Set it up →':'Update →')+'</button></div>';
   }
+  try{ await ipcLoad(); const nw=ipcNewFor(p);
+    if(nw.length){ const f=nw[0]; out+=homeAlertRow('🆕','amber',nw.length+' new item'+(nw.length===1?'':'s')+' on your Clinical Profile for Intake',hesc(nw.slice(0,3).map(function(x){ return x.n; }).join(' · ')+(nw.length>3?' · +'+(nw.length-3)+' more':'')),'Review →',"ipOpenTab('"+sid+"','"+(IPC_TAB_OF[f.sec]||'ages')+"')"); } }catch(e){ console.error(e); }
   const miss=ipMissing(p);
   if(miss.length) out+=homeAlertRow('🧩','amber','Add your '+miss.join(' and ')+' to your clinical profile','','Add '+miss[0]+' →',"ipOpenTab('"+sid+"','ages')");
   host.innerHTML=out;
@@ -12372,7 +12557,7 @@ function rtDelete(kind,from){
 function renderAdmin(){
   const outer=document.getElementById('admin-body'); if(!outer) return;
   const sec=hbmShell(outer); if(!sec) return;
-  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='groups'){ hbmRenderGroups(sec); return; } if(HBM.sec==='mtgset'){ hbmRenderMtgSet(sec); return; } if(HBM.sec==='hrgoal'){ hrgRender(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
+  try{ if(HBM.sec==='payset'){ sec.innerHTML='<div id="coderules-body" style="width:100%"></div>'; CR.draft=CR.dirty?CR.draft:null; renderCodeRules(); return; } if(HBM.sec==='sugg'){ hbmRenderSugg(sec); return; } if(HBM.sec==='perm2'){ pv2Render(sec); return; } if(HBM.sec==='bulk'){ sec.innerHTML='<div id="ceu-upload-body"></div>'; renderCeuUpload(); return; } if(HBM.sec==='offices'){ hbmRenderOffices(sec); return; } if(HBM.sec==='locations'){ hbmRenderLocations(sec); return; } if(HBM.sec==='groups'){ hbmRenderGroups(sec); return; } if(HBM.sec==='mtgset'){ hbmRenderMtgSet(sec); return; } if(HBM.sec==='hrgoal'){ hrgRender(sec); return; } if(HBM.sec==='ipq'){ ipcRender(sec); return; } if(HBM.sec==='ins'){ insRender(sec); return; } if(HBM.sec==='ben'){ benRender(sec); return; } if(HBM.sec==='docs'){ polSettingsRender(sec); return; } if(HBM.sec==='alerts'){ hbmRenderAlerts(sec); return; } if(HBM.sec==='news'){ hbmRenderNews(sec); return; } if(HBM.sec==='events'){ hbmRenderEvents(sec); return; } }catch(e){ console.error(e); }
   renderAdminRoles(sec);
 }
 function renderAdminRoles(body){
@@ -16762,11 +16947,12 @@ async function renderAnnouncements(){
     +(v.length?v.map(function(n){ return '<div class="hn-card">'+newsCardHtml(n,true)+'</div>'; }).join(''):'<div class="hs-none" style="text-align:center;padding:30px">No announcements yet.</div>');
 }
 // ══ the page ══
-function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; try{ if(isAdminView()) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings'],['hrgoal','🎯 Clinical hours goal']); }catch(e){} if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
+function hbmSections(){ try{ if(pvOn()) return pvHbmSections(); }catch(e){ return []; } const s=[]; try{ if(isAdminView()) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings'],['hrgoal','🎯 Clinical hours goal'],['ipq','🗂 Clinical profile questions']); }catch(e){} if(hbmCanContent()){ s.push(['alerts','🔔 Practice notifications'],['news','📣 News & announcements'],['events','📅 Events calendar'],['locations','📍 Locations']); } try{ if(hbCan('manage-offices')) s.push(['offices','🚪 Office settings']); }catch(e){} if(hbmCanRoles()){ s.push(['perm2','🔐 Roles & permissions']); s.push(['roles','🗂 Current roles (in effect now)']); } try{ if(isSuperAdminView()) s.push(['sugg','📬 Suggestions']); }catch(e){} try{ if(isAdminView()) s.push(['bulk','📂 Bulk record upload']); }catch(e){} try{ if(isSuperAdminView()) s.push(['docs','✍️ Documents & sign-offs'],['ins','🏥 Insurance Catalogue'],['ben','🩺 Benefits & premiums'],['payset','💵 Payroll Settings']); }catch(e){} return s; }
 // New permissions: one area per Homebase Control Panel section (Nov 18 2026)
 function pvHbmSections(){ const s=[], C=function(k,l){ return pvCan(k,l||'manage'); };
   if(C('mtg')) s.push(['groups','👪 Group control panel'],['mtgset','🕒 Meeting & admin time settings']);
   if(C('rc')) s.push(['hrgoal','🎯 Clinical hours goal']);
+  if(C('ip')||C('birds')||pvIsSA()) s.push(['ipq','🗂 Clinical profile questions']);
   if(C('pnot')) s.push(['alerts','🔔 Practice notifications']); if(C('news')) s.push(['news','📣 News & announcements']); if(C('cal')) s.push(['events','📅 Events calendar']);
   if(C('loc')) s.push(['locations','📍 Locations']); if(C('obs')) s.push(['offices','🚪 Office settings']);
   if(C('perm','view')) s.push(['perm2','🔐 Roles & permissions']); if(pvIsSA()) s.push(['roles','🗂 Access levels (old system)']);
@@ -16777,7 +16963,7 @@ function hbmShell(body){
   const secs=hbmSections(); if(!secs.length){ body.innerHTML='<div style="padding:24px;text-align:center;color:#9a6212">🔒 Homebase Control Panel is for Admins.</div>'; return null; }
   if(!HBM.sec||!secs.some(function(x){ return x[0]===HBM.sec; })) HBM.sec=secs[0][0];
   // Side navigation (Nov 2026): sections grouped down the left instead of rows of tabs across the top.
-  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['Groups & meetings',['groups','mtgset']],['Insights & goals',['hrgoal']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
+  const GROUPS=[['Communication',['alerts','news','events']],['Sites & offices',['locations','offices']],['Groups & meetings',['groups','mtgset']],['Insights & goals',['hrgoal']],['Intake',['ipq']],['People & access',['perm2','roles']],['Feedback',['sugg']],['Records',['docs','bulk']],['Billing & payroll',['ins','ben','payset']]];
   const by={}; secs.forEach(function(x){ by[x[0]]=x[1]; });
   const item=function(k){ const lab=by[k]; const m=String(lab).match(/^(\S+)\s+(.*)$/)||[0,'',lab];
     return '<button class="hbm-nl'+(HBM.sec===k?' on':'')+'" aria-current="'+(HBM.sec===k?'page':'false')+'" onclick="hbmGoSec(\''+k+'\')"><span class="ic" aria-hidden="true">'+m[1]+'</span><span>'+hesc(m[2])+'</span></button>'; };
@@ -21183,6 +21369,195 @@ async function capPracHtml(){
   }catch(e){ console.error(e); return ''; }
 }
 // ── Practice clinical-hours goal per pay period (Nov 23 2026) ──
+// ── Homebase Control Panel → 🗂 Clinical profile questions (Nov 24 2026) ──
+// Edit every list on the Clinical Profile for Intake plus its wording. Draft items are {n: shown name, o: saved name (null = new)},
+// so a changed name is saved as a rename and clinicians' answers carry over. Who can edit: Manage on Clinical Profile for
+// Intake or Intake Client, and Super Admins (Admins in the old roles).
+function ipcCanEdit(){ try{ if(pvOn()) return pvCan('ip','manage')||pvCan('birds','manage')||pvIsSA(); return isAdminView(); }catch(e){ return false; } }
+function ipcGrouped(k){ return k==='mods'||k==='circ'||k==='dx'||k==='idents'; }
+function ipcDraftFrom(){
+  const flat=function(a){ return a.map(function(n){ return {n:n,o:n}; }); };
+  const grp=function(pairs){ return pairs.map(function(g){ return {g:g[0],items:flat(g[1])}; }); };
+  const d={ages:flat(IP_AGES), prefTypes:flat(IP_PREF_TYPES), mods:grp(ipcGroupsArr(IP_MOD_GROUPS)), cid:flat(IP_CLIENT_IDS), circ:grp(ipcGroupsArr(IP_CIRC_GROUPS)),
+    dx:grp(ipcGroupsArr(IP_DX)), idents:grp(IP_IDENTS), txt:{}, scale:{}, idScale:{}, _orig:{}};
+  IPC_TXT.forEach(function(x){ d.txt[x[0]]=ipTxt(x[0]); });
+  IP_LEVELS.forEach(function(x){ d.scale[x[0]]={l:x[1],d:IP_LV_DESC[x[0]]||''}; });
+  IP_ID_LEVELS.forEach(function(x){ d.idScale[x[0]]={l:x[1],d:x[2]}; });
+  IPC_SECS.forEach(function(x){ if(x[0]!=='txt') d._orig[x[0]]=ipcNames(x[0]); });
+  return d;
+}
+function ipcItems(k,gi){ const d=IPC.draft; return gi<0?d[k]:((d[k][gi]||{}).items||[]); }
+function ipcFlat(k){ const d=IPC.draft; return ipcGrouped(k)?[].concat.apply([],d[k].map(function(g){ return g.items; })):d[k]; }
+function ipcClean(v){ return String(v==null?'':v).replace(/'/g,'’').replace(/[\\<>]/g,'').replace(/\s+/g,' ').trim().slice(0,140); }
+async function ipcUsageLoad(){
+  try{ if(!window.ipStore) return; const docs=await window.ipStore.all()||[]; const u={};
+    const bump=function(k,n){ u[k+'|'+n]=(u[k+'|'+n]||0)+1; };
+    docs.forEach(function(raw){ const p=ipNormMarks(JSON.parse(JSON.stringify(raw||{})));
+      (p.ages||[]).forEach(function(n){ bump('ages',n); }); (p.prefTypes||[]).forEach(function(n){ bump('prefTypes',n); });
+      (p.modalities||[]).forEach(function(n){ bump('mods',n); }); ((p.ident&&p.ident.list)||[]).forEach(function(n){ bump('idents',n); });
+      const seen={}; ['pop','dx'].forEach(function(g){ Object.keys(p[g]||{}).forEach(function(n){ if(p[g][n]&&!seen[n]){ seen[n]=1; bump('m',n); } }); }); });
+    IPC.usage=u;
+    const sec=document.getElementById('hbm-sec'); if(sec&&HBM.sec==='ipq'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('.ipc'))) ipcRender(sec);
+  }catch(e){ console.error('ipcUsageLoad',e); }
+}
+function ipcUse(k,n){ if(!IPC.usage||!n) return 0; return IPC.usage[((k==='cid'||k==='circ'||k==='dx')?'m':k)+'|'+n]||0; }
+function ipcCss(){ return '<style>'
+  +'.ipc{max-width:1060px;color:#1d2433}.ipc h2{margin:0 0 4px;color:#122B67;font-size:19px}.ipc-intro{font-size:13px;color:#4b5563;margin-bottom:12px;line-height:1.5}'
+  +'.ipc-lay{display:flex;flex-direction:column;gap:12px}'
+  +'.ipc-nav{display:flex;flex-wrap:wrap;gap:6px}'
+  +'.ipc-nb{display:inline-flex;gap:6px;align-items:center;border:1px solid #d6dae3;background:#fff;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer}'
+  +'.ipc-nb:hover{border-color:#9aa5bd}.ipc-nb.on{background:#122B67;border-color:#122B67;color:#fff}.ipc-nb em{font-style:normal;font-size:10.5px;font-weight:700;background:#eef0f4;color:#475569;border-radius:999px;padding:0 6px}.ipc-nb.on em{background:rgba(255,255,255,.2);color:#fff}'
+  +'.ipc-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px}.ipc-ch{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}.ipc-ch b{font-size:16px;color:#122B67}.ipc-sub{font-size:12.5px;color:#6b7280;margin-bottom:10px}'
+  +'.ipc-g{border:1px solid #e8ecf3;border-radius:10px;margin:10px 0;overflow:hidden}.ipc-gh{display:flex;gap:6px;align-items:center;background:#f5f8fc;padding:7px 9px;border-bottom:1px solid #e8ecf3}'
+  +'.ipc-gh input{font-weight:800;color:#122B67}.ipc-gh .ct{font-size:11.5px;color:#6b7280;white-space:nowrap}'
+  +'.ipc-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:5px 9px;border-bottom:1px solid #f1f3f7}.ipc-row>.ipc-in{flex:1 1 260px}.ipc-ctl{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;align-items:center;flex:0 1 auto;min-width:0;margin-left:auto}.ipc-row:last-child{border-bottom:0}.ipc-row.new{background:#fff8ee}.ipc-row.ren{background:#eef8fa}'
+  +'.ipc-in{flex:1;min-width:0;font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid #d4dbe6;border-radius:8px;background:#fff;color:#1d2433}.ipc-in:focus{outline:2px solid #18A9B6;outline-offset:0;border-color:#18A9B6}'
+  +'.ipc-b{border:1px solid #d6dae3;background:#fff;border-radius:7px;font:inherit;font-size:12px;padding:4px 7px;cursor:pointer;color:#374151;line-height:1.2}.ipc-b:hover{border-color:#9aa5bd}.ipc-b:disabled{opacity:.35;cursor:default}'
+  +'.ipc-b.x{color:#b91c1c}.ipc-sel{font:inherit;font-size:12px;padding:4px 6px;border:1px solid #d6dae3;border-radius:7px;background:#fff;max-width:118px}'
+  +'.ipc-tag{font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 7px;white-space:nowrap}.ipc-tag.new{background:#fdf1e2;color:#8a5208}.ipc-tag.ren{background:#dff3f5;color:#0b4f56;font-weight:700;max-width:150px;overflow:hidden;text-overflow:ellipsis}'
+  +'.ipc-use{font-size:11px;color:#6b7280;white-space:nowrap;min-width:62px;text-align:right}'
+  +'.ipc-add{border:1.5px dashed #b9c3d6;background:#fff;color:#122B67;font:inherit;font-weight:700;font-size:12.5px;border-radius:8px;padding:6px 12px;cursor:pointer;margin:8px 9px}.ipc-add:hover{border-color:#18A9B6;color:#0b4f56}'
+  +'.ipc-bar{position:sticky;bottom:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 14px;margin-top:14px;box-shadow:0 -4px 14px rgba(17,24,39,.06)}'
+  +'.ipc-bar.dirty{border-color:#F2A54B}.ipc-bar .msg{flex:1;font-size:12.5px;color:#6b7280}.ipc-bar.dirty .msg{color:#8a5208;font-weight:700}'
+  +'.ipc-tx{padding:9px 0;border-bottom:1px solid #f1f3f7}.ipc-tx:last-child{border-bottom:0}.ipc-tx label{display:block;font-size:11.5px;font-weight:800;color:#6b7280;letter-spacing:.03em;margin-bottom:4px}'
+  +'.ipc-tx textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:52px}.ipc-tx .def{font-size:11.5px;color:#9ca3af;margin-top:3px}'
+  +'.ipc-sc{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px;align-items:start;padding:7px 0;border-bottom:1px solid #f1f3f7}@media (max-width:640px){.ipc-sc{grid-template-columns:1fr}}'
+  +'.ipc-note{font-size:12px;color:#4b5563;background:#f5f8fc;border-radius:8px;padding:8px 10px;margin:6px 0 10px;line-height:1.5}'
+  +'</style>'; }
+async function ipcRender(sec){
+  try{
+    sec=sec||document.getElementById('hbm-sec'); if(!sec) return;
+    if(!IPC.draft){ sec.innerHTML='<div class="cdx-muted" style="padding:20px">Loading the clinical profile questions…</div>'; await ipcLoad(true); IPC.draft=ipcDraftFrom(); IPC.dirty=false; if(!IPC.usage) ipcUsageLoad(); }
+    const can=ipcCanEdit(), d=IPC.draft; if(!IPC_SECS.some(function(x){ return x[0]===IPC.sec; })) IPC.sec='ages';
+    const cnt=function(k){ return k==='txt'?'':String(ipcFlat(k).length); };
+    const nav='<nav class="ipc-nav" aria-label="Lists">'+IPC_SECS.map(function(x){ const on=IPC.sec===x[0];
+      return '<button class="ipc-nb'+(on?' on':'')+'" aria-current="'+on+'" onclick="ipcGo(\''+x[0]+'\')"><span aria-hidden="true">'+x[1]+'</span><span class="t">'+hesc(x[2])+'</span>'+(cnt(x[0])?'<em>'+cnt(x[0])+'</em>':'')+'</button>'; }).join('')+'</nav>';
+    const cur=IPC_SECS.find(function(x){ return x[0]===IPC.sec; });
+    const main=IPC.sec==='txt'?ipcTxtHtml(can):ipcListHtml(IPC.sec,can);
+    const saved=IPC.doc&&IPC.doc.at?'Last saved '+usDate(String(IPC.doc.at).slice(0,10))+(IPC.doc.by?' by '+hesc(IPC.doc.by):''):'Using the built-in lists — nothing changed here yet.';
+    sec.innerHTML=ipcCss()+'<div class="ipc"><h2>🗂 Clinical profile questions</h2>'
+      +'<div class="ipc-intro">The lists and wording clinicians fill out on their <b>Clinical Profile for Intake</b>. Intake Client searches and filters on the same lists. '
+      +'<b>Renaming</b> keeps everyone’s answers. <b>Deleting</b> removes the answers for that item. <b>New items</b> show up on each clinician’s Needs your attention until they review them, and Intake Client marks their profile as partly out of date.</div>'
+      +'<div class="ipc-lay">'+nav+'<div class="ipc-main"><div class="ipc-card"><div class="ipc-ch"><b>'+cur[1]+' '+hesc(cur[2])+'</b></div><div class="ipc-sub">'+hesc(cur[3])+'</div>'+main+'</div>'
+      +'<div class="ipc-bar'+(IPC.dirty?' dirty':'')+'" id="ipc-bar"><span class="msg" id="ipc-msg">'+(IPC.dirty?'Unsaved changes':saved)+'</span>'
+      +(can?'<button class="btn btn-secondary" onclick="ipcDiscard()"'+(IPC.dirty?'':' disabled')+' id="ipc-disc">Discard changes</button><button class="btn btn-primary" onclick="ipcSave()" id="ipc-save"'+(IPC.dirty?'':' disabled')+'>Save for everyone</button>':'<span class="ipc-use">View only</span>')
+      +'<button class="ipc-b" onclick="IP_TAB=\'ages\';showPage(\'intake-profile\',document.getElementById(\'nav-intake-profile\'))">Open the Clinical Profile →</button></div></div></div></div>';
+  }catch(e){ console.error('ipcRender',e); if(sec) sec.innerHTML='<div class="cdx-muted">Couldn’t load the clinical profile questions.</div>'; }
+}
+function ipcGo(k){ IPC.sec=k; ipcRender(); }
+function ipcDirty(){ IPC.dirty=true; try{ const b=document.getElementById('ipc-bar'); if(b) b.classList.add('dirty'); const m=document.getElementById('ipc-msg'); if(m) m.textContent='Unsaved changes';
+  ['ipc-save','ipc-disc'].forEach(function(id){ const e=document.getElementById(id); if(e) e.disabled=false; }); }catch(e){} }
+function ipcRowHtml(k,gi,i,it,n,can){
+  const isNew=!it.o, ren=!!(it.o&&ipcClean(it.n)!==it.o), u=ipcUse(k,it.o), dis=can?'':' disabled';
+  const d=IPC.draft, groups=gi>=0?d[k]:null;
+  return '<div class="ipc-row'+(isNew?' new':ren?' ren':'')+'"><input class="ipc-in" maxlength="140" aria-label="Item name" value="'+hesc(it.n)+'"'+dis+' placeholder="New item name" oninput="ipcSetN(\''+k+'\','+gi+','+i+',this.value)"><span class="ipc-ctl">'
+    +(isNew?'<span class="ipc-tag new">NEW</span>':ren?'<span class="ipc-tag ren" title="Renamed from '+hesc(it.o)+'">was: '+hesc(it.o)+'</span>':'')
+    +(IPC.usage?'<span class="ipc-use" title="Clinicians who have answered this item">'+(u?u+' answered':'none yet')+'</span>':'')
+    +(can?'<button class="ipc-b" title="Move up" aria-label="Move up" onclick="ipcMove(\''+k+'\','+gi+','+i+',-1)"'+(i===0?' disabled':'')+'>↑</button>'
+      +'<button class="ipc-b" title="Move down" aria-label="Move down" onclick="ipcMove(\''+k+'\','+gi+','+i+',1)"'+(i===n-1?' disabled':'')+'>↓</button>'
+      +(groups&&groups.length>1?'<select class="ipc-sel" aria-label="Move to group" onchange="ipcToGroup(\''+k+'\','+gi+','+i+',this.value)"><option value="">Move to…</option>'+groups.map(function(g,j){ return j===gi?'':'<option value="'+j+'">'+hesc(g.g||'(unnamed)')+'</option>'; }).join('')+'</select>':'')
+      +'<button class="ipc-b x" title="Delete" aria-label="Delete" onclick="ipcDel(\''+k+'\','+gi+','+i+')">✕</button>':'')+'</span></div>';
+}
+function ipcListHtml(k,can){
+  const d=IPC.draft, note=k==='cid'?'<div class="ipc-note">An identity that is also in a diagnostic realm (like Gender Identity Exploration) shares one answer with it.</div>'
+    :k==='ages'?'<div class="ipc-note">Each age group is also a “Who” choice in Intake Client.</div>':'';
+  if(!ipcGrouped(k)){ const a=d[k];
+    return note+'<div class="ipc-g">'+a.map(function(it,i){ return ipcRowHtml(k,-1,i,it,a.length,can); }).join('')+(can?'<button class="ipc-add" onclick="ipcAdd(\''+k+'\',-1)">＋ Add item</button>':'')+'</div>'; }
+  const gl=k==='dx'?'realm':'group';
+  return note+d[k].map(function(g,gi){ const n=g.items.length;
+    return '<div class="ipc-g"><div class="ipc-gh"><input class="ipc-in" maxlength="80" aria-label="'+gl+' name" value="'+hesc(g.g)+'"'+(can?'':' disabled')+' placeholder="'+(gl==='realm'?'Realm':'Group')+' name" oninput="ipcGSet(\''+k+'\','+gi+',this.value)">'
+      +'<span class="ct">'+n+' item'+(n===1?'':'s')+'</span>'
+      +(can?'<button class="ipc-b" title="Move '+gl+' up" aria-label="Move '+gl+' up" onclick="ipcGMove(\''+k+'\','+gi+',-1)"'+(gi===0?' disabled':'')+'>↑</button><button class="ipc-b" title="Move '+gl+' down" aria-label="Move '+gl+' down" onclick="ipcGMove(\''+k+'\','+gi+',1)"'+(gi===d[k].length-1?' disabled':'')+'>↓</button>'
+        +'<button class="ipc-b x" onclick="ipcGDel(\''+k+'\','+gi+')">Delete '+gl+'</button>':'')+'</div>'
+      +g.items.map(function(it,i){ return ipcRowHtml(k,gi,i,it,n,can); }).join('')
+      +(can?'<button class="ipc-add" onclick="ipcAdd(\''+k+'\','+gi+')">＋ Add item to this '+gl+'</button>':'')+'</div>'; }).join('')
+    +(can?'<button class="ipc-add" style="margin:4px 0" onclick="ipcGAdd(\''+k+'\')">＋ Add a '+gl+'</button>':'');
+}
+function ipcTxtHtml(can){
+  const d=IPC.draft, dis=can?'':' disabled';
+  const tx=IPC_TXT.map(function(x){ const v=d.txt[x[0]]!=null?d.txt[x[0]]:x[2], long=x[2].length>70;
+    return '<div class="ipc-tx"><label for="ipc-t-'+x[0]+'">'+hesc(x[1])+'</label>'
+      +(long?'<textarea id="ipc-t-'+x[0]+'" class="ipc-in" maxlength="500"'+dis+' oninput="IPC.draft.txt[\''+x[0]+'\']=this.value;ipcDirty()">'+hesc(v)+'</textarea>'
+        :'<input id="ipc-t-'+x[0]+'" class="ipc-in" style="width:100%;box-sizing:border-box" maxlength="120"'+dis+' value="'+hesc(v)+'" oninput="IPC.draft.txt[\''+x[0]+'\']=this.value;ipcDirty()">')
+      +(String(v).trim()!==x[2]?'<div class="def">Default: '+hesc(x[2])+(can?' · <button class="ipc-b" onclick="IPC.draft.txt[\''+x[0]+'\']=\'\';ipcDirty();ipcRender()">↺ Use default</button>':'')+'</div>':'')+'</div>'; }).join('');
+  const D=ipcDefaults();
+  const sc=function(key,list,obj,ids){ return list.map(function(x){ const o=obj[x[0]]||{l:'',d:''}, dk=String(x[0]||'');
+    return '<div class="ipc-sc"><input class="ipc-in" maxlength="40" aria-label="Label" value="'+hesc(o.l)+'"'+dis+' placeholder="'+hesc(x[1])+'" oninput="IPC.draft.'+key+'[\''+dk+'\'].l=this.value;ipcDirty()">'
+      +'<textarea class="ipc-in" maxlength="300" aria-label="Description"'+dis+' placeholder="'+hesc(ids?x[2]:D.lvDesc[x[0]])+'" oninput="IPC.draft.'+key+'[\''+dk+'\'].d=this.value;ipcDirty()">'+hesc(o.d)+'</textarea></div>'; }).join(''); };
+  return '<div class="ipc-g" style="padding:4px 12px">'+tx+'</div>'
+    +'<div class="ipc-ch" style="margin-top:16px"><b>Experience / confidence scale</b></div><div class="ipc-sub">Used for Life Circumstances and Diagnostic Realms. Moderate is everyone’s default. The four levels themselves stay fixed — only their names and descriptions change.</div>'
+    +'<div class="ipc-g" style="padding:4px 12px">'+sc('scale',D.levels,d.scale,false)+'</div>'
+    +'<div class="ipc-ch" style="margin-top:16px"><b>Client identity scale</b></div><div class="ipc-sub">Used for Client Identities. Affirming is everyone’s baseline.</div>'
+    +'<div class="ipc-g" style="padding:4px 12px">'+sc('idScale',D.idLevels,d.idScale,true)+'</div>';
+}
+function ipcSetN(k,gi,i,v){ const it=ipcItems(k,gi)[i]; if(!it) return; it.n=v; ipcDirty(); }
+function ipcGSet(k,gi,v){ const g=IPC.draft[k][gi]; if(!g) return; g.g=v; ipcDirty(); }
+function ipcMove(k,gi,i,dir){ try{ const a=ipcItems(k,gi), j=i+dir; if(j<0||j>=a.length) return; const t=a[i]; a[i]=a[j]; a[j]=t; IPC.dirty=true; ipcRender(); }catch(e){ console.error(e); } }
+function ipcGMove(k,gi,dir){ try{ const a=IPC.draft[k], j=gi+dir; if(j<0||j>=a.length) return; const t=a[gi]; a[gi]=a[j]; a[j]=t; IPC.dirty=true; ipcRender(); }catch(e){ console.error(e); } }
+function ipcToGroup(k,gi,i,to){ try{ if(to==='') return; const a=ipcItems(k,gi), it=a[i], dst=IPC.draft[k][+to]; if(!it||!dst) return; a.splice(i,1); dst.items.push(it); IPC.dirty=true; ipcRender(); showToast('Moved to '+(dst.g||'that group')); }catch(e){ console.error(e); } }
+function ipcDel(k,gi,i){
+  try{ const a=ipcItems(k,gi), it=a[i]; if(!it) return; const u=ipcUse(k,it.o);
+    if(it.o&&!confirm('Delete “'+it.o+'”?'+(u?'\n\n'+u+' clinician'+(u===1?' has':'s have')+' answered it. Their answers for this item will be removed when you save.':'')+'\n\nTip: to change the wording and keep answers, edit the name instead.')) return;
+    a.splice(i,1); IPC.dirty=true; ipcRender(); }catch(e){ console.error(e); } }
+function ipcAdd(k,gi){ try{ const a=ipcItems(k,gi); a.push({n:'',o:null}); IPC.dirty=true; ipcRender();
+  setTimeout(function(){ const ins=document.querySelectorAll('.ipc-g')[gi<0?0:gi]; const el=ins?ins.querySelectorAll('.ipc-row .ipc-in'):[]; if(el.length) el[el.length-1].focus(); },30); }catch(e){ console.error(e); } }
+function ipcGAdd(k){ try{ IPC.draft[k].push({g:'',items:[{n:'',o:null}]}); IPC.dirty=true; ipcRender();
+  setTimeout(function(){ const gs=document.querySelectorAll('.ipc-gh .ipc-in'); if(gs.length) gs[gs.length-1].focus(); },30); }catch(e){ console.error(e); } }
+function ipcGDel(k,gi){ try{ const g=IPC.draft[k][gi]; if(!g) return; const named=g.items.filter(function(it){ return it.o; });
+  if(g.items.length&&!confirm('Delete the '+(k==='dx'?'realm':'group')+' “'+(g.g||'(unnamed)')+'” and its '+g.items.length+' item'+(g.items.length===1?'':'s')+'?'+(named.length?'\n\nAnswers for those items will be removed when you save. To keep an item, move it to another group first.':''))) return;
+  IPC.draft[k].splice(gi,1); IPC.dirty=true; ipcRender(); }catch(e){ console.error(e); } }
+function ipcDiscard(){ if(IPC.dirty&&!confirm('Discard your unsaved changes?')) return; IPC.draft=null; IPC.dirty=false; ipcRender(); }
+// Returns an error message, or '' when the draft can be saved. Blank new rows are dropped.
+function ipcValidate(){
+  const d=IPC.draft, lab=function(k){ return ipcSecLabel(k); };
+  for(let s=0;s<IPC_SECS.length;s++){ const k=IPC_SECS[s][0]; if(k==='txt') continue;
+    const prune=function(a){ return a.filter(function(it){ return it.o||ipcClean(it.n); }); };
+    if(ipcGrouped(k)){ d[k].forEach(function(g){ g.items=prune(g.items); }); d[k]=d[k].filter(function(g){ return ipcClean(g.g)||g.items.length; });
+      const gn={}; for(let i=0;i<d[k].length;i++){ const n=ipcClean(d[k][i].g); if(!n) return 'Give every '+(k==='dx'?'realm':'group')+' in '+lab(k)+' a name.'; if(gn[n.toLowerCase()]) return lab(k)+' has two '+(k==='dx'?'realms':'groups')+' called “'+n+'”.'; gn[n.toLowerCase()]=1; } }
+    else d[k]=prune(d[k]);
+    const seen={}, all=ipcFlat(k); if(!all.length) return lab(k)+' needs at least one item.';
+    for(let i=0;i<all.length;i++){ const n=ipcClean(all[i].n); if(!n) return 'An item in '+lab(k)+' is blank'+(all[i].o?' (it was “'+all[i].o+'”)':'')+'. Delete it instead.';
+      if(seen[n.toLowerCase()]) return lab(k)+' lists “'+n+'” twice.'; seen[n.toLowerCase()]=1; } }
+  const names=function(k){ return ipcFlat(k).map(function(it){ return ipcClean(it.n).toLowerCase(); }); };
+  const both=function(a,b){ const B=names(b); return names(a).find(function(n){ return B.indexOf(n)>=0; }); };
+  let x=both('circ','dx'); if(x) return '“'+x+'” is in both Life circumstances and Diagnostic realms. Keep it in one.';
+  x=both('cid','circ'); if(x) return '“'+x+'” is in both Client identities and Life circumstances. Keep it in one.';
+  return '';
+}
+function ipcChain(M,o,n){ Object.keys(M).forEach(function(k){ if(M[k]===o) M[k]=n; }); M[o]=n; if(M[n]) delete M[n]; Object.keys(M).forEach(function(k){ if(M[k]===k) delete M[k]; }); }
+async function ipcSave(){
+  try{
+    if(!ipcCanEdit()){ showToast('You don’t have permission to change these'); return; }
+    const err=ipcValidate(); if(err){ showToast('⚠ '+err); ipcRender(); return; }
+    const d=IPC.draft, old=IPC.doc||{}, now=new Date().toISOString(), me=(typeof homeMe==='function'&&homeMe())||null;
+    const renames=JSON.parse(JSON.stringify(old.renames||{})), retired=JSON.parse(JSON.stringify(old.retired||{})), added=Object.assign({},old.added||{});
+    const lists={}; let nNew=0, nRen=0, nDel=0;
+    IPC_SECS.forEach(function(x){ const k=x[0]; if(k==='txt') return;
+      const items=ipcFlat(k), M=renames[k]=renames[k]||{}; let R=Array.isArray(retired[k])?retired[k]:[];
+      items.forEach(function(it){ const n=ipcClean(it.n);
+        if(it.o&&n!==it.o){ ipcChain(M,it.o,n); nRen++; if(added[it.o]&&added[it.o].sec===k){ added[n]=added[it.o]; delete added[it.o]; } }
+        else if(!it.o&&d._orig[k].indexOf(n)<0){ added[n]={at:now,sec:k}; nNew++; } });
+      const kept=items.filter(function(it){ return it.o; }).map(function(it){ return it.o; });
+      d._orig[k].forEach(function(o){ if(kept.indexOf(o)<0){ if(R.indexOf(o)<0) R.push(o); if(added[o]&&added[o].sec===k) delete added[o]; nDel++; } });
+      const names=items.map(function(it){ return ipcClean(it.n); });
+      R=R.filter(function(n){ return names.indexOf(n)<0; }); retired[k]=R;
+      names.forEach(function(n){ if(M[n]) delete M[n]; });           // a name used again means the item itself, not the old rename
+      lists[k]=ipcGrouped(k)?d[k].map(function(g){ return [ipcClean(g.g), g.items.map(function(it){ return ipcClean(it.n); })]; }):names; });
+    const D=ipcDefaults(), txt={}, scale={}, idScale={};
+    IPC_TXT.forEach(function(x){ const v=String(d.txt[x[0]]||'').trim(); if(v&&v!==x[2]) txt[x[0]]=v.slice(0,500); });
+    D.levels.forEach(function(x){ const o=d.scale[x[0]]||{}, l=String(o.l||'').trim(), ds=String(o.d||'').trim(), r={};
+      if(l&&l!==x[1]) r.l=l.slice(0,40); if(ds&&ds!==D.lvDesc[x[0]]) r.d=ds.slice(0,300); if(r.l||r.d) scale[x[0]]=r; });
+    D.idLevels.forEach(function(x){ const o=d.idScale[x[0]]||{}, l=String(o.l||'').trim(), ds=String(o.d||'').trim(), r={};
+      if(l&&l!==x[1]) r.l=l.slice(0,40); if(ds&&ds!==x[2]) r.d=ds.slice(0,300); if(r.l||r.d) idScale[x[0]]=r; });
+    const doc={v:1, lists:lists, txt:txt, scale:scale, idScale:idScale, renames:renames, retired:retired, added:added, at:now, by:(me&&me['Clinician'])||''};
+    const b=document.getElementById('ipc-save'); if(b){ b.disabled=true; b.textContent='Saving…'; }
+    await window.storage.set('app_ip_config',JSON.stringify(doc));
+    IPC.doc=doc; IPC.loaded=true; ipcApply(doc); IPC.draft=null; IPC.dirty=false; IPC.usage=null;
+    IF_DATA=null; try{ if(!ipDirty()) IP_DOC=null; }catch(e){}
+    const bits=[]; if(nNew) bits.push(nNew+' added'); if(nRen) bits.push(nRen+' renamed'); if(nDel) bits.push(nDel+' deleted');
+    showToast('✓ Clinical profile questions saved'+(bits.length?' · '+bits.join(' · '):'')); ipcRender();
+  }catch(e){ console.error('ipcSave',e); showToast('⚠ Could not save — check your connection and try again'); ipcRender(); }
+}
 // kv app_clinical_goal = {years:{YYYY:{cats:{ind,cpl,grp,oth}, at, by}}}; the pay-period goal = the sum of the category goals.
 // Edited in Homebase Control Panel → 🎯 Clinical hours goal (Insights & Reports = Manage; Admins in the old roles).
 const HRG_CATS=[['ind','Individual sessions','Individual, EMDR, crisis, intern, in-kind'],['cpl','Couples / family','90846 · 90847 · private-pay couples/family'],['grp','Groups','90853 — credited at attendees × .33'],['oth','Intake & other','Intakes, CANS, collateral, screening']];
